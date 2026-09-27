@@ -1,4 +1,4 @@
-name: Release – Standalone Binaries & Winget
+name: Release – Standalone Binaries
 
 on:
   push:
@@ -199,14 +199,3 @@ jobs:
             bham_*.deb
             bham_*.deb.sha256
             scripts/install.sh
-
-      - name: Submit to WinGet Community Repository
-        if: env.WINGET_TOKEN != ''
-        uses: vedantmgoyal2009/winget-releaser@v2
-        env:
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-        with:
-          identifier: BacsHelp.BHAM
-          version: ${{ needs.prepare-version.outputs.clean_version }}
-          installer-type: zip
-          token: ${{ secrets.WINGET_TOKEN }}
