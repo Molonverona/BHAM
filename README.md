@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ⚡ BHAM – BACS Help Auto Mapper
 
 > **Industrial Telemetry & Network Discovery Daemon per Building Automation e IoT Industriale**
@@ -206,3 +207,7 @@ BHAM/
 ## 📜 Licenza
 
 Progetto interno confidenziale – BACS Help Auto Mapper (BHAM).
+=======
+# BHAM
+BHAM is an asynchronous network discovery and telemetry daemon for Building &amp; Industrial Automation. Built for system integrators, it uses passive sniffing and targeted polling to instantly map Modbus, BACnet, and KNX devices. Features auto-baud detection, JSON registry translation, and cross-platform zero-friction deployment.
+>>>>>>> 862444e9a400357b7155daab0e7ea150091ae645
