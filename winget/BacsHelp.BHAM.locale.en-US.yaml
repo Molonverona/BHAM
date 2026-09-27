@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+
+PackageIdentifier: BacsHelp.BHAM
+PackageVersion: 0.3.0
+PackageLocale: en-US
+Publisher: BacsHelp
+PublisherUrl: https://www.bacshelp.com
+PublisherSupportUrl: https://github.com/BacsHelp/BHAM/issues
+Author: BacsHelp
+PackageName: BHAM
+PackageUrl: https://www.bacshelp.com/bham
+License: MIT
+LicenseUrl: https://github.com/BacsHelp/BHAM/blob/main/LICENSE
+Copyright: Copyright (c) 2026 BACS Help
+ShortDescription: Industrial Telemetry & Network Discovery Daemon for Building Automation and IoT (Modbus, BACnet, KNX, ARP).
+Description: |
+  BHAM (BACS Help Auto Mapper) is a stand-alone industrial discovery and diagnostics daemon designed for HVAC/BMS field engineers, system integrators, and energy managers.
+  It enables ultra-fast Modbus RTU/TCP sweep, BACnet/IP discovery, KNXnet/IP scanning, passive RS485 Zero-TX bus sniffing, real-time Bus Health telemetry, and automated Excel/PDF commissioning reports.
+Moniker: bham
+Tags:
+  - bacnet
+  - modbus
+  - knx
+  - rs485
+  - bms
+  - bacs
+  - iot
+  - industrial
+  - scada
+ReleaseNotesUrl: https://github.com/BacsHelp/BHAM/releases/tag/v0.3.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

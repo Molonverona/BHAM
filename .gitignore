@@ -1,0 +1,57 @@
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+.venv/
+env/
+venv/
+ENV/
+
+# Build & Packaging
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec.bak
+
+# Logs and Session dumps (preserve folder structure via .gitkeep)
+logs/*
+!logs/.gitkeep
+sessions/*
+!sessions/.gitkeep
+
+# Environment variables & secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Test and Coverage caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor / IDE configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

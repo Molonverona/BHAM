@@ -1,0 +1,212 @@
+name: Release – Standalone Binaries & Winget
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Tipo di avanzamento versione"
+        type: choice
+        required: true
+        default: "patch"
+        options:
+          - "patch (es. 0.3.0 -> 0.3.1)"
+          - "minor (es. 0.3.0 -> 0.4.0)"
+          - "major (es. 0.3.0 -> 1.0.0)"
+          - "custom"
+      custom_version:
+        description: "Versione personalizzata (solo se scelto custom, es. 0.3.5)"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-version:
+    name: Prepare Version & Tag
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.set_version.outputs.release_tag }}
+      clean_version: ${{ steps.set_version.outputs.clean_version }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Determine Version & Tag
+        id: set_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_INPUT="${{ github.event.inputs.bump }}"
+            CUSTOM_VER="${{ github.event.inputs.custom_version }}"
+
+            if [[ "$BUMP_INPUT" == *"patch"* ]]; then
+              BUMP_MODE="patch"
+            elif [[ "$BUMP_INPUT" == *"minor"* ]]; then
+              BUMP_MODE="minor"
+            elif [[ "$BUMP_INPUT" == *"major"* ]]; then
+              BUMP_MODE="major"
+            else
+              BUMP_MODE="$CUSTOM_VER"
+            fi
+
+            NEW_VER=$(python3 scripts/bump_version.py "$BUMP_MODE")
+            TAG_NAME="v${NEW_VER}"
+
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add pyproject.toml core/config.py winget/
+            git commit -m "chore(release): ${TAG_NAME} [skip ci]" || true
+            git tag -a "$TAG_NAME" -m "Release ${TAG_NAME}"
+            git push origin HEAD:main --tags
+
+            echo "release_tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "clean_version=${NEW_VER}" >> $GITHUB_OUTPUT
+          else
+            TAG_NAME="${GITHUB_REF_NAME}"
+            CLEAN_VER="${TAG_NAME#v}"
+            echo "release_tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "clean_version=${CLEAN_VER}" >> $GITHUB_OUTPUT
+          fi
+
+  build-windows:
+    name: Build Standalone Windows x64
+    needs: prepare-version
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.release_tag }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller bham.spec
+
+      - name: Package Windows Binary
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\bham.exe, README.md, MANUALE_UTENTE.md -DestinationPath bham-windows-x64.zip
+          $hash = (Get-FileHash -Path bham-windows-x64.zip -Algorithm SHA256).Hash
+          Set-Content -Path bham-windows-x64.zip.sha256 -Value $hash
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binary
+          path: |
+            bham-windows-x64.zip
+            bham-windows-x64.zip.sha256
+
+  build-linux:
+    name: Build Standalone Linux x64 (.tar.gz e .deb)
+    needs: prepare-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.release_tag }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller bham.spec
+
+      - name: Package Linux Binary (.tar.gz and .deb)
+        run: |
+          chmod +x dist/bham
+          cp README.md MANUALE_UTENTE.md dist/
+          tar -czvf bham-linux-x64.tar.gz -C dist bham README.md MANUALE_UTENTE.md
+          sha256sum bham-linux-x64.tar.gz > bham-linux-x64.tar.gz.sha256
+
+          # Costruzione pacchetto Debian/Ubuntu (.deb)
+          VERSION="${{ needs.prepare-version.outputs.clean_version }}"
+          chmod +x scripts/package_deb.sh
+          ./scripts/package_deb.sh "$VERSION"
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binary
+          path: |
+            bham-linux-x64.tar.gz
+            bham-linux-x64.tar.gz.sha256
+            bham_*.deb
+            bham_*.deb.sha256
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [prepare-version, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code for Scripts
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.release_tag }}
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ needs.prepare-version.outputs.release_tag }}
+          tag_name: ${{ needs.prepare-version.outputs.release_tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            bham-windows-x64.zip
+            bham-windows-x64.zip.sha256
+            bham-linux-x64.tar.gz
+            bham-linux-x64.tar.gz.sha256
+            bham_*.deb
+            bham_*.deb.sha256
+            scripts/install.sh
+
+      - name: Submit to WinGet Community Repository
+        if: env.WINGET_TOKEN != ''
+        uses: vedantmgoyal2009/winget-releaser@v2
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        with:
+          identifier: BacsHelp.BHAM
+          version: ${{ needs.prepare-version.outputs.clean_version }}
+          installer-type: zip
+          token: ${{ secrets.WINGET_TOKEN }}

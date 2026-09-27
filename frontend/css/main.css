@@ -1,0 +1,1223 @@
+/* ============================================================
+   BHAM – Design System v2.0 "Industrial Telemetry"
+   Pixel-accurate styling matching field commissioning reference:
+   - Deep obsidian blue canvas (#060b14) & high-contrast surfaces (#0b1322)
+   - Strict protocol color-coding (Modbus Cyan, BACnet Purple, ARP Emerald, FC43 Amber)
+   - Tactical JetBrains Mono for telemetry, addresses, registers, timestamps
+   - Slim 3px neon progress line & active telemetry strip
+   - Segmented buttons, protocol tabs, syntax-highlighted log console
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* LIGHT MODE (Field High-Contrast) */
+  --bham-bg-canvas:          #edf2f7;
+  --bham-bg-surface:         #ffffff;
+  --bham-bg-surface-elevated:#e2e8f0;
+  --bham-bg-input:           #f8fafc;
+  --bham-border:             #cbd5e1;
+  --bham-border-focus:       #0284c7;
+
+  --bham-text-main:          #0f172a;
+  --bham-text-muted:         #475569;
+  --bham-text-dim:           #64748b;
+
+  --bham-modbus:             #0284c7;
+  --bham-modbus-bg:          rgba(2, 132, 199, 0.12);
+  --bham-bacnet:             #7c3aed;
+  --bham-bacnet-bg:          rgba(124, 58, 237, 0.12);
+  --bham-network:            #059669;
+  --bham-network-bg:         rgba(5, 150, 105, 0.12);
+  --bham-diag:               #d97706;
+  --bham-diag-bg:            rgba(217, 119, 6, 0.12);
+  --bham-knx:                #c2410c;
+  --bham-knx-bg:             rgba(194, 65, 12, 0.12);
+  --bham-knx-solid:          #ea580c;
+  --bham-danger:             #dc2626;
+  --bham-danger-bg:          rgba(220, 38, 38, 0.12);
+  --bham-success:            #16a34a;
+
+  --bham-console-bg:         #0a0f1d;
+  --bham-console-text:       #94a3b8;
+
+  --bham-header-bg:          #ffffff;
+  --bham-strip-bg:           #f1f5f9;
+  --bham-row-hover:          rgba(0,0,0,0.03);
+}
+
+[data-theme="dark"] {
+  /* DARK MODE (Obsidian Telemetry) */
+  --bham-bg-canvas:          #060b14;
+  --bham-bg-surface:         #0b1322;
+  --bham-bg-surface-elevated:#0f1a2e;
+  --bham-bg-input:           #070d18;
+  --bham-border:             #16233b;
+  --bham-border-light:       #1e3052;
+  --bham-border-focus:       #00f2fe;
+
+  --bham-text-main:          #f1f5f9;
+  --bham-text-muted:         #94a3b8;
+  --bham-text-dim:           #64748b;
+
+  --bham-modbus:             #00f2fe;
+  --bham-modbus-solid:       #0284c7;
+  --bham-modbus-bg:          rgba(0, 242, 254, 0.12);
+  --bham-bacnet:             #c084fc;
+  --bham-bacnet-solid:       #7c3aed;
+  --bham-bacnet-bg:          rgba(192, 132, 252, 0.12);
+  --bham-network:            #10b981;
+  --bham-network-solid:      #059669;
+  --bham-network-bg:         rgba(16, 185, 129, 0.12);
+  --bham-diag:               #f59e0b;
+  --bham-diag-solid:         #d97706;
+  --bham-diag-bg:            rgba(245, 158, 11, 0.12);
+  --bham-knx:                #fb923c;
+  --bham-knx-solid:          #ea580c;
+  --bham-knx-bg:             rgba(251, 146, 60, 0.12);
+  --bham-danger:             #ef4444;
+  --bham-danger-solid:       #dc2626;
+  --bham-danger-bg:          rgba(239, 68, 68, 0.18);
+  --bham-success:            #22c55e;
+
+  --bham-console-bg:         #050913;
+  --bham-console-text:       #86efac;
+
+  --bham-header-bg:          #070d18;
+  --bham-strip-bg:           #08101e;
+  --bham-row-hover:          rgba(255, 255, 255, 0.035);
+}
+
+/* ── Base Reset & Typography ───────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  background: var(--bham-bg-canvas);
+  color: var(--bham-text-main);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────── */
+
+::-webkit-scrollbar              { width: 5px; height: 5px; }
+::-webkit-scrollbar-track        { background: var(--bham-bg-surface); }
+::-webkit-scrollbar-thumb        { background: var(--bham-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--bham-text-dim); }
+
+/* ── Header Bar ─────────────────────────────────────────────── */
+
+.bham-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 14px;
+  background: var(--bham-header-bg);
+  border-bottom: 1px solid var(--bham-border);
+  height: 44px;
+  user-select: none;
+}
+
+.bham-header-left, .bham-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bham-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+}
+.bham-brand-icon {
+  color: var(--bham-modbus);
+  font-size: 16px;
+}
+
+.bham-version-badge {
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(0, 242, 254, 0.08);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+  color: #38bdf8;
+  font-weight: 500;
+}
+
+.bham-ws-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+.bham-ws-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+.bham-ws-pill.disconnected {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+.bham-ws-pill.disconnected .bham-ws-dot {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+}
+
+/* Action buttons in header */
+.bham-btn-scan-rapid {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #059669;
+  hover-background: #047857;
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid #10b981;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.15s;
+}
+.bham-btn-scan-rapid:hover { background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.4); }
+
+.bham-btn-abort-scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dc2626;
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid #ef4444;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.15s;
+}
+.bham-btn-abort-scan:hover { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+
+.bham-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #111a2d;
+  color: var(--bham-text-muted);
+  border: 1px solid var(--bham-border);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.bham-header-btn:hover {
+  background: #16233b;
+  color: var(--bham-text-main);
+  border-color: var(--bham-border-light);
+}
+
+/* Theme switch segmented pills */
+.bham-theme-group {
+  display: inline-flex;
+  background: #0b1322;
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bham-theme-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  color: var(--bham-text-dim);
+  border: none;
+  background: transparent;
+}
+.bham-theme-opt.active {
+  background: #16243d;
+  color: var(--bham-modbus);
+  font-weight: 600;
+}
+
+/* ── Telemetry & Progress Strip ────────────────────────────── */
+
+.bham-telemetry-strip {
+  background: var(--bham-strip-bg);
+  border-bottom: 1px solid var(--bham-border);
+  padding: 4px 14px;
+}
+
+.bham-telemetry-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  padding-bottom: 4px;
+}
+
+.bham-telemetry-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bham-modbus);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bham-telemetry-time {
+  color: var(--bham-modbus);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Ultra-thin neon progress line (3px) */
+.bham-neon-track {
+  width: 100%;
+  height: 3px;
+  background: #0e172a;
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 2px 0 6px 0;
+}
+.bham-neon-bar {
+  height: 100%;
+  width: 0%;
+  background: #00f2fe;
+  box-shadow: 0 0 8px #00f2fe, 0 0 16px #00f2fe;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Strip parametri attivi */
+.bham-active-params-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  padding-top: 2px;
+}
+.bham-active-pills-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bham-active-tag {
+  color: var(--bham-text-dim);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.bham-active-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #0c1424;
+  border: 1px solid var(--bham-border);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+}
+.bham-active-pill .pill-cyan   { color: #00f2fe; font-weight: 600; }
+.bham-active-pill .pill-yellow { color: #f59e0b; }
+.bham-active-pill .pill-green  { color: #10b981; }
+
+.bham-edit-params-btn {
+  color: #38bdf8;
+  font-size: 11px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.bham-edit-params-btn:hover { text-decoration: underline; color: #7dd3fc; }
+
+/* ── 3-Column Industrial Layout ────────────────────────────── */
+
+.bham-workspace {
+  display: grid;
+  grid-template-columns: 280px 1fr 340px;
+  gap: 8px;
+  padding: 8px;
+  height: calc(100vh - 100px);
+  overflow: hidden;
+}
+
+.bham-col-sidebar  { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.bham-col-center   { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.bham-col-console  { overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── Cards ─────────────────────────────────────────────────── */
+
+.bham-card {
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+.bham-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bham-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.bham-card-action-hint {
+  font-size: 10px;
+  color: var(--bham-text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+}
+.bham-card-action-hint:hover { color: var(--bham-text-muted); }
+
+/* Protocol colors for titles */
+.color-modbus  { color: var(--bham-modbus); }
+.color-bacnet  { color: var(--bham-bacnet); }
+.color-knx     { color: var(--bham-knx); }
+.color-network { color: var(--bham-network); }
+.color-diag    { color: var(--bham-diag); }
+
+/* SVG Icons - Clean industrial vector graphics */
+.bham-svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  display: inline-block;
+  vertical-align: -2px;
+  flex-shrink: 0;
+}
+.bham-svg-sm {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2;
+}
+.bham-svg-lg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
+}
+
+/* ── Form Inputs ────────────────────────────────────────────── */
+
+.bham-label {
+  display: block;
+  font-size: 10px;
+  color: var(--bham-text-dim);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.bham-input {
+  width: 100%;
+  height: 28px;
+  padding: 4px 8px;
+  background: var(--bham-bg-input);
+  border: 1px solid var(--bham-border);
+  border-radius: 3px;
+  color: var(--bham-text-main);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.bham-input:focus { border-color: var(--bham-border-focus); }
+
+.bham-textarea {
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 8px;
+  background: var(--bham-bg-input);
+  border: 1px solid var(--bham-border);
+  border-radius: 3px;
+  color: var(--bham-text-main);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  resize: vertical;
+  outline: none;
+}
+.bham-textarea:focus { border-color: var(--bham-border-focus); }
+
+.bham-field-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.bham-field-row > div { flex: 1; }
+
+/* ── Primary Action Buttons (Sidebar) ───────────────────────── */
+
+.bham-btn-action {
+  width: 100%;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s, transform 0.1s;
+  color: #ffffff;
+}
+.bham-btn-action:hover { opacity: 0.9; }
+.bham-btn-action:active { transform: scale(0.98); }
+
+.bham-btn-rtu    { background: #0284c7; }
+.bham-btn-tcp    { background: #0284c7; }
+.bham-btn-bacnet { background: #7c3aed; }
+.bham-btn-knx    { background: #ea580c; }
+.bham-btn-arp    { background: #059669; }
+.bham-btn-sniff  { background: #0891b2; }
+.bham-btn-abort  { background: #dc2626; }
+.bham-btn-fc43   { background: #d97706; }
+
+.bham-preset-pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.bham-btn-chip {
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-muted);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+.bham-btn-chip:hover {
+  background: var(--bham-bg-input);
+  border-color: var(--bham-border-focus);
+  color: var(--bham-text-main);
+}
+.bham-btn-chip.active {
+  border-color: var(--bham-modbus);
+  color: var(--bham-modbus);
+  background: var(--bham-modbus-bg);
+}
+
+/* Sidebar bottom utilities */
+.bham-sidebar-footer {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+.bham-btn-secondary {
+  flex: 1;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #0f1a2e;
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-muted);
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bham-btn-secondary:hover {
+  background: #16243d;
+  color: var(--bham-text-main);
+}
+
+/* ── Center Column: Protocol Tabs & Filter ─────────────────── */
+
+.bham-toolbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.bham-tabs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bham-tab {
+  background: #070d18;
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-dim);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bham-tab:hover { color: var(--bham-text-main); border-color: var(--bham-border-light); }
+.bham-tab.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+  font-weight: 600;
+}
+
+.bham-export-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bham-btn-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #064e3b;
+  border: 1px solid #059669;
+  color: #34d399;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.bham-btn-export:hover { background: #059669; color: #ffffff; }
+
+/* Search filter input */
+.bham-search-box {
+  width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 0 10px;
+}
+.bham-search-box input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--bham-text-main);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.bham-search-box input::placeholder { color: var(--bham-text-dim); }
+
+/* ── Collapsible Protocol Table Cards ──────────────────────── */
+
+.bham-table-card {
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.bham-table-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+.bham-table-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bham-badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.badge-count-modbus  { background: rgba(0, 242, 254, 0.18); color: #00f2fe; }
+.badge-count-bacnet  { background: rgba(192, 132, 252, 0.18); color: #c084fc; }
+.badge-count-knx     { background: rgba(251, 146, 60, 0.18); color: #fb923c; }
+.badge-count-network { background: rgba(16, 185, 129, 0.18); color: #10b981; }
+
+.bham-table-card-status {
+  font-size: 10.5px;
+  color: var(--bham-text-dim);
+}
+
+/* ── Data Tables ────────────────────────────────────────────── */
+
+.bham-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.bham-data-table th {
+  text-align: left;
+  padding: 5px 8px;
+  color: var(--bham-text-dim);
+  border-bottom: 1px solid var(--bham-border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.bham-data-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #0f192b;
+  color: var(--bham-text-main);
+  white-space: nowrap;
+}
+.bham-data-table tbody tr:hover td {
+  background: var(--bham-row-hover);
+}
+
+/* Status badge (Online / Offline) */
+.bham-status-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  border: 1px solid;
+}
+.bham-status-online {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.bham-action-link {
+  color: #38bdf8;
+  text-decoration: none;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.bham-action-link:hover { text-decoration: underline; color: #7dd3fc; }
+
+/* ── Console / Live Log (Right Column) ─────────────────────── */
+
+.bham-console-container {
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+
+.bham-console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.bham-console-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+.bham-console-sub {
+  font-size: 10px;
+  color: var(--bham-text-dim);
+  font-weight: 400;
+}
+
+.bham-console-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--bham-text-dim);
+}
+.bham-console-actions a,
+.bham-console-actions button {
+  color: var(--bham-text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10.5px;
+  padding: 0;
+}
+.bham-console-actions a:hover,
+.bham-console-actions button:hover {
+  color: var(--bham-text-main);
+}
+
+.bham-console-body {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bham-console-bg);
+  border: 1px solid #0d1525;
+  border-radius: 3px;
+  padding: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Syntax highlighting in log lines */
+.log-ts      { color: #64748b; }
+.log-net     { color: #60a5fa; font-weight: 600; }
+.log-modbus  { color: #38bdf8; font-weight: 600; }
+.log-bacnet  { color: #c084fc; font-weight: 600; }
+.log-knx     { color: #fb923c; font-weight: 600; }
+.log-arp     { color: #34d399; font-weight: 600; }
+.log-found   { color: #22c55e; font-weight: 700; }
+.log-done    { color: #4ade80; font-weight: 700; }
+.log-ok      { color: #34d399; font-weight: 700; }
+.log-abort   { color: #ef4444; font-weight: 700; }
+.log-warn    { color: #f59e0b; font-weight: 700; }
+.log-error   { color: #ef4444; font-weight: 700; }
+.log-sniff   { color: #06b6d4; font-weight: 600; }
+.log-serial  { color: #38bdf8; font-weight: 600; }
+.log-health  { color: #f59e0b; font-weight: 600; }
+.log-text    { color: #94a3b8; }
+
+/* ── Bus Health Telemetry Strip ────────────────────────────── */
+.bham-bus-health-strip {
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: 3px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.bham-health-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.bham-health-lbl {
+  font-size: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--bham-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.bham-health-val {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bham-text-main);
+}
+.bham-health-nodes {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  max-height: 38px;
+  overflow-y: auto;
+}
+.bham-node-chip {
+  background: rgba(6, 182, 212, 0.15);
+  color: #06b6d4;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  border-radius: 2px;
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0 4px;
+}
+.bham-node-chip.mstp {
+  background: rgba(192, 132, 252, 0.15);
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.35);
+}
+
+/* ── RS485 Frame Inspector Table ───────────────────────────── */
+.bham-frame-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.bham-frame-table tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.bham-frame-table tr:hover {
+  background: var(--bham-row-hover);
+}
+.bham-frame-table td {
+  padding: 2.5px 5px;
+  white-space: nowrap;
+}
+.bham-frame-dir-m2s   { color: #38bdf8; font-weight: 600; }
+.bham-frame-dir-s2m   { color: #34d399; font-weight: 600; }
+.bham-frame-dir-token { color: #c084fc; font-weight: 600; }
+.bham-frame-dir-poll  { color: #f59e0b; font-weight: 600; }
+.bham-frame-crc-ok    { color: #10b981; }
+.bham-frame-crc-err   { color: #ef4444; font-weight: 700; }
+
+.bham-console-footer {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bham-console-status-line {
+  font-size: 10px;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.bham-console-prompt-box {
+  display: flex;
+  align-items: center;
+  background: #050913;
+  border: 1px solid #16243d;
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+.bham-console-prompt-prefix {
+  color: #38bdf8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  margin-right: 6px;
+}
+.bham-console-prompt-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #cbd5e1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+}
+
+/* ── Modals / Overlays ──────────────────────────────────────── */
+
+.bham-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.bham-modal {
+  background: #0b1322;
+  border: 1px solid #1e3052;
+  border-radius: 6px;
+  padding: 20px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bham-modal-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+.hidden { display: none !important; }
+
+/* ── Upgrades v0.3: i18n, Centralized Settings, Manual, Inspector ── */
+
+.bham-lang-group {
+  display: flex;
+  align-items: center;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+}
+.bham-lang-btn {
+  background: transparent;
+  border: none;
+  color: var(--bham-text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bham-lang-btn:hover {
+  color: var(--bham-text-main);
+}
+.bham-lang-btn.active {
+  background: var(--bham-modbus);
+  color: #ffffff;
+}
+
+.bham-theme-toggle-btn {
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-muted);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+.bham-theme-toggle-btn:hover {
+  color: var(--bham-text-main);
+  border-color: var(--bham-border-focus);
+}
+
+.bham-btn-pdf {
+  color: #f87171 !important;
+}
+.bham-btn-pdf:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: #ef4444 !important;
+}
+
+/* Modal Tabs */
+.bham-modal-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--bham-border);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  overflow-x: auto;
+}
+.bham-modal-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--bham-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.bham-modal-tab:hover {
+  color: var(--bham-text-main);
+  background: var(--bham-bg-surface-elevated);
+}
+.bham-modal-tab.active {
+  color: var(--bham-modbus);
+  background: var(--bham-modbus-bg);
+  border-color: var(--bham-modbus);
+}
+.bham-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Help & Manual Layout */
+.bham-help-container {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 16px;
+  height: 540px;
+  max-height: 75vh;
+}
+.bham-help-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  border-right: 1px solid var(--bham-border);
+  padding-right: 10px;
+}
+.bham-manual-nav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--bham-text-muted);
+  padding: 7px 10px;
+  border-radius: 4px;
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.3;
+}
+.bham-manual-nav-btn:hover {
+  background: var(--bham-bg-surface-elevated);
+  color: var(--bham-text-main);
+}
+.bham-manual-nav-btn.active {
+  background: var(--bham-modbus-bg);
+  border-color: var(--bham-modbus);
+  color: var(--bham-modbus);
+  font-weight: 600;
+}
+.bham-help-body {
+  overflow-y: auto;
+  padding-right: 10px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--bham-text-main);
+}
+.bham-help-body h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 15px;
+  color: var(--bham-modbus);
+}
+.bham-help-body h4 {
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #f1f5f9;
+}
+.bham-callout {
+  padding: 9px 12px;
+  border-radius: 4px;
+  margin: 12px 0;
+  font-size: 11px;
+  border-left: 3px solid;
+}
+.callout-info {
+  background: rgba(2, 132, 199, 0.1);
+  border-color: var(--bham-modbus);
+  color: #bae6fd;
+}
+.bham-code-block {
+  background: var(--bham-bg-input);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: #38bdf8;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Tables inside modals */
+.bham-sessions-table, .bham-modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+.bham-sessions-table th, .bham-modal-table th {
+  background: var(--bham-bg-surface-elevated);
+  color: var(--bham-text-muted);
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 10px;
+  border-bottom: 1px solid var(--bham-border);
+}
+.bham-sessions-table td, .bham-modal-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--bham-border);
+  color: var(--bham-text-main);
+}
+
+.bham-action-btn-sm {
+  padding: 2px 7px;
+  font-size: 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid var(--bham-border);
+  background: var(--bham-bg-surface-elevated);
+  color: var(--bham-text-main);
+}
+.bham-action-btn-sm:hover {
+  border-color: var(--bham-modbus);
+  color: var(--bham-modbus);
+}
+.bham-action-btn-danger {
+  color: #f87171 !important;
+}
+.bham-action-btn-danger:hover {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+/* Slave Inspector Details */
+.bham-slave-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 11px;
+}

@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BHAM – BACS Help Auto Mapper v0.3</title>
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+
+  <!-- ── Header ────────────────────────────────────────────────────────── -->
+  <header class="bham-header">
+    <div class="bham-header-left">
+      <span class="bham-brand">
+        <svg class="bham-svg bham-svg-lg color-modbus" viewBox="0 0 24 24">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        BHAM
+      </span>
+      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.3</span>
+      <span id="ws-pill" class="bham-ws-pill disconnected">
+        <span class="bham-ws-dot"></span> <span id="ws-pill-text">Connecting…</span>
+      </span>
+    </div>
+
+    <div class="bham-header-right">
+      <!-- Rapid Scan & Abort -->
+      <button id="btn-rapid-scan" onclick="startRapidScan()" class="bham-btn-scan-rapid" data-i18n-title="rapid_scan_title" title="Avvia scansione sequenziale RTU + BACnet + KNX + ARP">
+        <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon></svg>
+        <span data-i18n="rapid_scan">AVVIA SCAN RAPIDO</span>
+      </button>
+
+      <button onclick="abortScan()" class="bham-btn-abort-scan" data-i18n-title="abort_scan_title" title="Arresta immediatamente tutte le scansioni attive">
+        <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+        <span data-i18n="abort_scan">ABORT SCAN</span>
+      </button>
+
+      <!-- Sessions: Save or Archive -->
+      <button onclick="openSaveModal()" class="bham-header-btn" title="Salva sessione di collaudo">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        <span data-i18n="save">Salva</span>
+      </button>
+
+      <!-- Unified Settings Center -->
+      <button onclick="openSettingsModal('hw')" class="bham-header-btn" title="Impostazioni hardware, motori, sessioni e mappe">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span data-i18n="settings">Impostazioni</span>
+      </button>
+
+      <!-- Interactive Help & Field Manual -->
+      <button onclick="openHelpModal()" class="bham-header-btn" title="Manuale operativo e guida di collaudo">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        <span data-i18n="help">Guida &amp; Manuale</span>
+      </button>
+
+      <!-- Language Selector -->
+      <div class="bham-lang-group" title="Seleziona Lingua / Select Language / Seleccionar Idioma">
+        <button class="bham-lang-btn active" data-lang="it" onclick="setAppLanguage('it')">IT</button>
+        <button class="bham-lang-btn" data-lang="en" onclick="setAppLanguage('en')">EN</button>
+        <button class="bham-lang-btn" data-lang="es" onclick="setAppLanguage('es')">ES</button>
+      </div>
+
+      <!-- Theme Switcher Button -->
+      <button id="theme-toggle-btn" onclick="toggleTheme()" class="bham-theme-toggle-btn" title="Alterna modalità Chiara / Scura">
+        <svg id="theme-icon-dark" class="bham-svg-sm" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        <span id="theme-text">Scuro</span>
+      </button>
+
+      <!-- API Docs -->
+      <a href="/docs" target="_blank" class="bham-header-btn" title="Documentazione interattiva OpenAPI/Swagger">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+        <span data-i18n="api_docs">API / Docs</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Telemetry & Progress Strip ────────────────────────────────────── -->
+  <div class="bham-telemetry-strip">
+    <div class="bham-telemetry-top">
+      <div class="bham-telemetry-status">
+        <span id="telemetry-icon">
+          <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </span>
+        <span id="telemetry-summary">Pronto – 0 dispositivi attivi su campo</span>
+      </div>
+      <div class="bham-telemetry-time">
+        <span data-i18n="scan_duration">Tempo scansione:</span> <span id="telemetry-duration">0.0s</span>
+        <span id="telemetry-pct" style="margin-left:8px;font-weight:700">0%</span>
+      </div>
+    </div>
+
+    <!-- Ultra-thin neon progress line (3px) -->
+    <div class="bham-neon-track">
+      <div id="progress-bar" class="bham-neon-bar"></div>
+    </div>
+
+    <!-- Active configuration pills bar -->
+    <div class="bham-active-params-bar">
+      <div class="bham-active-pills-wrap" onclick="openSettingsModal('hw')" style="cursor:pointer" title="Clicca per aprire la configurazione hardware">
+        <span class="bham-active-tag" data-i18n="active_tag">ATTIVO:</span>
+        <span class="bham-active-pill"><span data-i18n="active_site_lbl">Impianto:</span> <span id="active-site" class="pill-cyan">Cliente Rossi (Imp. 3)</span></span>
+        <span class="bham-active-pill"><span data-i18n="active_rs485_lbl">RS485:</span> <span id="active-rs485" class="pill-yellow">/dev/ttyUSB0 (9600 8N1)</span></span>
+        <span class="bham-active-pill"><span data-i18n="active_nic_lbl">NIC:</span> <span id="active-nic" class="pill-green">eth0 (192.168.1.50/24)</span></span>
+      </div>
+      <span class="mono text-dim" style="font-size:10px" data-i18n="edit_params_hint">Clicca per aprire la configurazione</span>
+    </div>
+  </div>
+
+  <!-- ── Main 3-Column Industrial Workspace ───────────────────────────── -->
+  <main class="bham-workspace">
+
+    <!-- ── Column 1: Controls Sidebar ─────────────────────────────────── -->
+    <aside class="bham-col-sidebar">
+
+      <!-- Summary Card -->
+      <div class="bham-card">
+        <div class="bham-card-header" style="margin-bottom:4px">
+          <span class="bham-card-title" style="color:var(--bham-text-muted)">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span data-i18n="site_plant_lbl">Sito / Impianto:</span>
+          </span>
+          <span id="side-site-val" class="mono color-modbus" style="font-weight:600;font-size:11px">Cliente Rossi - Imp. 3</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--bham-text-dim);display:flex;flex-direction:column;gap:3px">
+          <div><span data-i18n="serial_port_label">Seriale RS485</span>: <span id="side-rs485-val" class="mono" style="color:#f59e0b">/dev/ttyUSB0 (9600, 8N1)</span></div>
+          <div><span data-i18n="iface_label">Interfaccia NIC</span>: <span id="side-nic-val" class="mono" style="color:#10b981">eth0 (192.168.1.50/24)</span></div>
+        </div>
+      </div>
+
+      <!-- Modbus RTU (RS485) -->
+      <div class="bham-card">
+        <div class="bham-card-header">
+          <h2 class="bham-card-title color-modbus">
+            <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
+            <span data-i18n="modbus_rtu_title">Modbus RTU (RS485)</span>
+          </h2>
+          <span id="rtu-quick-port" class="bham-card-action-hint">ttyUSB0</span>
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="slave_id_range">Slave ID Range</label>
+            <input id="rtu-id-range" type="text" value="1 - 247" class="bham-input" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="timeout_ms">Timeout (ms)</label>
+            <input id="rtu-timeout" type="number" value="500" class="bham-input" />
+          </div>
+        </div>
+        <button onclick="startRTU()" class="bham-btn-action bham-btn-rtu">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span data-i18n="btn_start_rtu">Avvia RTU</span>
+        </button>
+      </div>
+
+      <!-- Sniffer Seriale Passivo (RS485 Zero-TX) -->
+      <div class="bham-card" id="card-serial-sniff">
+        <div class="bham-card-header">
+          <h2 class="bham-card-title color-sniff" style="color:#06b6d4">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
+            <span data-i18n="serial_sniff_title">Sniffer Passivo (RS485)</span>
+          </h2>
+          <span class="bham-card-action-hint" style="color:#06b6d4" data-i18n="zero_tx_badge">Zero-TX Stealth</span>
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="protocol_label">Protocollo</label>
+            <select id="serial-sniff-proto" class="bham-select">
+              <option value="auto" data-i18n="opt_proto_auto">Auto-Detect</option>
+              <option value="modbus_rtu">Modbus RTU</option>
+              <option value="bacnet_mstp">BACnet MS-TP</option>
+            </select>
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="baud_label">Baudrate</label>
+            <select id="serial-sniff-baud" class="bham-select">
+              <option value="0" data-i18n="opt_baud_auto">Auto-Baud</option>
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="76800">76800 (MS-TP)</option>
+              <option value="115200">115200</option>
+            </select>
+          </div>
+        </div>
+        <div class="bham-field-row" style="margin-top:5px">
+          <div>
+            <label class="bham-label" data-i18n="parity_label">Parità</label>
+            <select id="serial-sniff-parity" class="bham-select">
+              <option value="auto" data-i18n="opt_parity_auto">Auto</option>
+              <option value="N">None (N)</option>
+              <option value="E">Even (E)</option>
+              <option value="O">Odd (O)</option>
+            </select>
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="duration_label">Durata</label>
+            <select id="serial-sniff-dur" class="bham-select">
+              <option value="15">15 sec</option>
+              <option value="30" selected>30 sec</option>
+              <option value="60">60 sec</option>
+              <option value="0" data-i18n="opt_dur_continuous">Continuo (∞)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button onclick="startSerialSniff()" class="bham-btn-action bham-btn-sniff" style="flex:1">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span data-i18n="btn_start_sniff">Avvia Ascolto (RS485)</span>
+          </button>
+          <button onclick="stopSerialSniff()" class="bham-btn-action bham-btn-abort" style="width:36px;padding:0" title="Arresta ascolto">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" ry="2" fill="currentColor"></rect></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modbus TCP -->
+      <div class="bham-card">
+        <div class="bham-card-header">
+          <h2 class="bham-card-title color-modbus">
+            <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span data-i18n="modbus_tcp_title">Modbus TCP</span>
+          </h2>
+          <span class="bham-card-action-hint" id="tcp-port-hint">Port: 502</span>
+        </div>
+        <label class="bham-label" data-i18n="tcp_hosts_label">Host (uno per riga o CIDR)</label>
+        <textarea id="tcp-hosts" class="bham-textarea" rows="2" placeholder="192.168.1.1&#10;192.168.1.10-50">192.168.1.1
+192.168.1.10-50</textarea>
+        <div style="margin-top:5px">
+          <label class="bham-label" data-i18n="tcp_port_label">Porta TCP (o elenco)</label>
+          <input id="tcp-port" type="text" value="502" class="bham-input" placeholder="502, 503, 5020" oninput="updateTcpPortHint(this.value)" />
+          <div class="bham-preset-pills">
+            <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('502')">502 (Std)</button>
+            <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('503')">503</button>
+            <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('5020')">5020</button>
+            <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('502, 503, 5020')">Multi</button>
+          </div>
+        </div>
+        <button onclick="startTCP()" class="bham-btn-action bham-btn-tcp" style="margin-top:7px">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span data-i18n="btn_start_tcp">Avvia TCP</span>
+        </button>
+      </div>
+
+      <!-- BACnet/IP -->
+      <div class="bham-card">
+        <div class="bham-card-header">
+          <h2 class="bham-card-title color-bacnet">
+            <svg class="bham-svg-sm color-bacnet" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="18" x2="9" y2="18.01"></line><line x1="15" y1="18" x2="15" y2="18.01"></line><line x1="9" y1="14" x2="9" y2="14.01"></line><line x1="15" y1="14" x2="15" y2="14.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="15" y1="10" x2="15" y2="10.01"></line></svg>
+            <span data-i18n="bacnet_title">BACnet/IP</span>
+          </h2>
+          <span class="bham-card-action-hint" id="bacnet-port-hint">BAC0 (47808)</span>
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="iface_label">Interfaccia</label>
+            <input id="bacnet-iface" type="text" value="eth0" class="bham-input" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="bacnet_port_label">Porta / Simbolo</label>
+            <input id="bacnet-port" type="text" value="BAC0" class="bham-input" placeholder="BAC0, BAC1, 47808" oninput="updateBacnetPortHint(this.value)" />
+          </div>
+        </div>
+        <div class="bham-preset-pills">
+          <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC0')">BAC0 (47808)</button>
+          <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC1')">BAC1 (47809)</button>
+          <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC0..BAC3')">BAC0..BAC3</button>
+          <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC0..BACF')">BAC0..BACF</button>
+        </div>
+        <button onclick="startBACnet()" class="bham-btn-action bham-btn-bacnet" style="margin-top:7px">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span data-i18n="btn_start_bacnet">Who-Is Broadcast</span>
+        </button>
+      </div>
+
+      <!-- KNXnet/IP -->
+      <div class="bham-card">
+        <div class="bham-card-header">
+          <h2 class="bham-card-title color-knx">
+            <svg class="bham-svg-sm color-knx" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span data-i18n="knx_title">KNXnet/IP Discovery</span>
+          </h2>
+          <span class="bham-card-action-hint" id="knx-port-hint">224.0.23.12:3671</span>
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="iface_label">Interfaccia</label>
+            <input id="knx-iface" type="text" value="eth0" class="bham-input" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="udp_port_label">Porta UDP</label>
+            <input id="knx-port" type="text" value="3671" class="bham-input" placeholder="3671" oninput="updateKnxPortHint(this.value)" />
+          </div>
+        </div>
+        <div class="bham-preset-pills">
+          <button type="button" class="bham-btn-chip" onclick="setKnxPortPreset('3671')">3671 (Std)</button>
+          <button type="button" class="bham-btn-chip" onclick="setKnxPortPreset('3672')">3672</button>
+          <button type="button" class="bham-btn-chip" onclick="setKnxPortPreset('3671, 3672')">Multi</button>
+        </div>
+        <button onclick="startKNX()" class="bham-btn-action bham-btn-knx" style="margin-top:7px">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span data-i18n="btn_start_knx">Avvia KNX Discovery</span>
+        </button>
+      </div>
+
+      <!-- ARP Sniffer -->
+      <div class="bham-card">
+        <div class="bham-card-header">
+          <h2 class="bham-card-title color-network">
+            <svg class="bham-svg-sm color-network" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+            <span data-i18n="arp_title">ARP Sniffer</span>
+          </h2>
+          <span class="bham-card-action-hint">L2 Promisc</span>
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="iface_label">Interfaccia</label>
+            <input id="arp-iface" type="text" value="eth0" class="bham-input" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="duration_sec">Durata (sec)</label>
+            <input id="arp-dur" type="number" value="30" min="5" class="bham-input" />
+          </div>
+        </div>
+        <button onclick="startARP()" class="bham-btn-action bham-btn-arp">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span data-i18n="btn_start_arp">Avvia Sniffing</span>
+        </button>
+      </div>
+
+      <!-- FC43 Device ID (Modbus MEI) -->
+      <div class="bham-card">
+        <div class="bham-card-header">
+          <h2 class="bham-card-title color-diag">
+            <svg class="bham-svg-sm color-diag" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            <span data-i18n="fc43_title">FC43 Device ID (Modbus MEI)</span>
+          </h2>
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="serial_port_label">Porta Seriale</label>
+            <input id="fc43-port" type="text" value="/dev/ttyUSB0" class="bham-input" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="slave_id_label">Slave ID</label>
+            <input id="fc43-id" type="number" value="1" min="1" max="247" class="bham-input" />
+          </div>
+        </div>
+        <button onclick="runFC43()" class="bham-btn-action bham-btn-fc43">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span data-i18n="btn_run_fc43">Leggi FC43</span>
+        </button>
+      </div>
+
+      <!-- Sidebar footer: No duplicate buttons! Clean, single-purpose controls -->
+      <div class="bham-sidebar-footer">
+        <button onclick="openSettingsModal('maps')" class="bham-btn-secondary" title="Gestisci definizioni registri e mappe punti BACS Help">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span data-i18n="btn_bacs_maps">Mappe BACS</span>
+        </button>
+        <button onclick="clearState()" class="bham-btn-secondary" title="Svuota memoria e resetta i dispositivi rilevati">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          <span data-i18n="btn_clear_cache">Pulisci Cache</span>
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- ── Column 2: Center Tables & Filter ───────────────────────────── -->
+    <section class="bham-col-center">
+
+      <!-- Top Toolbar (Filter Tabs + Export) -->
+      <div class="bham-toolbar-center">
+        <div class="bham-tabs">
+          <button class="bham-tab active" data-filter="all" onclick="setProtocolFilter('all')">
+            <span data-i18n="tab_all">Tutti</span> (<span id="count-all">0</span>)
+          </button>
+          <button class="bham-tab" data-filter="modbus" onclick="setProtocolFilter('modbus')">
+            <span data-i18n="tab_modbus">Modbus</span> (<span id="count-modbus">0</span>)
+          </button>
+          <button class="bham-tab" data-filter="bacnet" onclick="setProtocolFilter('bacnet')">
+            <span data-i18n="tab_bacnet">BACnet</span> (<span id="count-bacnet">0</span>)
+          </button>
+          <button class="bham-tab" data-filter="knx" onclick="setProtocolFilter('knx')">
+            <span data-i18n="tab_knx">KNX</span> (<span id="count-knx">0</span>)
+          </button>
+          <button class="bham-tab" data-filter="hosts" onclick="setProtocolFilter('hosts')">
+            <span data-i18n="tab_hosts">ARP Hosts</span> (<span id="count-hosts">0</span>)
+          </button>
+        </div>
+
+        <div class="bham-export-group">
+          <button onclick="exportCSV()" class="bham-btn-export" title="Esporta risultati in formato CSV">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            <span data-i18n="export_csv">CSV</span>
+          </button>
+          <a href="/api/v1/report/excel" target="_blank" class="bham-btn-export" title="Scarica cartella Excel multi-scheda">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span data-i18n="export_excel">Excel</span>
+          </a>
+          <a href="/api/v1/report/pdf" target="_blank" class="bham-btn-export bham-btn-pdf" title="Scarica verbale di collaudo in PDF vettoriale">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+            <span data-i18n="export_pdf">PDF</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Search Filter Input -->
+      <div class="bham-search-box">
+        <svg class="bham-svg-sm color-modbus" style="margin-right:8px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input id="device-search" type="text" data-i18n-placeholder="search_placeholder" placeholder="Filtra per IP, Vendor, Modello, Indirizzo registro/KNX..." oninput="onSearchInput(this.value)" />
+      </div>
+
+      <!-- Modbus Table Card -->
+      <div id="card-modbus" class="bham-table-card">
+        <div class="bham-table-card-header">
+          <div class="bham-table-card-title color-modbus">
+            <span>MODBUS DEVICES</span>
+            <span id="mb-count-badge" class="bham-badge-count badge-count-modbus">0</span>
+          </div>
+          <span class="bham-table-card-status">RTU/TCP Discovery Engine</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="bham-data-table">
+            <thead>
+              <tr>
+                <th style="width:40px" data-i18n="th_id">ID</th>
+                <th style="width:65px" data-i18n="th_protocol">PROTOCOLLO</th>
+                <th data-i18n="th_endpoint">ENDPOINT</th>
+                <th style="width:45px" data-i18n="th_latency">MS</th>
+                <th data-i18n="th_vendor_model">VENDOR / MODELLO</th>
+                <th style="width:65px" data-i18n="th_status">STATO</th>
+                <th style="width:65px" data-i18n="th_actions">AZIONI</th>
+              </tr>
+            </thead>
+            <tbody id="modbus-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BACnet Table Card -->
+      <div id="card-bacnet" class="bham-table-card">
+        <div class="bham-table-card-header">
+          <div class="bham-table-card-title color-bacnet">
+            <span>BACNET DEVICES</span>
+            <span id="bn-count-badge" class="bham-badge-count badge-count-bacnet">0</span>
+          </div>
+          <span class="bham-table-card-status">Broadcast Who-Is / I-Am</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="bham-data-table">
+            <thead>
+              <tr>
+                <th style="width:60px" data-i18n="th_dev_id">DEV ID</th>
+                <th data-i18n="th_mac_address">MAC / INDIRIZZO</th>
+                <th data-i18n="th_vendor">VENDOR</th>
+                <th data-i18n="th_model">MODELLO</th>
+                <th style="width:75px" data-i18n="th_fw_rev">REV FW</th>
+                <th style="width:80px" data-i18n="th_obj_count">OGGETTI</th>
+              </tr>
+            </thead>
+            <tbody id="bacnet-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- KNXnet/IP Table Card -->
+      <div id="card-knx" class="bham-table-card">
+        <div class="bham-table-card-header">
+          <div class="bham-table-card-title color-knx">
+            <span>KNXNET/IP DEVICES</span>
+            <span id="knx-count-badge" class="bham-badge-count badge-count-knx">0</span>
+          </div>
+          <span class="bham-table-card-status">Multicast 224.0.23.12:3671</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="bham-data-table">
+            <thead>
+              <tr>
+                <th style="width:75px" data-i18n="th_indiv_addr">INDIV ADDR</th>
+                <th>IP / PORT</th>
+                <th data-i18n="th_dev_name">NOME DISPOSITIVO</th>
+                <th data-i18n="th_serial">NUMERO SERIE</th>
+                <th>MAC ADDRESS</th>
+                <th style="width:65px" data-i18n="th_medium">MEDIUM</th>
+              </tr>
+            </thead>
+            <tbody id="knx-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- IP Hosts Table Card -->
+      <div id="card-hosts" class="bham-table-card">
+        <div class="bham-table-card-header">
+          <div class="bham-table-card-title color-network">
+            <span>IP HOSTS (ARP DISCOVERY)</span>
+            <span id="ip-count-badge" class="bham-badge-count badge-count-network">0</span>
+          </div>
+          <span id="hosts-subnet-label" class="bham-table-card-status">Passive L2 ARP Sniffing</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="bham-data-table">
+            <thead>
+              <tr>
+                <th data-i18n="th_ip_addr">INDIRIZZO IP</th>
+                <th>MAC ADDRESS</th>
+                <th data-i18n="th_hostname">HOSTNAME / NETBIOS</th>
+                <th style="width:85px" data-i18n="th_first_seen">RILEVATO</th>
+                <th data-i18n="th_oui_vendor">OUI VENDOR</th>
+              </tr>
+            </thead>
+            <tbody id="hosts-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── Column 3: Telemetry / Live Log Console ──────────────────────── -->
+    <aside class="bham-col-console">
+      <div class="bham-console-container">
+        <div class="bham-console-header">
+          <div style="display:flex;align-items:center;gap:6px">
+            <button id="view-tab-log" class="bham-btn-chip active" onclick="switchConsoleTab('log')">
+              <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+              <span data-i18n="console_tab_log">Live Log</span>
+            </button>
+            <button id="view-tab-serial" class="bham-btn-chip" onclick="switchConsoleTab('serial')">
+              <svg class="bham-svg-sm color-sniff" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"></path></svg>
+              <span data-i18n="console_tab_inspector">RS485 Inspector</span>
+              <span id="serial-frame-badge" class="bham-badge-count" style="display:none;background:rgba(6,182,212,0.2);color:#06b6d4;margin-left:2px">0</span>
+            </button>
+          </div>
+          <div class="bham-console-actions">
+            <label style="cursor:pointer;display:inline-flex;align-items:center;gap:3px">
+              <input id="log-autoscroll" type="checkbox" checked style="accent-color:#0284c7" /> <span data-i18n="console_scroll">Scroll</span>
+            </label>
+            <span>•</span>
+            <button onclick="clearConsoleLog()"><span data-i18n="console_clear">clear</span></button>
+            <span>•</span>
+            <button onclick="exportConsoleLog()"><span data-i18n="console_export">export.txt</span></button>
+          </div>
+        </div>
+
+        <!-- Bus Health Telemetry Strip -->
+        <div id="bus-health-banner" class="bham-bus-health-strip">
+          <div class="bham-health-item">
+            <span class="bham-health-lbl">RS485 STATUS</span>
+            <span id="health-params" class="bham-health-val mono color-modbus">STANDBY (8N1)</span>
+          </div>
+          <div class="bham-health-item">
+            <span class="bham-health-lbl">RATE</span>
+            <span id="health-fps" class="bham-health-val mono">0.0 fps</span>
+          </div>
+          <div class="bham-health-item">
+            <span class="bham-health-lbl">BUS LOAD</span>
+            <span id="health-load" class="bham-health-val mono">0.0%</span>
+          </div>
+          <div class="bham-health-item">
+            <span class="bham-health-lbl">PER (ERR)</span>
+            <span id="health-per" class="bham-health-val mono" style="color:#10b981">0.0%</span>
+          </div>
+          <div class="bham-health-item" style="flex:1;min-width:110px">
+            <span class="bham-health-lbl">ACTIVE NODES</span>
+            <div id="health-nodes" class="bham-health-nodes">
+              <span class="mono text-dim" style="font-size:9.5px">In attesa traffico...</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="log-console" class="bham-console-body"></div>
+        <div id="serial-frames-console" class="bham-console-body hidden" style="padding:4px">
+          <table class="bham-frame-table">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.1);color:var(--bham-text-dim)">
+                <th style="width:55px">TIME</th>
+                <th style="width:45px">DIR</th>
+                <th style="width:50px">PROTO</th>
+                <th style="width:65px">ADDR</th>
+                <th style="width:55px">FUNC</th>
+                <th>SUMMARY / TELEGRAM</th>
+                <th style="width:50px">CRC</th>
+              </tr>
+            </thead>
+            <tbody id="serial-frames-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="bham-console-footer">
+          <div class="bham-console-status-line">
+            <span style="color:#10b981">●</span> <span id="console-status-text" data-i18n="console_waiting">In attesa di nuovi eventi o scansione periodica…</span>
+          </div>
+          <div class="bham-console-prompt-box">
+            <span class="bham-console-prompt-prefix">&gt;</span>
+            <input id="prompt-input" type="text" data-i18n-placeholder="console_prompt_placeholder" placeholder="Invia comando rapido (es: ping 192.168.1.1, status, clear)" class="bham-console-prompt-input" onkeydown="handlePromptKey(event)" />
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ── Modal 1: Unified Settings Center (Gestione Impostazioni Unificata) ── -->
+  <div id="settings-overlay" class="bham-overlay hidden">
+    <div class="bham-modal" style="max-width:720px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h1 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:7px">
+          <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span data-i18n="settings_title">Centro Impostazioni &amp; Configurazione</span>
+        </h1>
+        <button onclick="closeSettingsModal()" class="bham-header-btn">✕</button>
+      </div>
+      <p style="font-size:11px;color:var(--bham-text-dim);margin:0" data-i18n="settings_sub">Gestione centralizzata hardware, motori di scansione, lingua, sessioni salvate e mappe.</p>
+
+      <!-- Settings Tabs Navigation -->
+      <div class="bham-modal-tabs">
+        <button id="tab-btn-hw" onclick="switchSettingsTab('hw')" class="bham-modal-tab active">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span data-i18n="tab_hw">Hardware &amp; Porte</span>
+        </button>
+        <button id="tab-btn-scan" onclick="switchSettingsTab('scan')" class="bham-modal-tab">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span data-i18n="tab_scan">Parametri Scansione</span>
+        </button>
+        <button id="tab-btn-appearance" onclick="switchSettingsTab('appearance')" class="bham-modal-tab">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line></svg>
+          <span data-i18n="tab_appearance">Aspetto &amp; Lingua</span>
+        </button>
+        <button id="tab-btn-sessions" onclick="switchSettingsTab('sessions')" class="bham-modal-tab">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline></svg>
+          <span data-i18n="tab_sessions">Sessioni Salvate</span>
+        </button>
+        <button id="tab-btn-maps" onclick="switchSettingsTab('maps')" class="bham-modal-tab">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg>
+          <span data-i18n="tab_maps">Mappe BACS Help</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Hardware & Network -->
+      <div id="panel-settings-hw" class="bham-tab-panel">
+        <div>
+          <label class="bham-label" data-i18n="site_name_label">Nome Sito / Impianto</label>
+          <input id="setup-site" type="text" placeholder="Cliente Rossi – Imp. 3" class="bham-input" />
+        </div>
+
+        <!-- Seriale -->
+        <div style="border:1px solid var(--bham-border);border-radius:4px;padding:10px;background:var(--bham-bg-surface-elevated)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-weight:600;font-size:11.5px;color:#00f2fe" data-i18n="rs485_box_title">Porta Seriale RS485</span>
+            <button onclick="scanSerialPorts()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:24px;padding:0 8px;font-size:10.5px" data-i18n="btn_scan_ports">Scansiona Porte</button>
+          </div>
+          <div id="serial-scan-result" style="font-size:10.5px;color:var(--bham-text-dim);margin-bottom:6px">Clicca Scansiona Porte per rilevare convertitori USB↔RS485.</div>
+          <label class="bham-label" data-i18n="selected_port">Porta selezionata</label>
+          <input id="setup-port" type="text" placeholder="/dev/ttyUSB0" class="bham-input" />
+          <div class="bham-field-row" style="margin-top:6px;margin-bottom:0">
+            <div>
+              <label class="bham-label" data-i18n="baudrate_label">Baudrate</label>
+              <select id="setup-baud" class="bham-input" style="cursor:pointer">
+                <option value="9600">9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="115200">115200</option>
+              </select>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="parity_label">Parità</label>
+              <select id="setup-parity" class="bham-input" style="cursor:pointer">
+                <option value="N">N (None)</option>
+                <option value="E">E (Even)</option>
+                <option value="O">O (Odd)</option>
+              </select>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="stopbits_label">Stop Bit</label>
+              <select id="setup-stop" class="bham-input" style="cursor:pointer">
+                <option value="1">1</option>
+                <option value="2">2</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rete -->
+        <div style="border:1px solid var(--bham-border);border-radius:4px;padding:10px;background:var(--bham-bg-surface-elevated)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-weight:600;font-size:11.5px;color:#c084fc" data-i18n="net_box_title">Interfacce di Rete (NIC)</span>
+            <button onclick="scanNetworkIfaces()" class="bham-btn-action bham-btn-bacnet" style="width:auto;height:24px;padding:0 8px;font-size:10.5px" data-i18n="btn_scan_nics">Scansiona NIC</button>
+          </div>
+          <div id="net-scan-result" style="font-size:10.5px;color:var(--bham-text-dim);margin-bottom:6px">Clicca Scansiona per rilevare le schede Ethernet e Wi-Fi attive.</div>
+          <div class="bham-field-row" style="margin-bottom:0">
+            <div>
+              <label class="bham-label" data-i18n="scan_nic_label">NIC Scansione</label>
+              <select id="setup-scan-iface" class="bham-input" onchange="onIfaceChange('scan')">
+                <option value="">-- seleziona --</option>
+              </select>
+              <div id="setup-scan-ip" class="mono text-dim" style="font-size:10px;margin-top:2px"></div>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="client_nic_label">NIC Client</label>
+              <select id="setup-client-iface" class="bham-input" onchange="onIfaceChange('client')">
+                <option value="">-- seleziona --</option>
+              </select>
+              <div id="setup-client-ip" class="mono text-dim" style="font-size:10px;margin-top:2px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+          <button onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:28px" data-i18n="btn_close">Chiudi</button>
+          <button onclick="confirmSetup()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 14px" data-i18n="btn_apply_config">Applica Configurazione</button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Scan Parameters -->
+      <div id="panel-settings-scan" class="bham-tab-panel hidden">
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="rtu_timeout_slow">Timeout Iniziale Modbus RTU (s)</label>
+            <input id="cfg-rtu-slow" type="number" step="0.05" value="0.50" class="bham-input" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="rtu_timeout_fast">Fast Timeout dopo LOCK (s)</label>
+            <input id="cfg-rtu-fast" type="number" step="0.01" value="0.12" class="bham-input" />
+          </div>
+        </div>
+        <div>
+          <label class="bham-label" data-i18n="spy_ids_label">Spy IDs per Early Exit (separati da virgola)</label>
+          <input id="cfg-spy-ids" type="text" value="1, 2, 10" class="bham-input" />
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="knx_multicast_label">Gruppo Multicast KNX</label>
+            <input id="cfg-knx-multi" type="text" value="224.0.23.12" class="bham-input" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="knx_timeout_label">Finestra di Ascolto KNX (s)</label>
+            <input id="cfg-knx-timeout" type="number" step="0.5" value="3.5" class="bham-input" />
+          </div>
+        </div>
+        <div class="bham-field-row">
+          <div>
+            <label class="bham-label" data-i18n="cfg_tcp_port_default">Porta default Modbus TCP</label>
+            <input id="cfg-modbus-tcp-port" type="text" value="502" class="bham-input" placeholder="502" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="cfg_bacnet_port_default">Porta default BACnet/IP</label>
+            <input id="cfg-bacnet-port" type="text" value="BAC0" class="bham-input" placeholder="BAC0" />
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="cfg_knx_port_default">Porta default KNXnet/IP</label>
+            <input id="cfg-knx-port" type="text" value="3671" class="bham-input" placeholder="3671" />
+          </div>
+        </div>
+        <div>
+          <label class="bham-label" data-i18n="arp_duration_default">Durata default Sniffer ARP (s)</label>
+          <input id="cfg-arp-dur" type="number" value="30" class="bham-input" />
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px">
+          <button onclick="saveScanParameters()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 14px" data-i18n="btn_apply_config">Applica Configurazione</button>
+        </div>
+      </div>
+
+      <!-- Tab 3: Appearance & Language -->
+      <div id="panel-settings-appearance" class="bham-tab-panel hidden">
+        <div>
+          <label class="bham-label" data-i18n="lang_selection_label">Lingua dell'Interfaccia</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button onclick="setAppLanguage('it')" class="bham-btn-secondary" style="flex:1">Italiano (IT)</button>
+            <button onclick="setAppLanguage('en')" class="bham-btn-secondary" style="flex:1">English (EN)</button>
+            <button onclick="setAppLanguage('es')" class="bham-btn-secondary" style="flex:1">Español (ES)</button>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <label class="bham-label" data-i18n="theme_selection_label">Tema Grafico</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button onclick="setThemeMode('dark')" class="bham-btn-secondary" style="flex:1">Dark (Obsidian Telemetry)</button>
+            <button onclick="setThemeMode('light')" class="bham-btn-secondary" style="flex:1">Light (Field High-Contrast)</button>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <label class="bham-label" data-i18n="console_buffer_label">Buffer Retention Console (righe massime)</label>
+          <input id="cfg-console-buffer" type="number" value="600" class="bham-input" />
+        </div>
+      </div>
+
+      <!-- Tab 4: Saved Sessions Manager -->
+      <div id="panel-settings-sessions" class="bham-tab-panel hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-weight:600;font-size:11.5px;color:#f1f5f9" data-i18n="saved_sessions_list_title">Archivio Sessioni di Collaudo</span>
+          <button onclick="refreshSavedSessionsList()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:24px;padding:0 8px;font-size:10.5px">Aggiorna Lista</button>
+        </div>
+        <div style="max-height:280px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:4px">
+          <table class="bham-sessions-table">
+            <thead>
+              <tr>
+                <th data-i18n="col_session_name">Nome Sessione</th>
+                <th data-i18n="col_date">Data Salvataggio</th>
+                <th data-i18n="col_devices">Dispositivi</th>
+                <th data-i18n="col_actions">Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="saved-sessions-tbody">
+              <tr><td colspan="4" class="text-dim" style="text-align:center;padding:12px" data-i18n="no_saved_sessions">Nessuna sessione salvata presente in archivio.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 5: BACS Help Maps -->
+      <div id="panel-settings-maps" class="bham-tab-panel hidden">
+        <div>
+          <h3 style="margin:0 0 4px 0;font-size:12px;color:#00f2fe" data-i18n="maps_title">Definizioni Registri &amp; Mappe BACS Help</h3>
+          <p style="font-size:10.5px;color:var(--bham-text-dim);margin:0" data-i18n="maps_sub">Importa ed esporta tabelle di punti registri per arricchire i dispositivi Modbus.</p>
+        </div>
+        <textarea id="maps-import-textarea" class="bham-textarea" rows="4" placeholder='Incolla qui il JSON definizioni BACS Help (es. [{"slave_id": 1, "register": 100, "label": "Temp Mandata"}])'></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div id="maps-status-badge" class="mono text-dim" style="font-size:11px">Mappe caricate per 0 slave ID.</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="importBacsMapsFromInput()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 10px;height:26px" data-i18n="btn_import_maps">Importa JSON</button>
+            <a href="/api/v1/maps/export" target="_blank" class="bham-btn-secondary" style="height:26px;display:inline-flex;align-items:center" data-i18n="btn_export_maps">Esporta JSON</a>
+            <button onclick="clearBacsMaps()" class="bham-btn-secondary" style="height:26px;color:#f87171" data-i18n="btn_clear_maps">Svuota Mappe</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Modal 2: Interactive Field Manual & Help ──────────────────────── -->
+  <div id="help-overlay" class="bham-overlay hidden">
+    <div class="bham-modal" style="max-width:850px;max-height:85vh">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h1 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:7px">
+          <svg class="bham-svg" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span data-i18n="help_title">Manuale Tecnico &amp; Guida di Campo BHAM</span>
+        </h1>
+        <button onclick="closeHelpModal()" class="bham-header-btn">✕</button>
+      </div>
+      <p style="font-size:11px;color:var(--bham-text-dim);margin:0" data-i18n="help_sub">Manuale operativo completo per il collaudo e la diagnosi di reti BACS.</p>
+
+      <div class="bham-help-container">
+        <!-- Chapters Navigation -->
+        <div id="manual-nav" class="bham-help-nav"></div>
+        <!-- Chapter Content Reader -->
+        <div id="manual-body" class="bham-help-body"></div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;border-top:1px solid var(--bham-border);padding-top:8px">
+        <a href="/MANUALE_UTENTE.md" target="_blank" class="mono color-modbus" style="font-size:11px">Apri documento MANUALE_UTENTE.md ↗</a>
+        <button onclick="closeHelpModal()" class="bham-btn-secondary" style="height:28px" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal 3: Salva Sessione ─────────────────────────────────────────── -->
+  <div id="save-modal" class="bham-overlay hidden">
+    <div class="bham-modal" style="max-width:440px">
+      <h2 class="bham-modal-title" data-i18n="save_current_btn">Salva Sessione di Collaudo</h2>
+      <div>
+        <label class="bham-label" data-i18n="col_session_name">Nome Sessione</label>
+        <input id="save-name" type="text" data-i18n-placeholder="session_name_placeholder" placeholder="es. Cliente Rossi – Imp. 3" class="bham-input" />
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="closeSaveModal()" class="bham-btn-secondary" style="height:28px" data-i18n="btn_cancel">Annulla</button>
+        <button onclick="saveSession()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 14px" data-i18n="save">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal 4: Modbus Slave Inspector Details ────────────────────────── -->
+  <div id="slave-modal" class="bham-overlay hidden">
+    <div class="bham-modal" style="max-width:580px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h2 id="slave-modal-title" class="bham-modal-title color-modbus">Dettagli Modbus Slave #1</h2>
+        <button onclick="closeSlaveModal()" class="bham-header-btn">✕</button>
+      </div>
+
+      <div id="slave-modal-meta" class="bham-slave-meta-grid"></div>
+
+      <h3 style="margin:8px 0 4px 0;font-size:11.5px;color:#f1f5f9" data-i18n="registers_mapped_title">Registri Mappati (BACS Help)</h3>
+      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:4px">
+        <table class="bham-modal-table">
+          <thead>
+            <tr>
+              <th style="width:60px">REG</th>
+              <th style="width:65px">TYPE</th>
+              <th>LABEL / DESC</th>
+              <th style="width:45px">UNIT</th>
+              <th style="width:45px">SCALE</th>
+            </tr>
+          </thead>
+          <tbody id="slave-modal-registers-tbody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <button onclick="closeSlaveModal()" class="bham-btn-secondary" style="height:28px" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts: i18n -> Manual -> App Controller -->
+  <script src="/js/i18n.js"></script>
+  <script src="/js/manual-content.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
