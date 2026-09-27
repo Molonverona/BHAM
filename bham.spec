@@ -28,8 +28,6 @@ hiddenimports = [
     'uvicorn.protocols.websockets',
     'uvicorn.protocols.websockets.auto',
     'uvicorn.protocols.websockets.wsproto_impl',
-    'uvicorn.lifespans',
-    'uvicorn.lifespans.on',
     'scapy.layers.l2',
     'scapy.layers.inet',
     'bacpypes3',
@@ -67,9 +65,6 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# UAC manifest (Windows only – ignored on Linux by PyInstaller)
-_manifest = 'bham.exe.manifest' if sys.platform == 'win32' else None
-
 exe = EXE(
     pyz,
     a.scripts,
@@ -89,6 +84,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    manifest=_manifest,
 )
-
