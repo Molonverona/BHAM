@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 
 PackageIdentifier: BacsHelp.BHAM
-PackageVersion: 0.3.1
+PackageVersion: 0.3.0
 InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
@@ -9,7 +9,7 @@ NestedInstallerFiles:
     PortableCommandAlias: bham
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/BacsHelp/BHAM/releases/download/v0.3.1/bham-windows-x64.zip
+    InstallerUrl: https://github.com/BacsHelp/BHAM/releases/download/v0.3.0/bham-windows-x64.zip
     InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000 # Aggiornare con SHA256 reale generato dalla GitHub Action o wingetcreate
 ManifestType: installer
 ManifestVersion: 1.6.0
