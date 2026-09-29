@@ -368,6 +368,9 @@ class TestSerialSniffer(unittest.TestCase):
         self.assertEqual(dev.registers["reg_1"], 5678)
 
     def test_bacnet_mstp_frame_dissection(self):
+        # Note: This test generates frames using the same CRC functions it tests,
+        # so it verifies internal consistency, not ASHRAE 135 standard compliance.
+        # For full compliance testing, external reference vectors are needed.
         from scanners.serial_sniffer import (
             calc_mstp_header_crc,
             check_mstp_header_crc,

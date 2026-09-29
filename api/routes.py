@@ -28,7 +28,7 @@ router = APIRouter()
 
 @router.get("/health", tags=["system"])
 async def health() -> dict:
-    return {"status": "ok", "active_ws": len(manager._active)}
+    return {"status": "ok", "active_ws": manager.active_connections_count()}
 
 
 # ── State snapshot ────────────────────────────────────────────────────────────

@@ -200,6 +200,13 @@ class AppState:
                 except Exception:
                     pass
 
+            # Bus Health
+            if snap.get("bus_health"):
+                try:
+                    self.bus_health = BusHealth.model_validate(snap["bus_health"])
+                except Exception:
+                    pass
+
         # Notifiche broadcast ai client
         if self.session_config:
             self._notify({"event": "config_updated", "config": self.session_config.model_dump(mode="json")})

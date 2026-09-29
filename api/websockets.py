@@ -75,6 +75,10 @@ class ConnectionManager:
             self._active.remove(websocket)
         log.info("WS client disconnected – remaining: %d", len(self._active))
 
+    def active_connections_count(self) -> int:
+        """Get the number of active WebSocket connections."""
+        return len(self._active)
+
     # ── Broadcast ────────────────────────────────────────────────────────────
 
     async def broadcast(self, payload: dict[str, Any]) -> None:

@@ -211,7 +211,7 @@ class KNXScanner(BaseScanner):
             bound_ip, bound_port = sock.getsockname()
             if bound_ip == "0.0.0.0" and local_ip != "0.0.0.0":
                 bound_ip = local_ip
-        except Exception as e:
+        except Exception:
             sock.bind(("", 0))
             bound_ip, bound_port = sock.getsockname()
 
