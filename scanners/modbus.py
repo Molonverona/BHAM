@@ -557,3 +557,181 @@ def _fc43_blocking(port: str, params: dict, slave_id: int) -> dict:
     except Exception as exc:
         result["error"] = str(exc)
     return result
+
+
+# =========================================================================
+# Smart Register Scan (Euristico Rapido)
+# =========================================================================
+
+async def smart_register_scan(
+    slave_id: int,
+    port: Optional[str] = None,
+    baudrate: int = 9600,
+    parity: str = "N",
+    stopbits: int = 1,
+    ip: Optional[str] = None,
+    tcp_port: int = 502,
+    scan_ranges: Optional[list[tuple[int, int]]] = None,
+) -> dict[str, Any]:
+    """
+    Scansione euristica rapida dei registri Modbus (Holding FC03 e Input FC04).
+    Isola i blocchi con registri attivi da quelli con eccezione 0x02 (Illegal Data Address).
+    Restituisce i registri con valori dec, hex, int16 signed e float32.
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        _smart_register_scan_sync,
+        slave_id,
+        port,
+        baudrate,
+        parity,
+        stopbits,
+        ip,
+        tcp_port,
+        scan_ranges,
+    )
+
+
+def _smart_register_scan_sync(
+    slave_id: int,
+    port: Optional[str],
+    baudrate: int,
+    parity: str,
+    stopbits: int,
+    ip: Optional[str],
+    tcp_port: int,
+    scan_ranges: Optional[list[tuple[int, int]]],
+) -> dict[str, Any]:
+    import struct
+    import time
+
+    # Range tipici da ispezionare se non specificati
+    ranges_to_test = scan_ranges or [(0, 50), (100, 140), (1000, 1030)]
+
+    is_tcp = bool(ip)
+    client = None
+    try:
+        if is_tcp:
+            from pymodbus.client import ModbusTcpClient
+            client = ModbusTcpClient(host=ip, port=tcp_port, timeout=0.35)
+        else:
+            from pymodbus.client import ModbusSerialClient
+            client = ModbusSerialClient(
+                port=port or "/dev/ttyUSB0",
+                baudrate=baudrate,
+                parity=parity,
+                stopbits=stopbits,
+                timeout=0.25,
+            )
+
+        if not client.connect():
+            return {
+                "slave_id": slave_id,
+                "error": f"Impossibile connettersi all'endpoint ({ip or port})",
+                "registers": [],
+            }
+
+        found_registers: list[dict[str, Any]] = []
+        t0 = time.monotonic()
+
+        # 1. Holding Registers (FC03)
+        for start_addr, end_addr in ranges_to_test:
+            block_size = 10
+            curr = start_addr
+            while curr <= end_addr:
+                count = min(block_size, end_addr - curr + 1)
+                try:
+                    rr = client.read_holding_registers(curr, count, slave=slave_id)
+                    if rr and not rr.isError() and hasattr(rr, "registers"):
+                        reg_vals = rr.registers
+                        for i, val in enumerate(reg_vals):
+                            addr = curr + i
+                            s16 = struct.unpack(">h", struct.pack(">H", val))[0]
+                            f32 = None
+                            if i + 1 < len(reg_vals):
+                                try:
+                                    f32_val = struct.unpack(">f", struct.pack(">HH", val, reg_vals[i+1]))[0]
+                                    if abs(f32_val) < 1e7 and abs(f32_val) > 1e-4:
+                                        f32 = round(f32_val, 2)
+                                    elif f32_val == 0.0:
+                                        f32 = 0.0
+                                except Exception:
+                                    pass
+                            found_registers.append({
+                                "address": addr,
+                                "type": "holding",
+                                "raw_dec": val,
+                                "raw_hex": f"0x{val:04X}",
+                                "int16": s16,
+                                "float32": f32,
+                            })
+                    else:
+                        # Se il blocco da 10 fallisce, tenta i primi 2 singolarmente
+                        if curr < start_addr + 4:
+                            for single_addr in range(curr, min(curr + 3, end_addr + 1)):
+                                try:
+                                    srr = client.read_holding_registers(single_addr, 1, slave=slave_id)
+                                    if srr and not srr.isError() and hasattr(srr, "registers"):
+                                        val = srr.registers[0]
+                                        s16 = struct.unpack(">h", struct.pack(">H", val))[0]
+                                        found_registers.append({
+                                            "address": single_addr,
+                                            "type": "holding",
+                                            "raw_dec": val,
+                                            "raw_hex": f"0x{val:04X}",
+                                            "int16": s16,
+                                            "float32": None,
+                                        })
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+                curr += count
+
+        # 2. Input Registers (FC04) su range 0..30
+        for single_addr in range(0, 20):
+            try:
+                rr = client.read_input_registers(single_addr, 1, slave=slave_id)
+                if rr and not rr.isError() and hasattr(rr, "registers"):
+                    val = rr.registers[0]
+                    s16 = struct.unpack(">h", struct.pack(">H", val))[0]
+                    found_registers.append({
+                        "address": single_addr,
+                        "type": "input",
+                        "raw_dec": val,
+                        "raw_hex": f"0x{val:04X}",
+                        "int16": s16,
+                        "float32": None,
+                    })
+            except Exception:
+                pass
+
+        elapsed = round((time.monotonic() - t0) * 1000, 1)
+
+        # Aggiorna il dispositivo in AppState se presente
+        with state._state_lock:
+            for dev in state.modbus_devices.values():
+                if dev.slave_id == slave_id:
+                    dev.registers = {f"reg_{r['address']}": r for r in found_registers}
+                    break
+
+        return {
+            "slave_id": slave_id,
+            "endpoint": ip if is_tcp else (port or "/dev/ttyUSB0"),
+            "elapsed_ms": elapsed,
+            "found_count": len(found_registers),
+            "registers": found_registers,
+        }
+    except Exception as exc:
+        return {
+            "slave_id": slave_id,
+            "error": str(exc),
+            "registers": [],
+        }
+    finally:
+        if client:
+            try:
+                client.close()
+            except Exception:
+                pass

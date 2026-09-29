@@ -42,6 +42,7 @@ function setAppLanguage(lang) {
 // ── Theme Switcher ─────────────────────────────────────────────────────────────
 
 function setThemeMode(theme) {
+  if (theme !== "dark") theme = "light";
   document.documentElement.setAttribute("data-theme", theme);
   const toggleBtn = document.getElementById("theme-toggle-btn");
   const themeText = document.getElementById("theme-text");
@@ -60,17 +61,21 @@ function setThemeMode(theme) {
       themeIcon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
     }
   }
-  localStorage.setItem("bham-theme", theme);
+  localStorage.setItem("bham-theme-mode", theme);
 }
 
 function toggleTheme() {
-  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const current = document.documentElement.getAttribute("data-theme") || "light";
   const target = current === "dark" ? "light" : "dark";
   setThemeMode(target);
 }
 
-// Initial theme apply
-setThemeMode(localStorage.getItem("bham-theme") || "dark");
+// FORCE RESET legacy dark mode preference
+try {
+  localStorage.removeItem("bham-theme");
+} catch (_) {}
+// Default strictly to light mode
+setThemeMode(localStorage.getItem("bham-theme-mode") || "light");
 
 // ── WebSocket & Status ─────────────────────────────────────────────────────────
 
@@ -255,15 +260,86 @@ function updateTelemetryProgress(session) {
     }
     const protoName = session.protocol?.replace('_', ' ').toUpperCase() || "MULTI";
     if (pSum) pSum.textContent = t("status_running", { proto: protoName, n: found });
+    if (session.protocol) {
+      const pKey = session.protocol.replace("modbus_", "");
+      setRackLed(pKey, "scanning");
+    }
   } else if (status === "completed") {
     clearInterval(scanTimerInterval);
     scanStartTime = null;
     if (pSum) pSum.textContent = t("status_completed", { n: found, pct: pct });
+    resetAllRackLeds();
   } else if (status === "aborted") {
     clearInterval(scanTimerInterval);
     scanStartTime = null;
     if (pSum) pSum.textContent = t("status_aborted");
+    resetAllRackLeds();
   }
+}
+
+// ── Rack Unit LED Status & Console Toggle ──────────────────────────────────────
+
+function setRackLed(proto, state) {
+  const led = document.getElementById(`led-${proto}`);
+  if (!led) return;
+  led.className = "bham-led " + (
+    state === "scanning" ? "led-scanning" :
+    state === "ok" ? "led-ok" : "led-idle"
+  );
+}
+
+function resetAllRackLeds() {
+  ["rtu", "tcp", "bacnet", "knx", "arp", "sniff", "fc43"].forEach(p => {
+    const badge = document.getElementById(`rack-count-${p}`);
+    const hasDev = badge && badge.classList.contains("has-devices");
+    setRackLed(p, hasDev ? "ok" : "idle");
+  });
+}
+
+function expandConsole() {
+  const col = document.getElementById("console-col");
+  if (!col) return;
+  col.classList.remove("collapsed");
+  const btn = document.getElementById("btn-console-toggle");
+  if (btn) {
+    btn.innerHTML = `<svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg> <span data-i18n="console_reduce">Riduci</span>`;
+  }
+  try {
+    localStorage.setItem("bham-console-collapsed", "0");
+  } catch (_) {}
+}
+
+function collapseConsole() {
+  const col = document.getElementById("console-col");
+  if (!col) return;
+  col.classList.add("collapsed");
+  const btn = document.getElementById("btn-console-toggle");
+  if (btn) {
+    btn.innerHTML = `<svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg> <span data-i18n="console_expand">Console</span>`;
+  }
+  try {
+    localStorage.setItem("bham-console-collapsed", "1");
+  } catch (_) {}
+}
+
+function toggleConsole() {
+  const col = document.getElementById("console-col");
+  if (!col) return;
+  if (col.classList.contains("collapsed")) {
+    expandConsole();
+  } else {
+    collapseConsole();
+  }
+}
+
+function handleDockHeaderClick(e) {
+  if (e.target.closest("button, input, label, a, select")) return;
+  toggleConsole();
+}
+
+function openConsoleTab(tab) {
+  expandConsole();
+  switchConsoleTab(tab);
 }
 
 // ── In-Memory Data Upserts ─────────────────────────────────────────────────────
@@ -387,18 +463,18 @@ function renderModbusTable() {
   tb.innerHTML = rows.map(d => {
     const endpoint = d.ip ? `${d.ip}:${d.tcp_port || 502}` : (d.serial_params?.port ? `${d.serial_params.port}:${d.slave_id}` : `ID:${d.slave_id}`);
     const proto = d.protocol === "modbus_tcp" ? "TCP" : "RTU";
-    const ms = d.response_time_ms ? Math.round(d.response_time_ms) : "—";
+    const ms = d.response_time_ms ? `${Math.round(d.response_time_ms)} ms` : "—";
     const vendor = [d.vendor_name, d.model_name].filter(Boolean).join(" ") || "Dispositivo Modbus";
 
     return `
       <tr>
-        <td class="mono color-modbus" style="font-weight:700">${d.slave_id}</td>
-        <td><span class="mono" style="color:var(--bham-text-muted)">${proto}</span></td>
-        <td class="mono" style="color:#e2e8f0">${endpoint}</td>
-        <td class="mono" style="color:#f59e0b">${ms}</td>
-        <td style="color:#f1f5f9;font-weight:500">${vendor}</td>
-        <td><span class="bham-status-badge bham-status-online">Online</span></td>
-        <td><a onclick="inspectModbusSlave(${d.slave_id})" class="bham-action-link">${detailsTxt}</a></td>
+        <td class="cell-mono color-modbus" style="font-weight:700">${d.slave_id}</td>
+        <td><span class="bham-badge-proto ${proto === 'TCP' ? 'proto-tcp' : 'proto-rtu'}">${proto}</span></td>
+        <td class="cell-mono cell-text-main">${endpoint}</td>
+        <td class="cell-mono cell-latency">${ms}</td>
+        <td class="cell-text-main">${vendor}</td>
+        <td><span class="bham-status-badge bham-status-online"><span class="bham-status-dot"></span>Online</span></td>
+        <td><button type="button" onclick="inspectModbusSlave(${d.slave_id})" class="bham-table-action-btn">${detailsTxt}</button></td>
       </tr>
     `;
   }).join("");
@@ -419,12 +495,13 @@ function renderBACnetTable() {
 
     return `
       <tr>
-        <td class="mono color-bacnet" style="font-weight:700">${d.device_id}</td>
-        <td class="mono" style="color:#e2e8f0">${d.address}</td>
-        <td style="color:#f1f5f9">${d.vendor_name || "—"}</td>
-        <td style="color:#cbd5e1">${d.model_name || "—"}</td>
-        <td class="mono text-dim">${fw}</td>
-        <td class="mono" style="color:#c084fc;font-weight:600">${objCount}</td>
+        <td class="cell-mono color-bacnet" style="font-weight:700">${d.device_id}</td>
+        <td class="cell-mono cell-text-main">${d.address}</td>
+        <td class="cell-text-main">${d.vendor_name || "—"}</td>
+        <td class="cell-text-muted">${d.model_name || "—"}</td>
+        <td class="cell-mono cell-text-dim">${fw}</td>
+        <td class="cell-mono cell-text-main" style="font-weight:600">${objCount}</td>
+        <td><button type="button" onclick="inspectBACnetDevice(${d.device_id})" class="bham-table-action-btn">🔍 Oggetti</button></td>
       </tr>
     `;
   }).join("");
@@ -442,12 +519,12 @@ function renderKNXTable() {
   tb.innerHTML = rows.map(k => {
     return `
       <tr>
-        <td class="mono color-knx" style="font-weight:700">${k.individual_address}</td>
-        <td class="mono" style="color:#e2e8f0">${k.ip_address}:${k.port}</td>
-        <td style="color:#f1f5f9">${k.device_name || "KNXnet/IP Device"}</td>
-        <td class="mono text-dim">${k.serial_number || "—"}</td>
-        <td class="mono text-dim">${k.mac_address || "—"}</td>
-        <td><span class="mono" style="color:#fb923c;font-size:10px">${k.medium || "TP1"}</span></td>
+        <td class="cell-mono color-knx" style="font-weight:700">${k.individual_address}</td>
+        <td class="cell-mono cell-text-main">${k.ip_address}:${k.port}</td>
+        <td class="cell-text-main">${k.device_name || "KNXnet/IP Device"}</td>
+        <td class="cell-mono cell-text-dim">${k.serial_number || "—"}</td>
+        <td class="cell-mono cell-text-dim">${k.mac_address || "—"}</td>
+        <td><span class="bham-badge-proto proto-knx">${k.medium || "TP1"}</span></td>
       </tr>
     `;
   }).join("");
@@ -468,11 +545,11 @@ function renderHostsTable() {
 
     return `
       <tr>
-        <td class="mono color-network" style="font-weight:600">${h.ip}</td>
-        <td class="mono text-dim">${h.mac || "—"}</td>
-        <td class="mono" style="color:#e2e8f0">${h.hostname || "—"}</td>
-        <td class="mono text-dim">${firstSeen}</td>
-        <td style="color:#94a3b8">${oui}</td>
+        <td class="cell-mono color-network" style="font-weight:600">${h.ip}</td>
+        <td class="cell-mono cell-text-dim">${h.mac || "—"}</td>
+        <td class="cell-mono cell-text-main">${h.hostname || "—"}</td>
+        <td class="cell-mono cell-text-dim">${firstSeen}</td>
+        <td class="cell-text-muted">${oui}</td>
       </tr>
     `;
   }).join("");
@@ -520,12 +597,46 @@ function updateCounts() {
   if (bKx) bKx.textContent = kx;
   if (bHp) bHp.textContent = hp;
 
+  // Rack Unit Discovery Badges per Channel
+  const mbRtu = store.modbus.filter(d => d.protocol !== "modbus_tcp").length;
+  const mbTcp = store.modbus.filter(d => d.protocol === "modbus_tcp").length;
+
+  const rRtu = document.getElementById("rack-count-rtu");
+  const rTcp = document.getElementById("rack-count-tcp");
+  const rBn  = document.getElementById("rack-count-bacnet");
+  const rKx  = document.getElementById("rack-count-knx");
+  const rHp  = document.getElementById("rack-count-arp");
+
+  if (rRtu) {
+    rRtu.textContent = `${mbRtu} dev`;
+    rRtu.classList.toggle("has-devices", mbRtu > 0);
+  }
+  if (rTcp) {
+    rTcp.textContent = `${mbTcp} dev`;
+    rTcp.classList.toggle("has-devices", mbTcp > 0);
+  }
+  if (rBn) {
+    rBn.textContent = `${bn} dev`;
+    rBn.classList.toggle("has-devices", bn > 0);
+  }
+  if (rKx) {
+    rKx.textContent = `${kx} dev`;
+    rKx.classList.toggle("has-devices", kx > 0);
+  }
+  if (rHp) {
+    rHp.textContent = `${hp} host`;
+    rHp.classList.toggle("has-devices", hp > 0);
+  }
+
   // Telemetry label if idle
   const pSum = document.getElementById("telemetry-summary");
   if (pSum && !scanStartTime) {
     const t = window.t || ((k, p) => k);
     pSum.textContent = t("status_ready", { n: total });
   }
+
+  // Refresh active filter and empty state visibility
+  setProtocolFilter(currentFilter);
 }
 
 // ── Protocol Tabs & Search Handlers ───────────────────────────────────────────
@@ -540,15 +651,54 @@ function setProtocolFilter(filter) {
     }
   });
 
+  const total = store.modbus.length + store.bacnet.length + store.knx.length + store.hosts.length;
+  const emptyState = document.getElementById("discovery-empty-state");
   const cardMb = document.getElementById("card-modbus");
   const cardBn = document.getElementById("card-bacnet");
   const cardKx = document.getElementById("card-knx");
   const cardHp = document.getElementById("card-hosts");
+  const topoContainer = document.getElementById("bham-topology-container");
 
-  if (cardMb) cardMb.style.display = (filter === "all" || filter === "modbus") ? "block" : "none";
-  if (cardBn) cardBn.style.display = (filter === "all" || filter === "bacnet") ? "block" : "none";
-  if (cardKx) cardKx.style.display = (filter === "all" || filter === "knx")    ? "block" : "none";
-  if (cardHp) cardHp.style.display = (filter === "all" || filter === "hosts")  ? "block" : "none";
+  if (currentMainView === "topology") {
+    if (emptyState) emptyState.classList.add("hidden");
+    if (cardMb) cardMb.classList.add("hidden");
+    if (cardBn) cardBn.classList.add("hidden");
+    if (cardKx) cardKx.classList.add("hidden");
+    if (cardHp) cardHp.classList.add("hidden");
+    if (topoContainer) topoContainer.classList.remove("hidden");
+    renderTopology();
+    return;
+  }
+
+  if (topoContainer) topoContainer.classList.add("hidden");
+
+  if (total === 0 && !currentSearch) {
+    if (emptyState) emptyState.classList.remove("hidden");
+    if (cardMb) cardMb.classList.add("hidden");
+    if (cardBn) cardBn.classList.add("hidden");
+    if (cardKx) cardKx.classList.add("hidden");
+    if (cardHp) cardHp.classList.add("hidden");
+    return;
+  }
+
+  if (emptyState) emptyState.classList.add("hidden");
+
+  if (cardMb) {
+    cardMb.classList.remove("hidden");
+    cardMb.style.display = (filter === "all" || filter === "modbus") ? "block" : "none";
+  }
+  if (cardBn) {
+    cardBn.classList.remove("hidden");
+    cardBn.style.display = (filter === "all" || filter === "bacnet") ? "block" : "none";
+  }
+  if (cardKx) {
+    cardKx.classList.remove("hidden");
+    cardKx.style.display = (filter === "all" || filter === "knx")    ? "block" : "none";
+  }
+  if (cardHp) {
+    cardHp.classList.remove("hidden");
+    cardHp.style.display = (filter === "all" || filter === "hosts")  ? "block" : "none";
+  }
 }
 
 function onSearchInput(query) {
@@ -557,6 +707,9 @@ function onSearchInput(query) {
   renderBACnetTable();
   renderKNXTable();
   renderHostsTable();
+  if (currentMainView === "topology") {
+    renderTopology();
+  }
 }
 
 // ── Syntax-Highlighted Live Log Console ───────────────────────────────────────
@@ -611,6 +764,11 @@ function clearConsoleLog() {
   if (badge) {
     badge.textContent = "0";
     badge.style.display = "none";
+  }
+  const centerBadge = document.getElementById("center-frame-badge");
+  if (centerBadge) {
+    centerBadge.textContent = "0";
+    centerBadge.style.display = "none";
   }
 }
 
@@ -705,6 +863,8 @@ function startRTU() {
   const ids   = Array.from({ length: end - start + 1 }, (_, i) => start + i);
   const port  = document.getElementById("setup-port")?.value.trim() || "/dev/ttyUSB0";
 
+  openConsoleTab("log");
+  setRackLed("rtu", "scanning");
   log(`[MODBUS] Avvio scansione RTU range [${start}..${end}] su ${port}...`);
   postAPI("/scan/modbus/rtu", { port, baudrates: [9600, 19200], id_range: ids });
 }
@@ -712,6 +872,10 @@ function startRTU() {
 // ── Console Tabs (Live Log vs RS485 Inspector) ────────────────────────────────
 
 function switchConsoleTab(tab) {
+  const col = document.getElementById("console-col");
+  if (col && col.classList.contains("collapsed")) {
+    expandConsole();
+  }
   const logBtn = document.getElementById("view-tab-log");
   const serialBtn = document.getElementById("view-tab-serial");
   const logConsole = document.getElementById("log-console");
@@ -722,11 +886,19 @@ function switchConsoleTab(tab) {
     serialBtn?.classList.add("active");
     logConsole?.classList.add("hidden");
     serialConsole?.classList.remove("hidden");
+    const scrollCheck = document.getElementById("log-autoscroll");
+    if (serialConsole && (!scrollCheck || scrollCheck.checked)) {
+      serialConsole.scrollTop = serialConsole.scrollHeight;
+    }
   } else {
     serialBtn?.classList.remove("active");
     logBtn?.classList.add("active");
     serialConsole?.classList.add("hidden");
     logConsole?.classList.remove("hidden");
+    const scrollCheck = document.getElementById("log-autoscroll");
+    if (logConsole && (!scrollCheck || scrollCheck.checked)) {
+      logConsole.scrollTop = logConsole.scrollHeight;
+    }
   }
 }
 
@@ -747,9 +919,20 @@ function startSerialSniff() {
     badge.textContent = "0";
     badge.style.display = "inline-block";
   }
+  const centerBadge = document.getElementById("center-frame-badge");
+  if (centerBadge) {
+    centerBadge.textContent = "0";
+    centerBadge.style.display = "inline-block";
+  }
+  const rSniff = document.getElementById("rack-count-sniff");
+  if (rSniff) {
+    rSniff.textContent = "0 frame";
+    rSniff.classList.remove("has-devices");
+  }
+  setRackLed("sniff", "scanning");
 
-  // Switch to inspector view automatically so user sees live frames immediately
-  switchConsoleTab("serial");
+  // Switch to inspector view automatically and expand dock so user sees live frames immediately
+  openConsoleTab("serial");
 
   const durLabel = dur > 0 ? `${dur}s` : "ascolto continuo";
   log(`[SNIFF] Avvio Sniffer Seriale (Zero-TX) su ${port} (proto: ${proto}, baud: ${baud || "auto"}, parità: ${parity}, durata: ${durLabel})...`);
@@ -766,6 +949,7 @@ function startSerialSniff() {
 
 function stopSerialSniff() {
   log("[ABORT] Richiesta arresto sniffer seriale in corso...");
+  setRackLed("sniff", totalSniffedFrames > 0 ? "ok" : "idle");
   abortScan();
 }
 
@@ -775,6 +959,16 @@ function handleSerialFrame(frame) {
   if (badge) {
     badge.textContent = String(totalSniffedFrames);
     badge.style.display = "inline-block";
+  }
+  const centerBadge = document.getElementById("center-frame-badge");
+  if (centerBadge) {
+    centerBadge.textContent = String(totalSniffedFrames);
+    centerBadge.style.display = "inline-block";
+  }
+  const rSniff = document.getElementById("rack-count-sniff");
+  if (rSniff) {
+    rSniff.textContent = `${totalSniffedFrames} frame`;
+    rSniff.classList.add("has-devices");
   }
 
   const tbody = document.getElementById("serial-frames-tbody");
@@ -945,6 +1139,8 @@ function startTCP() {
     .split("\n").map(h => h.trim()).filter(Boolean) || [];
   if (!hosts.length) { log("[WARN] Inserisci almeno un host Modbus TCP."); return; }
   const portVal = document.getElementById("tcp-port")?.value.trim() || "502";
+  openConsoleTab("log");
+  setRackLed("tcp", "scanning");
   log(`[MODBUS] Avvio scansione TCP su ${hosts.length} target (porta/e: ${portVal})...`);
   postAPI("/scan/modbus/tcp", { hosts, tcp_port: portVal });
 }
@@ -952,6 +1148,8 @@ function startTCP() {
 function startBACnet() {
   const iface = document.getElementById("bacnet-iface")?.value.trim() || "";
   const portVal = document.getElementById("bacnet-port")?.value.trim() || "BAC0";
+  openConsoleTab("log");
+  setRackLed("bacnet", "scanning");
   log(`[BACNET] Who-Is inviato in broadcast su ${iface || "default"} (porta: ${portVal})...`);
   postAPI("/scan/bacnet/ip", { iface, port: portVal });
 }
@@ -960,6 +1158,8 @@ function startKNX() {
   const iface = document.getElementById("knx-iface")?.value.trim() || "";
   const portVal = document.getElementById("knx-port")?.value.trim() || "3671";
   const timeout = parseFloat(document.getElementById("cfg-knx-timeout")?.value) || 3.5;
+  openConsoleTab("log");
+  setRackLed("knx", "scanning");
   log(`[KNX] SEARCH_REQUEST inviato via multicast (224.0.23.12:${portVal}) su ${iface || "default"}...`);
   postAPI("/scan/knx/ip", { iface, port: portVal, timeout });
 }
@@ -967,6 +1167,8 @@ function startKNX() {
 function startARP() {
   const iface = document.getElementById("arp-iface")?.value.trim() || "";
   const duration = parseFloat(document.getElementById("arp-dur")?.value) || 30;
+  openConsoleTab("log");
+  setRackLed("arp", "scanning");
   log(`[ARP] Sniffer promiscuo attivo su ${iface || "eth0"} (${duration}s)...`);
   postAPI("/scan/arp", { iface, duration });
 }
@@ -983,21 +1185,25 @@ function startRapidScan() {
 
 async function abortScan() {
   log("[ABORT] Richiesta di arresto immediato inviata a tutti i motori.");
+  resetAllRackLeds();
   await postAPI("/scan/abort", {});
 }
 
 async function clearState() {
   await fetch(`${API}/state`, { method: "DELETE" });
   clearAllTables();
+  resetAllRackLeds();
 }
 
 async function runFC43() {
   const port = document.getElementById("fc43-port")?.value.trim() || "/dev/ttyUSB0";
   const slave_id = parseInt(document.getElementById("fc43-id")?.value) || 1;
+  setRackLed("fc43", "scanning");
   log(`[MODBUS] [FC43] Lettura Device ID MEI per Slave ${slave_id} su ${port}...`);
   const r = await postAPI("/diag/modbus/fc43", {
     port, slave_id, baudrate: 9600, parity: "N", stopbits: 1,
   });
+  setRackLed("fc43", r ? "ok" : "idle");
   if (r) {
     log(`[OK] [FC43] Risultato: ${JSON.stringify(r)}`);
   }
@@ -1005,27 +1211,44 @@ async function runFC43() {
 
 // ── Modbus Slave Inspector Modal ──────────────────────────────────────────────
 
+// ── Modbus Slave Inspector Modal & Smart Scan ─────────────────────────────────
+
+let currentInspectedSlaveId = null;
+
 async function inspectModbusSlave(slaveId) {
   const d = store.modbus.find(x => x.slave_id === slaveId);
   if (!d) return;
 
+  currentInspectedSlaveId = slaveId;
   const modal = document.getElementById("slave-modal");
   const title = document.getElementById("slave-modal-title");
   const metaGrid = document.getElementById("slave-modal-meta");
   const tbody = document.getElementById("slave-modal-registers-tbody");
+  const smartTbody = document.getElementById("slave-modal-smart-tbody");
 
   if (title) title.textContent = `Modbus Slave ID #${d.slave_id} (${d.protocol === 'modbus_tcp' ? 'TCP' : 'RTU'})`;
 
   if (metaGrid) {
     metaGrid.innerHTML = `
       <div><strong>Endpoint:</strong> <span class="mono">${d.ip || d.serial_params?.port || "—"}</span></div>
-      <div><strong>Tempo Risposta:</strong> <span class="mono" style="color:#f59e0b">${d.response_time_ms ? d.response_time_ms.toFixed(1) + 'ms' : '—'}</span></div>
+      <div><strong>Tempo Risposta:</strong> <span class="cell-mono cell-latency">${d.response_time_ms ? d.response_time_ms.toFixed(1) + ' ms' : '—'}</span></div>
       <div><strong>Costruttore:</strong> ${d.vendor_name || 'Non specificato'}</div>
       <div><strong>Modello:</strong> ${d.model_name || 'Non specificato'}</div>
       <div><strong>Rilevato il:</strong> <span class="mono text-dim">${d.discovered_at ? new Date(d.discovered_at).toLocaleString() : '—'}</span></div>
-      <div><strong>Stato:</strong> <span class="bham-status-badge bham-status-online">Online</span></div>
+      <div><strong>Stato:</strong> <span class="bham-status-badge bham-status-online"><span class="bham-status-dot"></span>Online</span></div>
     `;
   }
+
+  // Se abbiamo registri già scoperti in memoria, mostriamoli
+  if (smartTbody) {
+    if (d.registers && Object.keys(d.registers).length) {
+      renderSmartRegisters(Object.values(d.registers));
+    } else {
+      smartTbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:12px">Premi "⚡ Avvia Auto-Scan" per scoprire automaticamente i registri attivi su questo slave.</td></tr>`;
+    }
+  }
+
+  switchSlaveSubTab("mapped");
 
   // Fetch mapped registers from BACS Help
   if (tbody) {
@@ -1038,11 +1261,11 @@ async function inspectModbusSlave(slaveId) {
         if (points.length) {
           tbody.innerHTML = points.map(p => `
             <tr>
-              <td class="mono color-modbus" style="font-weight:700">${p.register}</td>
+              <td class="cell-mono color-modbus" style="font-weight:700">${p.register}</td>
               <td><span class="mono" style="color:var(--bham-text-muted)">${p.register_type.toUpperCase()}</span></td>
-              <td>${p.label} <span class="text-dim">${p.description ? '– ' + p.description : ''}</span></td>
-              <td class="mono" style="color:#38bdf8">${p.unit || '—'}</td>
-              <td class="mono text-dim">${p.scale || 1.0}</td>
+              <td class="cell-text-main">${p.label} <span class="text-dim">${p.description ? '– ' + p.description : ''}</span></td>
+              <td class="cell-mono cell-text-main">${p.unit || '—'}</td>
+              <td class="cell-mono text-dim">${p.scale || 1.0}</td>
             </tr>
           `).join("");
         } else {
@@ -1059,8 +1282,219 @@ async function inspectModbusSlave(slaveId) {
   if (modal) modal.classList.remove("hidden");
 }
 
+function switchSlaveSubTab(tab) {
+  const pMap = document.getElementById("panel-slave-mapped");
+  const pSmart = document.getElementById("panel-slave-smart");
+  const bMap = document.getElementById("btn-tab-slave-mapped");
+  const bSmart = document.getElementById("btn-tab-slave-smart");
+
+  if (tab === "smart") {
+    bMap?.classList.remove("active");
+    bSmart?.classList.add("active");
+    pMap?.classList.add("hidden");
+    pSmart?.classList.remove("hidden");
+  } else {
+    bSmart?.classList.remove("active");
+    bMap?.classList.add("active");
+    pSmart?.classList.add("hidden");
+    pMap?.classList.remove("hidden");
+  }
+}
+
+async function runSmartRegisterScan() {
+  if (currentInspectedSlaveId == null) return;
+  const btn = document.getElementById("btn-run-smart-scan");
+  const origText = btn ? btn.textContent : "⚡ Avvia Auto-Scan";
+  if (btn) {
+    btn.textContent = "⏳ Scansione in corso...";
+    btn.disabled = true;
+  }
+
+  switchSlaveSubTab("smart");
+  const smartTbody = document.getElementById("slave-modal-smart-tbody");
+  if (smartTbody) {
+    smartTbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:12px">Scansione euristica blocchi FC03/FC04 in corso...</td></tr>`;
+  }
+
+  log(`[MODBUS] Avvio Auto-Scan registri su Slave #${currentInspectedSlaveId}...`);
+  try {
+    const res = await postAPI("/modbus/smart-scan", { slave_id: currentInspectedSlaveId });
+    if (res && res.registers && res.registers.length) {
+      renderSmartRegisters(res.registers);
+      log(`[OK] [DONE] Auto-Scan: trovati ${res.found_count} registri attivi su Slave #${currentInspectedSlaveId} in ${res.elapsed_ms}ms.`);
+    } else {
+      if (smartTbody) {
+        smartTbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:12px">Nessun registro attivo riscontrato o errore: ${res?.error || 'Nessuna risposta'}</td></tr>`;
+      }
+      log(`[WARN] Auto-Scan completato: nessun registro rilevato per Slave #${currentInspectedSlaveId}.`);
+    }
+  } catch (err) {
+    if (smartTbody) {
+      smartTbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:12px">Errore durante la scansione: ${err.message}</td></tr>`;
+    }
+  } finally {
+    if (btn) {
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
+  }
+}
+
+function renderSmartRegisters(regList) {
+  const smartTbody = document.getElementById("slave-modal-smart-tbody");
+  if (!smartTbody) return;
+
+  smartTbody.innerHTML = regList.map(r => {
+    const f32Html = r.float32 !== null && r.float32 !== undefined
+      ? `<span class="cell-mono cell-latency" style="font-weight:600">${r.float32}</span>`
+      : `<span class="text-dim">—</span>`;
+
+    return `
+      <tr>
+        <td class="cell-mono color-modbus" style="font-weight:700">${r.address}</td>
+        <td><span class="mono text-dim">${(r.type || 'HOLDING').toUpperCase()}</span></td>
+        <td class="cell-mono cell-text-main">${r.raw_dec}</td>
+        <td class="cell-mono text-dim">${r.raw_hex}</td>
+        <td class="cell-mono cell-text-muted">${r.int16}</td>
+        <td>${f32Html}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
 function closeSlaveModal() {
+  currentInspectedSlaveId = null;
   document.getElementById("slave-modal")?.classList.add("hidden");
+}
+
+// ── BACnet Device Object Explorer Modal ───────────────────────────────────────
+
+let currentBACnetDeviceId = null;
+let currentBACnetObjects = [];
+
+async function inspectBACnetDevice(deviceId) {
+  const d = store.bacnet.find(x => x.device_id === deviceId);
+  if (!d) return;
+
+  currentBACnetDeviceId = deviceId;
+  const modal = document.getElementById("bacnet-modal");
+  const title = document.getElementById("bacnet-modal-title");
+  const metaGrid = document.getElementById("bacnet-modal-meta");
+  const searchInput = document.getElementById("bacnet-obj-search");
+
+  if (searchInput) searchInput.value = "";
+  if (title) title.textContent = `BACnet Device Explorer #${d.device_id} (${d.model_name || 'Generic Device'})`;
+
+  if (metaGrid) {
+    metaGrid.innerHTML = `
+      <div><strong>Indirizzo IP/Porta:</strong> <span class="mono">${d.address}</span></div>
+      <div><strong>Vendor:</strong> ${d.vendor_name || 'Non specificato'} (ID: ${d.vendor_id ?? '—'})</div>
+      <div><strong>Modello:</strong> ${d.model_name || 'Non specificato'}</div>
+      <div><strong>Firmware:</strong> <span class="mono text-dim">${d.firmware_revision || '—'}</span></div>
+      <div><strong>Software Ver:</strong> <span class="mono text-dim">${d.application_software_version || '—'}</span></div>
+      <div><strong>Stato:</strong> <span class="bham-status-badge bham-status-online"><span class="bham-status-dot"></span>Online</span></div>
+    `;
+  }
+
+  if (modal) modal.classList.remove("hidden");
+
+  if (d.object_list && d.object_list.length) {
+    currentBACnetObjects = d.object_list;
+    renderBACnetObjectsTable(currentBACnetObjects);
+  } else {
+    await refreshBACnetObjects();
+  }
+}
+
+async function refreshBACnetObjects() {
+  if (currentBACnetDeviceId == null) return;
+  const tbody = document.getElementById("bacnet-modal-objects-tbody");
+  const countBadge = document.getElementById("bacnet-obj-count-badge");
+  const btn = document.getElementById("btn-refresh-bacnet-objects");
+
+  if (btn) {
+    btn.textContent = "⏳ Lettura...";
+    btn.disabled = true;
+  }
+
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:14px">Interrogazione stack BACnet per elenco oggetti e present_value...</td></tr>`;
+  }
+
+  log(`[BACNET] Esplorazione oggetti per Device #${currentBACnetDeviceId}...`);
+
+  try {
+    const res = await postAPI(`/bacnet/devices/${currentBACnetDeviceId}/objects`, {});
+    currentBACnetObjects = res?.objects || [];
+    renderBACnetObjectsTable(currentBACnetObjects);
+
+    if (countBadge) {
+      countBadge.textContent = `${currentBACnetObjects.length} oggetti`;
+    }
+
+    if (currentBACnetObjects.length) {
+      log(`[OK] [DONE] BACnet Explorer: trovati ${currentBACnetObjects.length} oggetti su Device #${currentBACnetDeviceId}.`);
+    } else {
+      log(`[WARN] Nessun oggetto restituito da Device #${currentBACnetDeviceId}.`);
+    }
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:14px">Errore consultazione oggetti: ${err.message}</td></tr>`;
+    }
+  } finally {
+    if (btn) {
+      btn.textContent = "🔄 Rileggi Oggetti";
+      btn.disabled = false;
+    }
+  }
+}
+
+function renderBACnetObjectsTable(objList) {
+  const tbody = document.getElementById("bacnet-modal-objects-tbody");
+  const countBadge = document.getElementById("bacnet-obj-count-badge");
+  if (countBadge) countBadge.textContent = `${objList.length} oggetti`;
+  if (!tbody) return;
+
+  if (!objList.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:14px">Nessun oggetto trovato o corrispondente al filtro.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = objList.map(obj => {
+    let typeClass = "bham-badge-proto";
+    const t = (obj.type || "").toLowerCase();
+    if (t.includes("analog")) typeClass += " proto-rtu";
+    else if (t.includes("binary")) typeClass += " proto-tcp";
+    else typeClass += " proto-knx";
+
+    return `
+      <tr>
+        <td class="cell-mono color-bacnet" style="font-weight:700">${obj.identifier}</td>
+        <td><span class="${typeClass}" style="font-size:10px">${obj.type}</span></td>
+        <td class="cell-text-main" style="font-weight:600">${obj.name}</td>
+        <td class="cell-mono cell-latency" style="font-weight:600">${obj.present_value}</td>
+        <td class="cell-mono cell-text-muted">${obj.units || '—'}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function filterBACnetObjects(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    renderBACnetObjectsTable(currentBACnetObjects);
+    return;
+  }
+  const filtered = currentBACnetObjects.filter(o => {
+    const hay = `${o.identifier} ${o.type} ${o.name} ${o.present_value} ${o.units}`.toLowerCase();
+    return hay.includes(q);
+  });
+  renderBACnetObjectsTable(filtered);
+}
+
+function closeBACnetModal() {
+  currentBACnetDeviceId = null;
+  document.getElementById("bacnet-modal")?.classList.add("hidden");
 }
 
 // ── Unified Settings Modal (Centro Impostazioni) ───────────────────────────────
@@ -1133,8 +1567,8 @@ async function scanSerialPorts() {
       return;
     }
     el.innerHTML = res.map(p => `
-      <button onclick="document.getElementById('setup-port').value='${p.port}'"
-        style="margin:2px;padding:2px 6px;border-radius:3px;background:var(--bham-bg-canvas);color:#38bdf8;border:1px solid var(--bham-border);cursor:pointer;font-family:monospace;font-size:10px">
+      <button type="button" onclick="document.getElementById('setup-port').value='${p.port}'"
+        style="margin:2px;padding:3px 8px;border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface);color:var(--bham-modbus);border:1px solid var(--bham-border);cursor:pointer;font-family:var(--font-mono, monospace);font-size:11px;font-weight:600">
         ${p.port} ${p.rs485_likely ? '[RS485]' : ''}
       </button>
     `).join("");
@@ -1255,11 +1689,11 @@ async function refreshSavedSessionsList() {
 
       return `
         <tr>
-          <td style="font-weight:600;color:#f1f5f9">${s.name}</td>
+          <td class="cell-text-main" style="font-weight:600">${s.name}</td>
           <td class="mono text-dim">${s.saved_at ? s.saved_at.substring(0, 19).replace('T', ' ') : '—'}</td>
-          <td><span class="mono" style="color:#38bdf8;font-size:10px">${devBadge}</span></td>
+          <td><span class="mono text-dim" style="font-size:11px">${devBadge}</span></td>
           <td style="display:flex;gap:4px">
-            <button onclick="restoreSession('${s.filename}')" class="bham-action-btn-sm" style="color:#34d399">Ripristina</button>
+            <button onclick="restoreSession('${s.filename}')" class="bham-action-btn-sm" style="color:var(--bham-modbus);font-weight:600">Ripristina</button>
             <a href="${API}/saved-sessions/${s.filename}" target="_blank" class="bham-action-btn-sm">JSON</a>
             <button onclick="deleteSessionFile('${s.filename}')" class="bham-action-btn-sm bham-action-btn-danger">Elimina</button>
           </td>
@@ -1359,32 +1793,848 @@ window.addEventListener("keydown", (e) => {
     closeHelpModal();
     closeSaveModal();
     closeSlaveModal();
+    closeTopologyInspector();
   }
 });
+
+// =============================================================================
+// BHAM – Interactive Network Topology Engine (Milestone 1)
+// =============================================================================
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+let currentMainView = "table"; // "table" | "topology"
+
+const topoState = {
+  orientation: "horizontal", // "horizontal" | "vertical"
+  scale: 1,
+  panX: 40,
+  panY: 40,
+  isPanning: false,
+  startX: 0,
+  startY: 0,
+  selectedNodeId: null,
+  nodesMap: {},
+  nodes: [],
+  links: [],
+  initializedEvents: false,
+};
+
+function switchMainView(mode) {
+  currentMainView = mode;
+  const btnTable = document.getElementById("view-mode-table");
+  const btnTopo = document.getElementById("view-mode-topology");
+  const topoContainer = document.getElementById("bham-topology-container");
+  const emptyState = document.getElementById("discovery-empty-state");
+  const cardMb = document.getElementById("card-modbus");
+  const cardBn = document.getElementById("card-bacnet");
+  const cardKx = document.getElementById("card-knx");
+  const cardHp = document.getElementById("card-hosts");
+
+  if (mode === "table") {
+    if (btnTable) btnTable.classList.add("active");
+    if (btnTopo) btnTopo.classList.remove("active");
+    if (topoContainer) topoContainer.classList.add("hidden");
+    setProtocolFilter(currentFilter);
+  } else {
+    if (btnTable) btnTable.classList.remove("active");
+    if (btnTopo) btnTopo.classList.add("active");
+    if (topoContainer) topoContainer.classList.remove("hidden");
+    if (emptyState) emptyState.classList.add("hidden");
+    if (cardMb) cardMb.classList.add("hidden");
+    if (cardBn) cardBn.classList.add("hidden");
+    if (cardKx) cardKx.classList.add("hidden");
+    if (cardHp) cardHp.classList.add("hidden");
+
+    initTopologyEvents();
+    renderTopology();
+    setTimeout(topoFitView, 60);
+  }
+
+  try {
+    localStorage.setItem("bham-main-view", mode);
+  } catch (_) {}
+}
+
+function initTopologyEvents() {
+  if (topoState.initializedEvents) return;
+  topoState.initializedEvents = true;
+
+  const vp = document.getElementById("topology-viewport");
+  if (!vp) return;
+
+  vp.addEventListener("mousedown", (e) => {
+    if (e.target.closest(".topo-node") || e.target.closest(".bham-topo-hud") || e.target.closest(".bham-topo-inspector")) {
+      return;
+    }
+    topoState.isPanning = true;
+    topoState.startX = e.clientX - topoState.panX;
+    topoState.startY = e.clientY - topoState.panY;
+    vp.style.cursor = "grabbing";
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!topoState.isPanning) return;
+    topoState.panX = e.clientX - topoState.startX;
+    topoState.panY = e.clientY - topoState.startY;
+    applyTopologyTransform();
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (topoState.isPanning) {
+      topoState.isPanning = false;
+      if (vp) vp.style.cursor = "grab";
+    }
+  });
+
+  vp.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+    const newScale = Math.min(Math.max(topoState.scale * zoomFactor, 0.25), 3.0);
+
+    topoState.panX = mouseX - (mouseX - topoState.panX) * (newScale / topoState.scale);
+    topoState.panY = mouseY - (mouseY - topoState.panY) * (newScale / topoState.scale);
+    topoState.scale = newScale;
+
+    applyTopologyTransform();
+  }, { passive: false });
+}
+
+function applyTopologyTransform() {
+  const root = document.getElementById("topology-graph-root");
+  if (root) {
+    root.setAttribute("transform", `translate(${topoState.panX.toFixed(1)}, ${topoState.panY.toFixed(1)}) scale(${topoState.scale.toFixed(3)})`);
+  }
+}
+
+function topoZoomIn() {
+  topoState.scale = Math.min(topoState.scale * 1.25, 3.0);
+  applyTopologyTransform();
+}
+
+function topoZoomOut() {
+  topoState.scale = Math.max(topoState.scale * 0.8, 0.25);
+  applyTopologyTransform();
+}
+
+function topoSetOrientation(orient) {
+  topoState.orientation = orient;
+  const btnH = document.getElementById("topo-btn-layout-h");
+  const btnV = document.getElementById("topo-btn-layout-v");
+  if (orient === "horizontal") {
+    if (btnH) btnH.classList.add("active");
+    if (btnV) btnV.classList.remove("active");
+  } else {
+    if (btnH) btnH.classList.remove("active");
+    if (btnV) btnV.classList.add("active");
+  }
+  renderTopology();
+  setTimeout(topoFitView, 50);
+}
+
+function topoFitView() {
+  const vp = document.getElementById("topology-viewport");
+  if (!vp || topoState.nodes.length === 0) return;
+
+  const rect = vp.getBoundingClientRect();
+  const width = rect.width || 800;
+  const height = rect.height || 500;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  topoState.nodes.forEach(n => {
+    minX = Math.min(minX, n.x);
+    maxX = Math.max(maxX, n.x + n.width);
+    minY = Math.min(minY, n.y);
+    maxY = Math.max(maxY, n.y + n.height);
+  });
+
+  const graphW = Math.max(maxX - minX, 100);
+  const graphH = Math.max(maxY - minY, 100);
+
+  const padding = 60;
+  const scaleX = (width - padding * 2) / graphW;
+  const scaleY = (height - padding * 2) / graphH;
+  let newScale = Math.min(scaleX, scaleY, 1.15);
+  newScale = Math.max(newScale, 0.4);
+
+  topoState.scale = newScale;
+  topoState.panX = (width - graphW * newScale) / 2 - minX * newScale;
+  topoState.panY = (height - graphH * newScale) / 2 - minY * newScale;
+
+  applyTopologyTransform();
+}
+
+function buildTopologyData() {
+  const cfg = store.config || {};
+  const siteName = cfg.site_name || "BHAM Field Station";
+  const serialPort = cfg.serial_port || "/dev/ttyUSB0";
+  const baud = cfg.serial_baudrate || 9600;
+  const parity = cfg.serial_parity || "N";
+  const nic = cfg.scan_iface || "eth0";
+  const nicIp = cfg.scan_ip || "";
+
+  const nodes = [];
+  const links = [];
+
+  const showModbus = (currentFilter === "all" || currentFilter === "modbus");
+  const showBacnet = (currentFilter === "all" || currentFilter === "bacnet");
+  const showKnx    = (currentFilter === "all" || currentFilter === "knx");
+  const showHosts  = (currentFilter === "all" || currentFilter === "hosts");
+
+  // 1. Root Host
+  nodes.push({
+    id: "node:host",
+    label: siteName,
+    sublabel: "Host di Collaudo / Master",
+    category: "host",
+    protocol: "system",
+    protoColor: "host",
+    status: "online",
+    parent_id: null,
+    level: 0,
+    width: 184,
+    height: 54,
+    metrics: { "Totale Dispositivi": store.modbus.length + store.bacnet.length + store.knx.length + store.hosts.length },
+    data: { siteName, scanIp: nicIp, serialPort }
+  });
+
+  const rtuDevs = store.modbus.filter(d => d.protocol === "modbus_rtu" || d.serial_params);
+  const tcpDevs = store.modbus.filter(d => d.protocol === "modbus_tcp");
+  const mstpDevs = store.bacnet.filter(d => d.protocol === "bacnet_mstp");
+  const bacnetIpDevs = store.bacnet.filter(d => d.protocol !== "bacnet_mstp");
+
+  const hasSerialDevs = (rtuDevs.length > 0 || mstpDevs.length > 0);
+  const hasIpDevs = (tcpDevs.length > 0 || bacnetIpDevs.length > 0 || store.knx.length > 0 || store.hosts.length > 0);
+
+  // 2. Interfaces
+  if (showModbus || showBacnet || currentFilter === "all") {
+    nodes.push({
+      id: "node:iface:serial",
+      label: serialPort,
+      sublabel: `RS485 (${baud} 8${parity}1)`,
+      category: "interface",
+      protocol: "serial",
+      protoColor: "serial",
+      status: hasSerialDevs ? "active" : "standby",
+      parent_id: "node:host",
+      level: 1,
+      width: 180,
+      height: 52,
+      metrics: { "Baudrate": baud, "Parità": `8${parity}1`, "Stato": hasSerialDevs ? "Attivo" : "Standby" },
+      data: { port: serialPort, baud, parity }
+    });
+    links.push({ source: "node:host", target: "node:iface:serial", protocol: "serial" });
+  }
+
+  if (showModbus || showBacnet || showKnx || showHosts || currentFilter === "all") {
+    nodes.push({
+      id: "node:iface:nic",
+      label: nic,
+      sublabel: nicIp ? nicIp : "Ethernet LAN",
+      category: "interface",
+      protocol: "ethernet",
+      protoColor: "nic",
+      status: hasIpDevs ? "active" : "standby",
+      parent_id: "node:host",
+      level: 1,
+      width: 180,
+      height: 52,
+      metrics: { "Interfaccia": nic, "IP Subnet": nicIp || "dhcp/auto", "Stato": hasIpDevs ? "Attivo" : "Standby" },
+      data: { iface: nic, ip: nicIp }
+    });
+    links.push({ source: "node:host", target: "node:iface:nic", protocol: "ethernet" });
+  }
+
+  // 3. Protocol Buses
+  if (showModbus && (rtuDevs.length > 0 || currentFilter === "modbus" || currentFilter === "all")) {
+    nodes.push({
+      id: "node:bus:modbus_rtu",
+      label: "Modbus RTU Bus",
+      sublabel: `${rtuDevs.length} slave`,
+      category: "bus",
+      protocol: "modbus_rtu",
+      protoColor: "modbus",
+      status: rtuDevs.length > 0 ? "active" : "standby",
+      parent_id: "node:iface:serial",
+      level: 2,
+      width: 176,
+      height: 50,
+      metrics: { "Slave Rilevati": rtuDevs.length, "Protocollo": "Modbus RTU (RS485)" },
+      data: { count: rtuDevs.length }
+    });
+    links.push({ source: "node:iface:serial", target: "node:bus:modbus_rtu", protocol: "modbus" });
+  }
+
+  if (showBacnet && mstpDevs.length > 0) {
+    nodes.push({
+      id: "node:bus:bacnet_mstp",
+      label: "BACnet MS-TP Ring",
+      sublabel: `${mstpDevs.length} nodi`,
+      category: "bus",
+      protocol: "bacnet_mstp",
+      protoColor: "bacnet",
+      status: "active",
+      parent_id: "node:iface:serial",
+      level: 2,
+      width: 176,
+      height: 50,
+      metrics: { "Nodi MS-TP": mstpDevs.length, "Protocollo": "BACnet MS-TP Token Ring" },
+      data: { count: mstpDevs.length }
+    });
+    links.push({ source: "node:iface:serial", target: "node:bus:bacnet_mstp", protocol: "bacnet" });
+  }
+
+  if (showModbus && (tcpDevs.length > 0 || currentFilter === "modbus")) {
+    nodes.push({
+      id: "node:bus:modbus_tcp",
+      label: "Modbus TCP",
+      sublabel: `${tcpDevs.length} server`,
+      category: "bus",
+      protocol: "modbus_tcp",
+      protoColor: "modbus",
+      status: tcpDevs.length > 0 ? "active" : "standby",
+      parent_id: "node:iface:nic",
+      level: 2,
+      width: 176,
+      height: 50,
+      metrics: { "Server Modbus TCP": tcpDevs.length },
+      data: { count: tcpDevs.length }
+    });
+    links.push({ source: "node:iface:nic", target: "node:bus:modbus_tcp", protocol: "modbus" });
+  }
+
+  if (showBacnet && (bacnetIpDevs.length > 0 || currentFilter === "bacnet" || currentFilter === "all")) {
+    nodes.push({
+      id: "node:bus:bacnet_ip",
+      label: "BACnet/IP Network",
+      sublabel: `${bacnetIpDevs.length} dispositivi`,
+      category: "bus",
+      protocol: "bacnet_ip",
+      protoColor: "bacnet",
+      status: bacnetIpDevs.length > 0 ? "active" : "standby",
+      parent_id: "node:iface:nic",
+      level: 2,
+      width: 176,
+      height: 50,
+      metrics: { "Dispositivi BACnet": bacnetIpDevs.length, "Porta": "UDP 47808 (BAC0)" },
+      data: { count: bacnetIpDevs.length }
+    });
+    links.push({ source: "node:iface:nic", target: "node:bus:bacnet_ip", protocol: "bacnet" });
+  }
+
+  if (showKnx && (store.knx.length > 0 || currentFilter === "knx" || currentFilter === "all")) {
+    nodes.push({
+      id: "node:bus:knx_ip",
+      label: "KNXnet/IP Network",
+      sublabel: `${store.knx.length} router/gw`,
+      category: "bus",
+      protocol: "knx_ip",
+      protoColor: "knx",
+      status: store.knx.length > 0 ? "active" : "standby",
+      parent_id: "node:iface:nic",
+      level: 2,
+      width: 176,
+      height: 50,
+      metrics: { "Router KNX": store.knx.length, "Multicast": "224.0.23.12:3671" },
+      data: { count: store.knx.length }
+    });
+    links.push({ source: "node:iface:nic", target: "node:bus:knx_ip", protocol: "knx" });
+  }
+
+  if (showHosts && (store.hosts.length > 0 || currentFilter === "hosts" || currentFilter === "all")) {
+    nodes.push({
+      id: "node:bus:arp",
+      label: "IP Subnet (ARP)",
+      sublabel: `${store.hosts.length} host L2`,
+      category: "bus",
+      protocol: "arp",
+      protoColor: "arp",
+      status: store.hosts.length > 0 ? "active" : "standby",
+      parent_id: "node:iface:nic",
+      level: 2,
+      width: 176,
+      height: 50,
+      metrics: { "Host ARP": store.hosts.length },
+      data: { count: store.hosts.length }
+    });
+    links.push({ source: "node:iface:nic", target: "node:bus:arp", protocol: "arp" });
+  }
+
+  // 4. Device Leaf Nodes
+  if (showModbus) {
+    rtuDevs.forEach(dev => {
+      const nid = `node:dev:modbus:rtu:${dev.slave_id}`;
+      const modelStr = dev.model_name || dev.vendor_name || (dev.registers ? (dev.registers.model || dev.registers.vendor) : "") || `ID #${dev.slave_id}`;
+      const isSniffed = (dev.tags && dev.tags.includes("sniffed"));
+      nodes.push({
+        id: nid,
+        label: `Slave #${dev.slave_id}`,
+        sublabel: modelStr,
+        category: "device",
+        protocol: "modbus_rtu",
+        protoColor: "modbus",
+        status: isSniffed ? "sniffed" : "active",
+        parent_id: "node:bus:modbus_rtu",
+        level: 3,
+        width: 176,
+        height: 50,
+        badge: dev.response_time_ms ? `${dev.response_time_ms.toFixed(0)}ms` : (isSniffed ? "SNIFF" : "OK"),
+        metrics: {
+          "Slave ID": dev.slave_id,
+          "Protocollo": "Modbus RTU",
+          "Porta": dev.serial_params?.port || serialPort,
+          "Latenza": dev.response_time_ms ? `${dev.response_time_ms.toFixed(1)} ms` : "—",
+          "Registri": dev.registers ? Object.keys(dev.registers).length : 0,
+          "Tipo": isSniffed ? "Passivo (Sniffed)" : "Attivo (Sondato)"
+        },
+        data: dev
+      });
+      links.push({ source: "node:bus:modbus_rtu", target: nid, protocol: "modbus" });
+    });
+  }
+
+  if (showBacnet) {
+    mstpDevs.forEach(dev => {
+      const nid = `node:dev:bacnet:mstp:${dev.device_id}`;
+      nodes.push({
+        id: nid,
+        label: `MS-TP #${dev.device_id}`,
+        sublabel: dev.vendor_name || `MAC ${dev.address}`,
+        category: "device",
+        protocol: "bacnet_mstp",
+        protoColor: "bacnet",
+        status: "active",
+        parent_id: "node:bus:bacnet_mstp",
+        level: 3,
+        width: 176,
+        height: 50,
+        badge: "MS-TP",
+        metrics: {
+          "Device ID": dev.device_id,
+          "Indirizzo MAC": dev.address,
+          "Vendor": dev.vendor_name || "—",
+          "Modello": dev.model_name || "—",
+          "Oggetti": dev.object_list ? dev.object_list.length : 0
+        },
+        data: dev
+      });
+      links.push({ source: "node:bus:bacnet_mstp", target: nid, protocol: "bacnet" });
+    });
+  }
+
+  if (showModbus) {
+    tcpDevs.forEach(dev => {
+      const nid = `node:dev:modbus:tcp:${dev.ip}_${dev.tcp_port}_${dev.slave_id}`;
+      nodes.push({
+        id: nid,
+        label: `TCP #${dev.slave_id}`,
+        sublabel: `${dev.ip}:${dev.tcp_port}`,
+        category: "device",
+        protocol: "modbus_tcp",
+        protoColor: "modbus",
+        status: "active",
+        parent_id: "node:bus:modbus_tcp",
+        level: 3,
+        width: 176,
+        height: 50,
+        badge: `${dev.tcp_port}`,
+        metrics: {
+          "Slave ID": dev.slave_id,
+          "IP": dev.ip,
+          "Porta TCP": dev.tcp_port,
+          "Latenza": dev.response_time_ms ? `${dev.response_time_ms.toFixed(1)} ms` : "—"
+        },
+        data: dev
+      });
+      links.push({ source: "node:bus:modbus_tcp", target: nid, protocol: "modbus" });
+    });
+  }
+
+  if (showBacnet) {
+    bacnetIpDevs.forEach(dev => {
+      const nid = `node:dev:bacnet:ip:${dev.device_id}`;
+      const subParts = [dev.vendor_name, dev.model_name].filter(Boolean);
+      const sub = subParts.length ? subParts.join(" - ") : dev.address;
+      nodes.push({
+        id: nid,
+        label: `Dev #${dev.device_id}`,
+        sublabel: sub,
+        category: "device",
+        protocol: "bacnet_ip",
+        protoColor: "bacnet",
+        status: "active",
+        parent_id: "node:bus:bacnet_ip",
+        level: 3,
+        width: 176,
+        height: 50,
+        badge: dev.object_list ? `${dev.object_list.length} obj` : "BACnet",
+        metrics: {
+          "Device ID": dev.device_id,
+          "Indirizzo": dev.address,
+          "Vendor": dev.vendor_name || "—",
+          "Modello": dev.model_name || "—",
+          "Firmware": dev.firmware_revision || "—",
+          "Oggetti": dev.object_list ? dev.object_list.length : 0
+        },
+        data: dev
+      });
+      links.push({ source: "node:bus:bacnet_ip", target: nid, protocol: "bacnet" });
+    });
+  }
+
+  if (showKnx) {
+    store.knx.forEach(dev => {
+      const nid = `node:dev:knx:${dev.individual_address}`;
+      nodes.push({
+        id: nid,
+        label: `KNX ${dev.individual_address}`,
+        sublabel: dev.device_name || dev.ip_address,
+        category: "device",
+        protocol: "knx_ip",
+        protoColor: "knx",
+        status: "active",
+        parent_id: "node:bus:knx_ip",
+        level: 3,
+        width: 176,
+        height: 50,
+        badge: dev.medium || "TP1",
+        metrics: {
+          "Indirizzo Fisico": dev.individual_address,
+          "Nome": dev.device_name || "—",
+          "IP": `${dev.ip_address}:${dev.port || 3671}`,
+          "MAC": dev.mac_address || "—",
+          "Seriale": dev.serial_number || "—",
+          "Medium": dev.medium || "TP1"
+        },
+        data: dev
+      });
+      links.push({ source: "node:bus:knx_ip", target: nid, protocol: "knx" });
+    });
+  }
+
+  if (showHosts) {
+    store.hosts.forEach(host => {
+      const nid = `node:dev:arp:${host.ip.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      nodes.push({
+        id: nid,
+        label: host.ip,
+        sublabel: host.hostname || host.mac || "Host L2",
+        category: "device",
+        protocol: "arp",
+        protoColor: "arp",
+        status: "active",
+        parent_id: "node:bus:arp",
+        level: 3,
+        width: 176,
+        height: 50,
+        badge: "ARP",
+        metrics: {
+          "Indirizzo IP": host.ip,
+          "MAC Address": host.mac || "—",
+          "Hostname": host.hostname || "—",
+          "Rilevato": host.first_seen ? new Date(host.first_seen).toLocaleTimeString() : "—"
+        },
+        data: host
+      });
+      links.push({ source: "node:bus:arp", target: nid, protocol: "arp" });
+    });
+  }
+
+  return { nodes, links };
+}
+
+function calculateTopologyLayout(nodes, links, orientation) {
+  const nodesMap = {};
+  nodes.forEach(n => {
+    nodesMap[n.id] = n;
+    n.children = [];
+  });
+
+  links.forEach(l => {
+    if (nodesMap[l.source] && nodesMap[l.target]) {
+      nodesMap[l.source].children.push(nodesMap[l.target]);
+    }
+  });
+
+  const isHoriz = (orientation === "horizontal");
+  const colDistance = isHoriz ? 250 : 120;
+  const rowDistance = isHoriz ? 68 : 190;
+
+  let leafCounter = 0;
+  function layoutSubtree(node) {
+    if (!node.children || node.children.length === 0) {
+      node.slot = leafCounter++;
+      return;
+    }
+    node.children.forEach(c => layoutSubtree(c));
+    const first = node.children[0].slot;
+    const last = node.children[node.children.length - 1].slot;
+    node.slot = (first + last) / 2;
+  }
+
+  const root = nodesMap["node:host"];
+  if (root) {
+    layoutSubtree(root);
+  } else {
+    nodes.forEach((n, idx) => { n.slot = idx; });
+  }
+
+  nodes.forEach(n => {
+    if (isHoriz) {
+      n.x = (n.level || 0) * colDistance + 40;
+      n.y = (n.slot !== undefined ? n.slot : 0) * rowDistance + 40;
+    } else {
+      n.x = (n.slot !== undefined ? n.slot : 0) * rowDistance + 40;
+      n.y = (n.level || 0) * colDistance + 40;
+    }
+  });
+
+  return { nodes, links, nodesMap };
+}
+
+function renderTopology() {
+  const container = document.getElementById("bham-topology-container");
+  if (!container || container.classList.contains("hidden")) return;
+
+  const rawData = buildTopologyData();
+  const { nodes, links, nodesMap } = calculateTopologyLayout(rawData.nodes, rawData.links, topoState.orientation);
+  topoState.nodes = nodes;
+  topoState.links = links;
+  topoState.nodesMap = nodesMap;
+
+  const linksLayer = document.getElementById("topology-links-layer");
+  const nodesLayer = document.getElementById("topology-nodes-layer");
+  if (!linksLayer || !nodesLayer) return;
+
+  linksLayer.innerHTML = "";
+  nodesLayer.innerHTML = "";
+
+  const isHoriz = (topoState.orientation === "horizontal");
+
+  links.forEach(l => {
+    const s = nodesMap[l.source];
+    const t = nodesMap[l.target];
+    if (!s || !t) return;
+
+    let x1, y1, x2, y2, d;
+    if (isHoriz) {
+      x1 = s.x + s.width;
+      y1 = s.y + s.height / 2;
+      x2 = t.x;
+      y2 = t.y + t.height / 2;
+      const dx = (x2 - x1) * 0.45;
+      d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+    } else {
+      x1 = s.x + s.width / 2;
+      y1 = s.y + s.height;
+      x2 = t.x + t.width / 2;
+      y2 = t.y;
+      const dy = (y2 - y1) * 0.45;
+      d = `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
+    }
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    path.setAttribute("class", `topo-link link-${l.protocol || 'system'}`);
+    path.setAttribute("marker-end", `url(#arrow-${l.protocol || 'system'})`);
+    path.dataset.source = l.source;
+    path.dataset.target = l.target;
+    linksLayer.appendChild(path);
+  });
+
+  nodes.forEach(n => {
+    const isSelected = (topoState.selectedNodeId === n.id);
+    const matchesSearchFilter = matchesSearch(n.label) || matchesSearch(n.sublabel) || matchesSearch(n.protocol);
+    const isDimmed = (currentSearch && !matchesSearchFilter);
+
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", `topo-node ${isSelected ? 'selected' : ''} ${isDimmed ? 'dimmed' : ''}`);
+    g.setAttribute("transform", `translate(${n.x}, ${n.y})`);
+    g.setAttribute("data-id", n.id);
+    g.onclick = (e) => {
+      e.stopPropagation();
+      selectTopologyNode(n.id);
+    };
+
+    let badgeHtml = "";
+    if (n.badge) {
+      badgeHtml = `
+        <rect class="topo-node-badge-bg topo-accent-${n.protoColor}" x="${n.width - 50}" y="8" width="42" height="15" fill-opacity="0.15"></rect>
+        <text class="topo-node-badge-text" x="${n.width - 29}" y="19" text-anchor="middle" fill="currentColor">${escapeHtml(n.badge)}</text>
+      `;
+    }
+
+    g.innerHTML = `
+      <rect class="topo-node-card" width="${n.width}" height="${n.height}"></rect>
+      <rect class="topo-node-accent topo-accent-${n.protoColor}" x="0" y="0" width="${isHoriz ? 4 : n.width}" height="${isHoriz ? n.height : 4}"></rect>
+      <text class="topo-node-title" x="14" y="23">${escapeHtml(n.label)}</text>
+      <text class="topo-node-sub" x="14" y="39">${escapeHtml(n.sublabel)}</text>
+      ${badgeHtml}
+    `;
+
+    nodesLayer.appendChild(g);
+  });
+}
+
+function selectTopologyNode(nodeId) {
+  topoState.selectedNodeId = nodeId;
+  const n = topoState.nodesMap[nodeId];
+  if (!n) return;
+
+  document.querySelectorAll(".topo-node").forEach(el => {
+    el.classList.toggle("selected", el.getAttribute("data-id") === nodeId);
+  });
+
+  const inspector = document.getElementById("topology-inspector");
+  const icon = document.getElementById("topo-inspect-icon");
+  const label = document.getElementById("topo-inspect-label");
+  const sublabel = document.getElementById("topo-inspect-sublabel");
+  const body = document.getElementById("topo-inspect-body");
+  const actions = document.getElementById("topo-inspect-actions");
+
+  if (!inspector || !label || !body || !actions) return;
+
+  if (icon) {
+    icon.className = `bham-topo-inspect-icon topo-accent-${n.protoColor}`;
+    icon.textContent = n.label.substring(0, 3).toUpperCase();
+  }
+
+  label.textContent = n.label;
+  sublabel.textContent = `${n.sublabel} • ${n.protocol.toUpperCase()}`;
+
+  let rowsHtml = "";
+  if (n.metrics) {
+    for (const [k, v] of Object.entries(n.metrics)) {
+      if (typeof v === "object" && v !== null) continue;
+      rowsHtml += `
+        <div class="topo-inspect-row">
+          <span class="topo-inspect-key">${escapeHtml(k)}</span>
+          <span class="topo-inspect-val mono">${escapeHtml(String(v))}</span>
+        </div>
+      `;
+    }
+  }
+  body.innerHTML = rowsHtml;
+
+  let actHtml = "";
+  if (n.protocol === "modbus_rtu" && n.data && n.data.slave_id) {
+    actHtml += `<button class="bham-btn-action bham-btn-rtu" onclick="inspectModbusSlave(${n.data.slave_id})"><span data-i18n="topo_btn_modbus_details">🔍 Dettagli Slave / Mappa</span></button>`;
+  } else if (n.protocol === "modbus_tcp" && n.data && n.data.slave_id) {
+    actHtml += `<button class="bham-btn-action bham-btn-tcp" onclick="inspectModbusSlave(${n.data.slave_id})"><span data-i18n="topo_btn_modbus_details">🔍 Dettagli Slave / Mappa</span></button>`;
+  } else if ((n.protocol === "bacnet_ip" || n.protocol === "bacnet_mstp") && n.data && n.data.device_id) {
+    actHtml += `<button class="bham-btn-action bham-btn-bacnet" onclick="inspectBACnetDevice(${n.data.device_id})"><span data-i18n="topo_btn_bacnet_objects">🔍 Esplora Oggetti</span></button>`;
+  } else if (n.id === "node:iface:serial") {
+    actHtml += `<button class="bham-btn-action bham-btn-sniff" onclick="openConsoleTab('serial')"><span>📊 RS485 Inspector</span></button>`;
+  }
+
+  actHtml += `<button class="bham-btn-secondary" onclick="switchMainView('table')"><span data-i18n="topo_btn_show_table">📋 Mostra in Tabella</span></button>`;
+
+  actions.innerHTML = actHtml;
+  inspector.classList.remove("hidden");
+}
+
+function closeTopologyInspector() {
+  const inspector = document.getElementById("topology-inspector");
+  if (inspector) inspector.classList.add("hidden");
+  topoState.selectedNodeId = null;
+  document.querySelectorAll(".topo-node.selected").forEach(el => el.classList.remove("selected"));
+}
+
+function exportTopologySVG() {
+  const svg = document.getElementById("topology-svg");
+  if (!svg) return;
+
+  const clone = svg.cloneNode(true);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `
+    .topo-node-card { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 7; ry: 7; }
+    .topo-node-title { font-family: sans-serif; font-size: 11.5px; font-weight: bold; fill: #0f172a; }
+    .topo-node-sub { font-family: monospace; font-size: 9.5px; fill: #64748b; }
+    .topo-link { fill: none; stroke-width: 1.8; stroke-linecap: round; }
+    .link-serial { stroke: #f59e0b; }
+    .link-ethernet { stroke: #10b981; }
+    .link-modbus { stroke: #0284c7; }
+    .link-bacnet { stroke: #8b5cf6; }
+    .link-knx { stroke: #ea580c; }
+    .link-arp { stroke: #10b981; stroke-dasharray: 4 3; }
+    .link-system { stroke: #64748b; }
+    .topo-accent-host { fill: #2563eb; }
+    .topo-accent-serial { fill: #d97706; }
+    .topo-accent-nic { fill: #059669; }
+    .topo-accent-modbus { fill: #0284c7; }
+    .topo-accent-bacnet { fill: #7c3aed; }
+    .topo-accent-knx { fill: #c2410c; }
+    .topo-accent-arp { fill: #059669; }
+    .topo-grid-dot { fill: #cbd5e1; }
+  `;
+  clone.insertBefore(styleEl, clone.firstChild);
+
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const site = (store.config?.site_name || "bham_topology").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  a.href = url;
+  a.download = `${site}_${ts}.svg`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  log("[OK] Mappa topologica esportata con successo in formato vettoriale SVG.");
+}
 
 // ── Initialize App ────────────────────────────────────────────────────────────
 
 function loadSavedScanParams() {
   try {
     const raw = localStorage.getItem("bham-scan-params");
-    if (!raw) return;
-    const p = JSON.parse(raw);
-    if (p.slow && document.getElementById("cfg-rtu-slow")) document.getElementById("cfg-rtu-slow").value = p.slow;
-    if (p.fast && document.getElementById("cfg-rtu-fast")) document.getElementById("cfg-rtu-fast").value = p.fast;
-    if (p.spy && document.getElementById("cfg-spy-ids")) document.getElementById("cfg-spy-ids").value = p.spy;
-    if (p.knxTimeout && document.getElementById("cfg-knx-timeout")) document.getElementById("cfg-knx-timeout").value = p.knxTimeout;
-    if (p.arpDur && document.getElementById("cfg-arp-dur")) document.getElementById("cfg-arp-dur").value = p.arpDur;
-    if (p.tcpPort) {
-      if (document.getElementById("cfg-modbus-tcp-port")) document.getElementById("cfg-modbus-tcp-port").value = p.tcpPort;
-      setTcpPortPreset(p.tcpPort);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p.slow && document.getElementById("cfg-rtu-slow")) document.getElementById("cfg-rtu-slow").value = p.slow;
+      if (p.fast && document.getElementById("cfg-rtu-fast")) document.getElementById("cfg-rtu-fast").value = p.fast;
+      if (p.spy && document.getElementById("cfg-spy-ids")) document.getElementById("cfg-spy-ids").value = p.spy;
+      if (p.knxTimeout && document.getElementById("cfg-knx-timeout")) document.getElementById("cfg-knx-timeout").value = p.knxTimeout;
+      if (p.arpDur && document.getElementById("cfg-arp-dur")) document.getElementById("cfg-arp-dur").value = p.arpDur;
+      if (p.tcpPort) {
+        if (document.getElementById("cfg-modbus-tcp-port")) document.getElementById("cfg-modbus-tcp-port").value = p.tcpPort;
+        setTcpPortPreset(p.tcpPort);
+      }
+      if (p.bacnetPort) {
+        if (document.getElementById("cfg-bacnet-port")) document.getElementById("cfg-bacnet-port").value = p.bacnetPort;
+        setBacnetPortPreset(p.bacnetPort);
+      }
+      if (p.knxPort) {
+        if (document.getElementById("cfg-knx-port")) document.getElementById("cfg-knx-port").value = p.knxPort;
+        setKnxPortPreset(p.knxPort);
+      }
     }
-    if (p.bacnetPort) {
-      if (document.getElementById("cfg-bacnet-port")) document.getElementById("cfg-bacnet-port").value = p.bacnetPort;
-      setBacnetPortPreset(p.bacnetPort);
+    const coll = localStorage.getItem("bham-console-collapsed");
+    const col = document.getElementById("console-col");
+    if (col) {
+      if (coll === "1") {
+        collapseConsole();
+      } else {
+        expandConsole();
+      }
     }
-    if (p.knxPort) {
-      if (document.getElementById("cfg-knx-port")) document.getElementById("cfg-knx-port").value = p.knxPort;
-      setKnxPortPreset(p.knxPort);
+    const savedView = localStorage.getItem("bham-main-view");
+    if (savedView === "topology") {
+      switchMainView("topology");
     }
   } catch (e) {
     console.warn("Failed to load saved scan params:", e);

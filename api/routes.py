@@ -38,6 +38,11 @@ async def get_state() -> dict:
     return state.snapshot()
 
 
+@router.get("/topology", tags=["data"], summary="Ritorna la mappa topologica gerarchica dell'impianto")
+async def get_topology() -> dict:
+    return state.get_topology()
+
+
 @router.delete("/state", tags=["data"])
 async def clear_state() -> dict:
     state.clear()
@@ -168,12 +173,16 @@ async def start_arp_sniff(req: ARPSniffRequest) -> dict:
     return {"session_id": session.id, "status": "started"}
 
 
+@router.post("/scan/abort", tags=["scans"])
+async def abort_all_scans() -> dict:
+    from scanners.base import abort_all
+    return {"aborted": True, "sessions": abort_all()}
+
+
 @router.post("/scan/abort/{session_id}", tags=["scans"])
 async def abort_scan(session_id: str) -> dict:
-    from scanners.base import _abort_events
-    if session_id not in _abort_events:
-        _abort_events[session_id] = asyncio.Event()
-    _abort_events[session_id].set()
+    from scanners.base import abort_session
+    abort_session(session_id)
     return {"aborted": True}
 
 
@@ -475,4 +484,64 @@ async def get_slave_map(slave_id: int) -> dict:
         "point_count": len(points),
         "points": [p.to_dict() for p in points],
     }
+
+
+# ── Modbus Smart Register Scan ────────────────────────────────────────────────
+
+class ModbusSmartScanBody(BaseModel):
+    slave_id: int
+    protocol: Optional[str] = "rtu"
+    port: Optional[str] = None
+    baudrate: int = 9600
+    parity: str = "N"
+    stopbits: int = 1
+    ip: Optional[str] = None
+    tcp_port: int = 502
+
+
+@router.post("/modbus/smart-scan", tags=["modbus"],
+             summary="Esegue scansione euristica dei registri su uno slave")
+async def modbus_smart_scan(body: ModbusSmartScanBody) -> dict:
+    from scanners.modbus import smart_register_scan
+    port = body.port
+    baudrate = body.baudrate
+    parity = body.parity
+    stopbits = body.stopbits
+    ip = body.ip
+    tcp_port = body.tcp_port
+
+    if not ip and not port:
+        with state._state_lock:
+            for d in state.modbus_devices.values():
+                if d.slave_id == body.slave_id:
+                    if d.protocol == Protocol.MODBUS_TCP:
+                        ip = d.ip
+                        tcp_port = d.tcp_port
+                    elif d.serial_params:
+                        port = d.serial_params.port
+                        baudrate = d.serial_params.baudrate
+                        parity = d.serial_params.parity.value if hasattr(d.serial_params.parity, "value") else str(d.serial_params.parity)
+                        stopbits = d.serial_params.stopbits
+                    break
+
+    return await smart_register_scan(
+        slave_id=body.slave_id,
+        port=port,
+        baudrate=baudrate,
+        parity=parity,
+        stopbits=stopbits,
+        ip=ip,
+        tcp_port=tcp_port,
+    )
+
+
+# ── BACnet Object Explorer ────────────────────────────────────────────────────
+
+@router.get("/bacnet/devices/{device_id}/objects", tags=["bacnet"],
+            summary="Esplora gli oggetti BACnet di un dispositivo")
+@router.post("/bacnet/devices/{device_id}/objects", tags=["bacnet"],
+             summary="Esplora gli oggetti BACnet di un dispositivo")
+async def get_bacnet_objects(device_id: int, address: Optional[str] = None) -> dict:
+    from scanners.bacnet import explore_bacnet_objects
+    return await explore_bacnet_objects(device_id=device_id, address=address)
 

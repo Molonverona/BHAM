@@ -1,23 +1,25 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.3)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.5.0)
 
 ---
 
 ## 1. Panoramica del Sistema & Architettura
 **BHAM (BACS Help Auto Mapper)** è una piattaforma di collaudo industriale, ricognizione e diagnostica attiva/passiva progettata per impianti di automazione edificio (BACS / BMS).
-Consente l'inventario rapido, l'identificazione hardware, l'arricchimento dei registri e l'esportazione di verbali di collaudo per reti:
-- **Modbus RTU (RS485)** (Scansione attiva e Sniffing passivo Zero-TX)
+Consente l'inventario rapido, l'identificazione hardware, l'arricchimento dei registri, la visualizzazione topologica e l'esportazione di verbali di collaudo per reti:
+- **Modbus RTU (RS485)** (Scansione attiva, Smart Scan registri e Sniffing passivo Zero-TX)
 - **Modbus TCP**
-- **BACnet/IP & BACnet MS-TP** (Who-Is Discovery e Sniffing passivo Zero-TX)
+- **BACnet/IP & BACnet MS-TP** (Who-Is Discovery, Object Explorer e Sniffing passivo Zero-TX)
 - **KNXnet/IP**
 - **Sottoreti IP (ARP Passive Sniffer)**
 - **Diagnostica Telemetrica Bus Health (RS485)**
+- **Mappa Topologica d'Impianto Interattiva (Network Graph)**
 
 ### Architettura
 - **Backend:** Python 3.12, FastAPI, WebSocket streaming a bassa latenza, protocolli nativi asincroni (`pymodbus`, `bacpypes3`, `scapy`).
-- **Frontend:** Micro-client industriale Vanilla JS ad alte prestazioni senza framework esterni, ottimizzato per notebook da cantiere e tablet.
+- **Frontend:** Field Engineer Studio v4.2 in Vanilla JS ad alte prestazioni senza dipendenze esterne: architettura a 2 colonne (Sidebar Canali 360px + Workspace centrale con Switcher Vista Tabella/Topologia + Dock Diagnostico a scomparsa).
+- **Mappa Topologica SVG:** Engine vettoriale nativo con calcolo gerarchico, Pan & Zoom continuo, fit-to-screen, orientamento H/V ed esportazione vettoriale .svg.
 - **Reporting:** Generazione istantanea di verbali in formato **PDF Vettoriale a due passate (ReportLab)** e **Fogli Excel (openpyxl)** con fogli dedicati e metadati.
-- **Internazionalizzazione (i18n):** Supporto completo e reattivo per **Italiano**, **Inglese** e **Spagnolo**.
+- **Internazionalizzazione (i18n):** Supporto completo e reattivo per **Italiano**, **Inglese** e **Spagnolo** (202 chiavi per lingua).
 
 ---
 
@@ -32,7 +34,11 @@ Consente l'inventario rapido, l'identificazione hardware, l'arricchimento dei re
    - BACnet/IP Who-Is Broadcast
    - KNXnet/IP Discovery
    - ARP Passive Sniffer
-4. **Esportazione Verbale:** Scarica i risultati cliccando sui pulsanti **PDF**, **Excel** o **CSV**.
+4. **Visualizzazione & Esplorazione:**
+   - Consulta le tabelle dispositivi per protocollo nel Workspace centrale.
+   - Clicca su **Mappa Topologica** per osservare l'albero d'impianto interattivo con canali fisici e nodi.
+   - Ispeziona gli oggetti BACnet con l'**Object Explorer** e mappa i registri Modbus con lo **Smart Scan**.
+5. **Esportazione Verbale:** Scarica i risultati cliccando sui pulsanti **PDF**, **Excel** o esporta la mappa topologica in formato **SVG**.
 
 ---
 
@@ -58,6 +64,12 @@ Interrogazione diretta dello standard MEI (Modbus Encapsulated Interface) per ot
 - Codice Prodotto (Product Code)
 - Versione Revisione Firmware (Major/Minor Revision).
 
+### Modbus Smart Register Scan:
+Funzionalità euristica per il sondaggio automatico dei registri di uno slave Modbus:
+- Esegue una scansione predittiva a blocchi su indirizzi standard per Holding Registers (FC03), Input Registers (FC04), Coils (FC01) e Discrete Inputs (FC02).
+- Distingue registri attivi da indirizzi non mappati o errori di eccezione (Illegal Data Address 0x02).
+- Popola la mappa registri dello slave con visualizzazione immediata dei valori in formato Integer, Float ed Esadecimale.
+
 ---
 
 ## 4. Motore BACnet/IP Discovery
@@ -71,6 +83,13 @@ Interrogazione diretta dello standard MEI (Modbus Encapsulated Interface) per ot
   - `model-name` e `firmware-revision`
   - `application-software-version`
   - `object-list` (conteggio punti fisici ed entità software configurate).
+
+### BACnet Object Explorer:
+Consente l'esplorazione gerarchica approfondita di tutti gli oggetti istanziati su un dispositivo BACnet selezionato:
+- Interrogazione asincrona della proprietà `object-list` con risoluzione puntuale delle proprietà fondamentali.
+- Supporto per tutti i tipi standard BACnet: Analog Input/Output/Value (AI/AO/AV), Binary Input/Output/Value (BI/BO/BV), Multi-state (MSI/MSO/MSV), Schedule, Trend Log, Calendar, Notification Class, Device, Loop.
+- Visualizzazione in tempo reale di Present Value, Unità di Misura (Engineering Units), Status Flags (In Alarm, Fault, Overridden, Out of Service) e Object Name.
+- Filtri veloci per tipologia di oggetto e casella di ricerca immediata per nome/istanza.
 
 ---
 
@@ -150,11 +169,14 @@ Documentazione Swagger interattiva su: `http://localhost:8765/docs`
 | `GET` | `/api/v1/health` | Stato del servizio e client WebSocket connessi |
 | `GET` | `/api/v1/state` | Snapshot completo di tutti i dispositivi rilevati |
 | `DELETE` | `/api/v1/state` | Reset memoria e azzeramento stato di collaudo |
+| `GET` | `/api/v1/topology` | Modello topologico ad albero gerarchico d'impianto |
 | `POST` | `/api/v1/scan/modbus/rtu` | Avvio scansione Modbus RTU seriale attiva |
 | `POST` | `/api/v1/scan/modbus/tcp` | Avvio scansione Modbus TCP su elenco host |
+| `POST` | `/api/v1/scan/modbus/smart-scan` | Smart Scan euristico registri slave Modbus |
 | `POST` | `/api/v1/scan/serial/sniff` | Avvio ascolto passivo RS485 Zero-TX (Modbus RTU & BACnet MS-TP) |
 | `GET` | `/api/v1/diag/serial/health` | Metriche Bus Health in tempo reale (PER %, FPS, Bus Load %, nodi attivi) |
 | `POST` | `/api/v1/scan/bacnet/ip` | Avvio Who-Is broadcast BACnet/IP |
+| `GET` | `/api/v1/scan/bacnet/device/{device_id}/objects` | Esplorazione completa oggetti dispositivo BACnet |
 | `POST` | `/api/v1/scan/knx/ip` | Avvio discovery multicast KNXnet/IP |
 | `POST` | `/api/v1/scan/arp` | Avvio sniffer promiscuo ARP L2 |
 | `POST` | `/api/v1/scan/abort` | Arresto immediato di tutte le scansioni e sniffer |
@@ -165,3 +187,24 @@ Documentazione Swagger interattiva su: `http://localhost:8765/docs`
 | `DELETE`| `/api/v1/saved-sessions/{file}` | Eliminazione di una sessione salvata |
 | `GET` | `/api/v1/report/pdf` | Download diretto report di collaudo in PDF vettoriale |
 | `GET` | `/api/v1/report/excel` | Download diretto report di collaudo in formato Excel |
+
+---
+
+## 11. Mappa Topologica Interattiva (Network Graph)
+La vista **Mappa Topologica** fornisce una rappresentazione grafica immediata dell'infrastruttura d'impianto rilevata, evidenziando le relazioni tra canali fisici (bus seriale RS485, schede di rete Ethernet) e periferiche di campo.
+
+### Funzionalità dell'Engine Grafico SVG:
+- **Albero Gerarchico d'Impianto:**
+  - **Nodo Radice (Root):** Rappresenta l'host BHAM con l'indicazione della sessione attiva.
+  - **Nodi Canale (Livello 1):** Linea seriale RS485 (porta, baudrate, parità) e Rete Ethernet (interfaccia, IP locale, subnet).
+  - **Nodi Dispositivo (Livello 2):** Periferiche scoperte con badge colorati per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP) e contatori (registri mappati, oggetti BACnet).
+- **Controlli HUD Flottanti:**
+  - **Zoom In / Zoom Out (`+` / `-`):** Ingrandimento continuo o riduzione dell'area di lavoro (supportato anche tramite rotellina del mouse).
+  - **Fit-to-Screen (Adatta Vista):** Ricalcola coordinate e scala per centrare l'intero grafo nell'area visibile.
+  - **Orientamento Orizzontale / Verticale:** Commuta la disposizione dell'albero tra sviluppo orizzontale (da sinistra a destra) e verticale (dall'alto in basso).
+  - **Filtro di Ricerca Live:** Evidenzia istantaneamente i nodi corrispondenti a nome, costruttore o indirizzo/slave ID, sfocando i nodi non pertinenti.
+- **Node Quick Inspector (Drawer Laterale):**
+  - Cliccando su qualsiasi nodo della mappa, si apre il pannello laterale con i dettagli completi del dispositivo (tipo, protocollo, indirizzo, vendor, canali/registri).
+  - Include scorciatoie contestuali per aprire direttamente il **BACnet Object Explorer** o l'**Ispezione Slave Modbus**.
+- **Esportazione Vettoriale SVG:**
+  - Il pulsante **Esporta SVG** genera un file vettoriale `.svg` autonomo ad alta definizione, ideale per allegare lo schema as-built ai verbali di collaudo o presentazioni al cliente.

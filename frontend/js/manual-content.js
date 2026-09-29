@@ -16,7 +16,8 @@ const MANUAL_DATA = {
       { id: "arp", title: "6. ARP Passive Sniffer" },
       { id: "maps", title: "7. Mappe Registri BACS Help" },
       { id: "troubleshoot", title: "8. Troubleshooting da Campo" },
-      { id: "api", title: "9. REST API & Webhooks" }
+      { id: "api", title: "9. REST API & Webhooks" },
+      { id: "topology", title: "10. Mappa Topologica & Explorer" }
     ],
     content: {
       intro: `
@@ -212,6 +213,33 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
 
         <p><strong>4. Ripristino Sessione Salvata:</strong></p>
         <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/saved-sessions/20260927_103507_Test_Site.json/restore</pre>
+      `,
+      topology: `
+        <h3>10. Mappa Topologica Interattiva &amp; Explorer Avanzati</h3>
+        <p>La <strong>Mappa Topologica</strong> (accessibile dallo switcher vista in alto a destra nel Workspace) trasforma l'inventario testuale in un albero vettoriale SVG dinamico, illustrando l'architettura di interconnessione fisica e logica dell'impianto BMS.</p>
+
+        <h4>Gerarchia dell'Albero d'Impianto:</h4>
+        <ul>
+          <li><strong>Root (Host BHAM):</strong> Nodo centrale rappresentante la postazione di collaudo con l'indicazione della sessione attiva.</li>
+          <li><strong>Canali Fisici:</strong> Ramo seriale RS485 (porta COM/ttyUSB, velocità baud, parità) e Ramo di rete Ethernet (interfaccia NIC, indirizzo IP, subnet).</li>
+          <li><strong>Nodi Dispositivo:</strong> Periferiche scoperte collegate al rispettivo canale, con codice colore per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP) e contatori integrati.</li>
+        </ul>
+
+        <h4>Controlli HUD e Navigazione:</h4>
+        <ul>
+          <li><strong>Pan &amp; Zoom:</strong> Trascina la mappa con il mouse per effettuare il pan. Usa i tasti <code>+</code> e <code>-</code> dell'HUD o la rotellina del mouse per lo zoom continuo.</li>
+          <li><strong>Adatta Vista (Fit-to-Screen):</strong> Centra e ridimensiona l'intero albero per adattarlo automaticamente al viewport.</li>
+          <li><strong>Orientamento:</strong> Commuta l'albero tra layout orizzontale (da sinistra a destra) e verticale (dall'alto in basso).</li>
+          <li><strong>Filtro di Ricerca Live:</strong> Digita nel box di ricerca per evidenziare i nodi corrispondenti per nome, costruttore o ID/IP, attenuando gli altri.</li>
+          <li><strong>Esporta SVG:</strong> Scarica il diagramma vettoriale <code>.svg</code> ad alta risoluzione per la documentazione finale d'impianto.</li>
+        </ul>
+
+        <h4>Quick Node Inspector &amp; Explorer:</h4>
+        <p>Cliccando su un qualsiasi nodo della mappa si apre il cassetto laterale <em>Node Quick Inspector</em> con i metadati completi del dispositivo e pulsanti di accesso rapido:</p>
+        <ul>
+          <li><strong>BACnet Object Explorer:</strong> Naviga gerarchicamente tutti gli oggetti del dispositivo (AI, AO, AV, BI, BO, BV, MSI, MSO, Schedules, Trend Logs) con Present Value e Status Flags.</li>
+          <li><strong>Ispezione Modbus &amp; Smart Scan:</strong> Esegue il sondaggio euristico dei registri standard con decodifica automatica in numeri interi, decimali float o stringhe.</li>
+        </ul>
       `
     }
   },
@@ -226,7 +254,8 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
       { id: "arp", title: "6. ARP Passive Sniffer" },
       { id: "maps", title: "7. BACS Help Point Maps" },
       { id: "troubleshoot", title: "8. Field Troubleshooting" },
-      { id: "api", title: "9. REST API & Webhooks" }
+      { id: "api", title: "9. REST API & Webhooks" },
+      { id: "topology", title: "10. Topological Map & Explorer" }
     ],
     content: {
       intro: `
@@ -415,6 +444,33 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
 
         <p><strong>3. Emergency Abort:</strong></p>
         <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/scan/abort</pre>
+      `,
+      topology: `
+        <h3>10. Interactive Topological Map &amp; Advanced Explorers</h3>
+        <p>The <strong>Topological Map</strong> (accessible via the view switcher button in the top right of the Workspace) turns the device inventory into an interactive SVG network graph, illustrating the physical and logical architecture of the BMS installation.</p>
+
+        <h4>Plant Hierarchy Tree:</h4>
+        <ul>
+          <li><strong>Root Node (BHAM Host):</strong> Represents the commissioning workstation and active site session.</li>
+          <li><strong>Physical Channels:</strong> RS485 Serial branch (port, baud rate, parity) and Ethernet branch (NIC interface, local IP, subnet).</li>
+          <li><strong>Device Nodes:</strong> Field controllers connected to their respective channel, color-coded by protocol (Cyan=Modbus, Purple=BACnet, Orange=KNX, Emerald=ARP) with resource counters.</li>
+        </ul>
+
+        <h4>HUD Controls &amp; Interaction:</h4>
+        <ul>
+          <li><strong>Pan &amp; Zoom:</strong> Drag with mouse to pan. Use <code>+</code> and <code>-</code> buttons or mouse wheel for smooth continuous zooming.</li>
+          <li><strong>Fit to Screen:</strong> Automatically scales and centers the graph within the viewport.</li>
+          <li><strong>Orientation Toggle:</strong> Switch tree layout between Horizontal (left-to-right) and Vertical (top-to-bottom).</li>
+          <li><strong>Live Search Filter:</strong> Type in the HUD search input to highlight matching nodes by name, vendor, or IP/Slave ID while dimming non-matching nodes.</li>
+          <li><strong>Export SVG:</strong> Downloads a standalone high-resolution <code>.svg</code> vector file suitable for commissioning reports and submittals.</li>
+        </ul>
+
+        <h4>Node Quick Inspector &amp; Explorers:</h4>
+        <p>Clicking any node opens the lateral <em>Node Quick Inspector</em> drawer with full telemetry details and direct action buttons:</p>
+        <ul>
+          <li><strong>BACnet Object Explorer:</strong> Hierarchically navigate all instantiated objects (AI, AO, AV, BI, BO, BV, MSI, MSO, Schedules, Trend Logs) with Present Value and Status Flags.</li>
+          <li><strong>Modbus Smart Register Scan:</strong> Heuristic discovery of standard holding, input, and coil registers with automatic integer, float, and hex decoding.</li>
+        </ul>
       `
     }
   },
@@ -429,7 +485,8 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
       { id: "arp", title: "6. Sniffer Pasivo ARP" },
       { id: "maps", title: "7. Mapas BACS Help" },
       { id: "troubleshoot", title: "8. Resolución de Problemas" },
-      { id: "api", title: "9. REST API & Webhooks" }
+      { id: "api", title: "9. REST API & Webhooks" },
+      { id: "topology", title: "10. Mapa Topológico & Explorer" }
     ],
     content: {
       intro: `
@@ -546,6 +603,33 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
       api: `
         <h3>9. REST API &amp; Webhooks</h3>
         <p>Documentación Swagger interactiva disponible en <a href="/docs" target="_blank" style="color:var(--bham-modbus)">/docs</a>.</p>
+      `,
+      topology: `
+        <h3>10. Mapa Topológico Interactivo y Exploradores Avanzados</h3>
+        <p>El <strong>Mapa Topológico</strong> (accesible desde el conmutador de vistas en la parte superior derecha del área de trabajo) convierte el inventario de dispositivos en un grafo de red vectorial SVG interactivo, mostrando la arquitectura física y lógica de la instalación BMS.</p>
+
+        <h4>Árbol Jerárquico de la Instalación:</h4>
+        <ul>
+          <li><strong>Nodo Raíz (Host BHAM):</strong> Representa el puesto de comisionamiento y la sesión activa.</li>
+          <li><strong>Canales Físicos:</strong> Canal serie RS485 (puerto, baudios, paridad) y Canal de red Ethernet (interfaz NIC, IP local, subred).</li>
+          <li><strong>Nodos de Dispositivos:</strong> Periféricos descubiertos conectados a su canal, codificados por colores según el protocolo (Cian=Modbus, Púrpura=BACnet, Naranja=KNX, Esmeralda=ARP) con contadores integrados.</li>
+        </ul>
+
+        <h4>Controles HUD y Navegación:</h4>
+        <ul>
+          <li><strong>Pan y Zoom:</strong> Arrastre con el ratón para desplazar. Utilice los botones <code>+</code> y <code>-</code> del HUD o la rueda del ratón para zoom continuo.</li>
+          <li><strong>Ajustar a Pantalla (Fit):</strong> Centra y escala el grafo para encajarlo perfectamente en la vista.</li>
+          <li><strong>Orientación:</strong> Cambia la disposición entre árbol horizontal (izquierda a derecha) o vertical (arriba hacia abajo).</li>
+          <li><strong>Filtro de Búsqueda:</strong> Resalta en tiempo real los nodos que coincidan por nombre, fabricante o IP/ID.</li>
+          <li><strong>Exportar SVG:</strong> Descarga el diagrama vectorial <code>.svg</code> de alta resolución para la documentación de entrega de obra.</li>
+        </ul>
+
+        <h4>Inspector Rápido de Nodos y Exploradores:</h4>
+        <p>Al hacer clic en cualquier nodo se abre el cajón lateral <em>Node Quick Inspector</em> con telemetría completa y accesos directos:</p>
+        <ul>
+          <li><strong>BACnet Object Explorer:</strong> Navegación jerárquica de todos los objetos (AI, AO, AV, BI, BO, BV, MSI, MSO, horarios, tendencias) con Present Value y Status Flags.</li>
+          <li><strong>Modbus Smart Scan:</strong> Escaneo predictivo de registros estándar con conversión automática a entero, flotante y hexadecimal.</li>
+        </ul>
       `
     }
   }

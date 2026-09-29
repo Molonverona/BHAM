@@ -360,3 +360,197 @@ class BACnetScanner(BaseScanner):
 
         except Exception as exc:
             log.warning("Property read failed for device %d: %s", device.device_id, exc)
+
+
+# =========================================================================
+# Object Explorer – Interactive Object List Discovery & Inspection
+# =========================================================================
+
+async def explore_bacnet_objects(
+    device_id: int,
+    address: Optional[str] = None,
+    timeout: float = 3.0,
+) -> dict[str, Any]:
+    """
+    Enumerate and read all BACnet objects (Analog Input/Output, Binary, etc.)
+    and their presentValue, objectName, units, and outOfService status.
+    """
+    dev = state.bacnet_devices.get(device_id)
+    target_addr_str = address or (dev.address if dev else None)
+    if not target_addr_str:
+        return {
+            "device_id": device_id,
+            "error": f"Nessun indirizzo noto per il dispositivo BACnet #{device_id}",
+            "objects": dev.object_list if dev else [],
+        }
+
+    try:
+        from bacpypes3.ipv4.app import NormalApplication
+        from bacpypes3.pdu import IPv4Address, Address
+        from bacpypes3.local.device import DeviceObject
+        from bacpypes3.primitivedata import ObjectIdentifier, CharacterString
+        from bacpypes3.basetypes import PropertyIdentifier
+
+        local_device = DeviceObject(
+            objectIdentifier=ObjectIdentifier(f"device,9995"),
+            objectName="BHAM-obj-explorer",
+            vendorIdentifier=999,
+        )
+        bind_addr = IPv4Address("127.0.0.1/24:0")
+        app = NormalApplication(local_device, bind_addr)
+        if hasattr(app.normal.server, "_transport_tasks") and app.normal.server._transport_tasks:
+            await asyncio.gather(*app.normal.server._transport_tasks)
+    except Exception as exc:
+        return {
+            "device_id": device_id,
+            "error": f"Inizializzazione stack BACnet fallita: {exc}",
+            "objects": dev.object_list if dev else [],
+        }
+
+    discovered_objects: list[dict[str, Any]] = []
+    try:
+        target = Address(target_addr_str)
+        dev_obj_id = ObjectIdentifier(f"device,{device_id}")
+
+        # 1. Prova a leggere 'object-list'
+        obj_identifiers: list[Any] = []
+        try:
+            val = await asyncio.wait_for(
+                app.read_property(target, dev_obj_id, "object-list"),
+                timeout=timeout,
+            )
+            if isinstance(val, (list, tuple)):
+                obj_identifiers = list(val)
+        except Exception as exc:
+            logger.debug("Lettura diretta object-list non riuscita per device %d: %s. Tentativo probe selettivo.", device_id, exc)
+
+        # 2. Se object-list non è disponibile o vuota, prova con probe selettivo dei tipi comuni
+        if not obj_identifiers:
+            common_types = [
+                ("analog-input", range(0, 5)),
+                ("analog-value", range(0, 5)),
+                ("binary-input", range(0, 5)),
+                ("binary-value", range(0, 5)),
+            ]
+            for obj_type, instances in common_types:
+                for inst in instances:
+                    obj_identifiers.append((obj_type, inst))
+
+        # 3. Lettura dettagliata per ciascun oggetto (limite di sicurezza a 150 oggetti per evitare freeze)
+        consecutive_timeouts = 0
+        for item in obj_identifiers[:150]:
+            if consecutive_timeouts >= 2:
+                # Se due probe consecutivi vanno in timeout/errore, l'host non è raggiungibile: esci subito
+                break
+            try:
+                if isinstance(item, tuple) or hasattr(item, "__getitem__"):
+                    obj_type_str = str(item[0]).lower().replace("_", "-")
+                    obj_inst = int(item[1])
+                elif isinstance(item, str):
+                    parts = item.split(",") if "," in item else item.split(":")
+                    obj_type_str = parts[0].strip().lower().replace("_", "-")
+                    obj_inst = int(parts[1].strip())
+                elif hasattr(item, "value"):
+                    # bacpypes3 ObjectIdentifier instance
+                    obj_type_str = str(item.value[0]).lower().replace("_", "-")
+                    obj_inst = int(item.value[1])
+                else:
+                    continue
+
+                if obj_type_str == "device":
+                    continue
+
+                cur_obj_id = ObjectIdentifier(f"{obj_type_str},{obj_inst}")
+
+                # Read object-name
+                name = ""
+                try:
+                    name_val = await asyncio.wait_for(
+                        app.read_property(target, cur_obj_id, "object-name"),
+                        timeout=0.4,
+                    )
+                    name = str(name_val) if name_val is not None else ""
+                except Exception:
+                    pass
+
+                # Read present-value
+                pres_val = None
+                try:
+                    pv_val = await asyncio.wait_for(
+                        app.read_property(target, cur_obj_id, "present-value"),
+                        timeout=0.4,
+                    )
+                    if pv_val is not None:
+                        pres_val = str(pv_val)
+                except Exception:
+                    pass
+
+                # If both name and present_value failed on probed list, object doesn't exist
+                if not name and pres_val is None:
+                    consecutive_timeouts += 1
+                    continue
+
+                consecutive_timeouts = 0
+
+                # Read units (for analog objects)
+                units = ""
+                if "analog" in obj_type_str or "accumulator" in obj_type_str:
+                    try:
+                        u_val = await asyncio.wait_for(
+                            app.read_property(target, cur_obj_id, "units"),
+                            timeout=0.4,
+                        )
+                        if u_val is not None:
+                            units = str(u_val)
+                    except Exception:
+                        pass
+
+                # Format human readable units
+                unit_map = {
+                    "degrees-celsius": "°C",
+                    "degrees-fahrenheit": "°F",
+                    "percent": "%",
+                    "parts-per-million": "ppm",
+                    "pascals": "Pa",
+                    "kilopascals": "kPa",
+                    "bars": "bar",
+                    "volts": "V",
+                    "amperes": "A",
+                    "kilowatt-hours": "kWh",
+                    "kilowatts": "kW",
+                    "liters-per-second": "l/s",
+                    "cubic-meters-per-hour": "m³/h",
+                    "hertz": "Hz",
+                    "revolutions-per-minute": "rpm",
+                }
+                display_unit = unit_map.get(units.lower(), units)
+
+                discovered_objects.append({
+                    "identifier": f"{obj_type_str}:{obj_inst}",
+                    "type": obj_type_str,
+                    "instance": obj_inst,
+                    "name": name or f"{obj_type_str}_{obj_inst}",
+                    "present_value": pres_val if pres_val is not None else "—",
+                    "units": display_unit,
+                })
+            except Exception as item_err:
+                logger.debug("Error exploring object %s: %s", item, item_err)
+                continue
+
+    finally:
+        try:
+            await app.close()
+        except Exception:
+            pass
+
+    # Aggiorna lo stato se il dispositivo è censito
+    if dev:
+        dev.object_list = discovered_objects
+        state.upsert_bacnet(dev)
+
+    return {
+        "device_id": device_id,
+        "address": target_addr_str,
+        "count": len(discovered_objects),
+        "objects": discovered_objects,
+    }

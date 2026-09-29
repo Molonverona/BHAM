@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bham"
-version = "0.4.1"
+version = "0.5.0"
 description = "BACS Help Auto Mapper – Industrial discovery and diagnostics daemon for Building Automation systems"
 readme = "README.md"
 requires-python = ">=3.12"

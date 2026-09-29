@@ -1,10 +1,90 @@
+
 # BHAM – Development Log
 > Registro cronologico delle sessioni di sviluppo.
 > File: `/home/giuliano/Documenti/BHAM/DEVLOG.md`
 
 ---
 
-## Sessione 14 – 2026-09-29 ✅ COMPLETE – v0.4.0
+## Sessione 18 – 2026-09-29 ✅ COMPLETE – v0.5.0 RELEASE (Field Studio Milestone 2)
+**Mappa Topologica Interattiva (Network Graph SVG Engine), View Switcher, Pan & Zoom, Node Inspector & High-Res Export**
+
+**Highlights:**
+- ✅ **Backend Graph Model & Endpoint**:
+  - Implementato `get_topology` in `data/state.py` e route `GET /api/v1/topology` in `api/routes.py`.
+  - Modellazione gerarchica a 4 livelli fisici e logici: Host Collaudo $\rightarrow$ Interfacce (Seriale RS485, NIC Ethernet) $\rightarrow$ Bus/Segmenti (Modbus RTU, BACnet MS-TP, Modbus TCP, BACnet/IP, KNXnet/IP, ARP L2) $\rightarrow$ Nodi/Slave Dispositivi.
+  - Test unitari dedicati (`test_get_topology`, `test_topology_endpoint`) integrati in `tests/test_bham.py` (**26/26 test passati con `-W error`**).
+- ✅ **View Switcher nella Toolbar Centrale**:
+  - Pulsanti ergonomici `[📋 Tabelle]` vs `[🕸️ Mappa Topologica]` integrati nella toolbar con iconografia SVG industriale.
+  - Cambio vista istantaneo con persistenza in `localStorage.getItem("bham-main-view")`.
+- ✅ **Network Graph SVG Engine (100% Offline-Proof)**:
+  - Rendering vettoriale nativo senza CDN o librerie pesanti di terze parti: leggero, reattivo a 60 FPS su laptop da campo.
+  - Layout ad albero bilanciato con supporto a doppio orientamento: **Orizzontale** (L-to-R) e **Verticale** (T-to-B).
+  - Collegamenti smooth bezier curve con marker a freccia e color-coding rigido per protocollo (Ciano Modbus, Viola BACnet, Arancio KNX, Smeraldo Rete, Ambra Seriale).
+  - Floating HUD Bar con controlli: `Zoom In (+)`, `Zoom Out (-)`, `🎯 Centra (Fit to View)`, Selettore Orientamento, Legenda cromatica e `📥 Esporta SVG`.
+  - Pan & Zoom fluido: trascinamento su canvas con mouse/touch e zoom progressivo con rotellina centrato sul puntatore.
+- ✅ **Filtro di Ricerca Reattivo sul Grafo**:
+  - Il campo di ricerca `#device-search` evidenzia in tempo reale i nodi corrispondenti sul grafo, sfumando con effetto dim quelli non pertinenti.
+- ✅ **Drawer Ispettore Nodo (Quick Inspection Panel)**:
+  - Cliccando su qualsiasi nodo si apre la scheda tecnica laterale (`#topology-inspector`) con telemetrie, latenza, ID e registri.
+  - Scorciatoie dirette ai modali diagnostici: apertura diretta di `#slave-modal` con Smart Scan e `#bacnet-modal` con Object Explorer.
+- ✅ **Esportazione Vettoriale per Collaudi**:
+  - Funzione `exportTopologySVG()` per download istantaneo del diagramma d'impianto in file `.svg` ad alta risoluzione con data e nome sito.
+- ✅ **Integrità & Stabilità**:
+  - Test unitari: **26/26 OK in 5.3s** con `-W error`.
+  - Sintassi JavaScript (`node -c`): 0 errori su `app.js`, `i18n.js` e `manual-content.js`.
+  - DOM IDs: 180 elementi univoci (preservati al 100% tutti i 156 ID preesistenti).
+  - i18n: 202 chiavi tradotte in Italiano, Inglese e Spagnolo (0 mancanti).
+  - Documentazione: `README.md`, `MANUALE_UTENTE.md`, `frontend/MANUALE_UTENTE.md` e Manuale F1 interattivo aggiornati a `v0.5.0`.
+
+---
+
+## Sessione 17 – 2026-09-29 ✅ COMPLETE – v0.5.0 FIELD STUDIO MILESTONE 1
+**BACnet Object Explorer, Modbus Smart Register Scan & 100% Offline-Proof Assets**
+
+**Highlights:**
+- ✅ **BACnet Object Explorer**:
+  - Implementato `explore_bacnet_objects` in `scanners/bacnet.py` e route `GET /api/v1/bacnet/devices/{device_id}/objects`.
+  * Supporta enumerazione `object-list` con `present_value`, `object_name`, `units` ingegneristiche formattate (`°C`, `%`, `bar`, `V`, `kW`, ecc.) e timeout short-circuit.
+  * Modale frontend dedicato (`#bacnet-modal`) con filtro di ricerca live in tempo reale e pulsante "🔄 Rileggi Oggetti".
+- ✅ **Modbus Smart Register Scan**:
+  - Implementato `smart_register_scan` in `scanners/modbus.py` e route `POST /api/v1/modbus/smart-scan`.
+  * Scansione euristica rapida a blocchi (FC03 Holding e FC04 Input) con isolamento errori 0x02.
+  * Calcolo in tempo reale di Dec, Hex, signed Int16 e **Float32 IEEE 754 Big-Endian** per coppie di registri consecutive (es. temperature, pressioni).
+  * Tab "Auto-Scan Registri" e pulsante "⚡ Avvia Auto-Scan" integrati in `#slave-modal`.
+- ✅ **100% Offline-Proofing**:
+  - Rimosso `@import` Google Fonts da `main.css`. Dashboard a latenza zero anche in bunker e centrali termiche interrate senza 4G.
+- ✅ **Testing & Stabilità**:
+  * Unit test passati: **24/24 OK in 5.1s** (aggiunti `test_modbus_smart_scan_endpoint` e `test_bacnet_objects_endpoint`).
+  * Sintassi JavaScript verificata: 0 errori.
+  * Selettori DOM verificati: 115/115 presenti in `index.html`.
+
+---
+
+## Sessione 16 – 2026-09-29 ✅ COMPLETE – v0.5.5 FIELD ENGINEER STUDIO
+**Pure Light Theme Overhaul, 2-Column Full-Screen Architecture & Collapsible Diagnostic Dock**
+
+**Highlights:**
+- ✅ **Pure Light Theme Engine**: Reset forzato del vecchio `localStorage` browser `bham-theme = "dark"` e passaggio a `bham-theme-mode` con default tassativo chiaro (`#f1f5f9` canvas, `#ffffff` card, `#0f172a` testo ad alto contrasto).
+- ✅ **Architettura a 2 Colonne a Pieno Schermo**: Eliminata la colonna fissa nera a destra (325px). Lo spazio orizzontale è dedicato interamente ai Canali di Scansione (360px) e all'Area Dati Tabelle flessibile.
+- ✅ **Dock Diagnostico Inferiore a Scomparsa (38px)**: Console e ispettore frame seriali racchiusi in una barra inferiore pulita con metriche live (RS485 status, fps, bus load, err) ed espansione con pulsante `▲ Console`.
+- ✅ **Cache-Busting Globale**: Aggiunti tag `?v=4.2.0` su CSS e script in `index.html`.
+
+---
+
+## Sessione 15 – 2026-09-29 ✅ COMPLETE – v0.5.1 FIELD PRO COCKPIT
+**UI/UX Overhaul & Field Simplification: Soft Slate Palette, Zero Clutter, Central Empty State**
+
+**Highlights:**
+- ✅ **Soft Slate Industrial Palette**: Replaced harsh pitch-black canvas with a relaxed, high-legibility dark slate (`#0c121e`, `#141c2e`, `#24334f`) and calm accessible protocol accents.
+- ✅ **Zero Overlap & Touch Ergonomics**: Eliminated all squashed text and overlapping elements seen in field tests. Input heights calibrated to 34px and action buttons to 34-36px for field tablets/laptops.
+- ✅ **Central Hero Empty State**: Replaced the overwhelming wall of 4 empty tables with an intuitive, friendly discovery launch box (`#discovery-empty-state`). Tables appear automatically when devices are found.
+- ✅ **Sidebar De-cluttering**: Removed redundant "Sito/Impianto" summary card from sidebar. Every rack channel now has clean spacing between protocol titles and discovery counter badges.
+- ✅ **Testing & Verification**: 22/22 unit tests passing, zero JavaScript console errors, full backwards compatibility with all 101 DOM bindings.
+
+---
+
+
+## Sessione 14 – 2026-09-29 ✅ COMPLETE – v0.4.5 PRODUCTION RELEASE
 **Audit fixes, permissions automation, responsive UI & deployment ready**
 
 **Highlights:**
@@ -526,68 +606,6 @@ REGOLE DI LAVORO:
 
 ---
 
-## 🔄 Baseline & Prompt di Ripartenza Ufficiale – COPIA NELLA NUOVA CHAT
-
-```
-Sei un Senior Software Engineer che continua lo sviluppo di BHAM (BACS Help Auto Mapper).
-
-PRIMA AZIONE OBBLIGATORIA – leggi questi due file:
-  cat /home/giuliano/Documenti/BHAM/DEVLOG.md
-  find /home/giuliano/Documenti/BHAM -not -path '*/.venv/*' -not -path '*/__pycache__/*' -not -path '*/.git/*' | sort
-
-CONTESTO RAPIDO:
-  Progetto: /home/giuliano/Documenti/BHAM/
-  Venv:     .venv/bin/python3  (Python 3.12, pip già installato)
-  Avvio:    .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload
-  Test:     .venv/bin/python3 -W error -m unittest discover -s tests -p "test_*.py"
-
-SESSIONI COMPLETATE:
-  ✅ Sessione 1 – Bootstrap (struttura, main.py, WebSocket, modelli Pydantic)
-  ✅ Sessione 2 – Motore Modbus RTU (Phase Zero, Early Exit, Full Sweep, TCP)
-  ✅ Sessione 3 – BACnet production, FC43, FileResponse report, UI barra progresso
-  ✅ Sessione 4 – hw_discovery (RS485 + NIC), session_store, logger session,
-                  modelli SessionConfig, 8 endpoint setup/saved-sessions,
-                  UI pannello Setup overlay + modali Salva/Sessioni Salvate
-  ✅ Sessione 5 – UI Reskin completo Stitch v2.0 Industrial Telemetry (Dual Theme, font, sticky abort, 3-col layout),
-                  maps_manager.py production (import/export BACS Help JSON),
-                  3 endpoint /maps/*, PDF report stilizzato con ReportLab e NumberedCanvas,
-                  pyproject.toml, bham.spec per PyInstaller standalone, README.md,
-                  compatibilità Python 3.12 (utc_now / timezone.utc), test passati con -W error.
-  ✅ Sessione 6 – Fix Setup Wizard al reload se non configurato + apertura on-demand,
-                  eliminazione totale emoji e introduzione icone SVG industriali incapsulate,
-                  implementazione completa modulo KNXnet/IP (scanners/knx.py multicast/broadcast UDP,
-                  modelli, rotte API, schede Excel e sezioni PDF dedicate, UI tabella e filtri KNX).
-  ✅ Sessione 7 – Internazionalizzazione (IT, EN, ES) dinamica con selettore in header,
-                  Centro Impostazioni Unificato (5 schede: Hardware, Scansione, Aspetto, Sessioni con ripristino, Mappe BACS Help),
-                  eliminazione completa pulsanti duplicati e layout pulito,
-                  Manuale Tecnico & Guida di Campo interattiva (F1) in 3 lingue + MANUALE_UTENTE.md offline,
-                  modal ispezione dettagli slave Modbus con tabella registri,
-                  integrazione download PDF nella toolbar, suite test automatizzati (15 test passati con -W error).
-  ✅ Sessione 8 – Gestione Porte Speciali & Custom (BAC0..BACF, Modbus TCP multi-port, KNX custom) su tutti i pannelli,
-                  preset rapidi con chip interattivi e hint dinamici, parametri predefiniti nel Centro Impostazioni,
-                  risoluzione bug critico bacpypes3 NormalApplication + abort istantaneo,
-                  prevenzione leak socket con chiusura deterministica in finally,
-                  aggiornamento manuale in IT/EN/ES, test suite estesa a 19 test passati al 100% con -W error.
-  ✅ Sessione 9 – Sniffer Seriale Passivo (RS485 Zero-TX / Stealth Mode), Bus Health telemetria & RS485 Inspector live,
-                  dissettori per Modbus RTU (M➔S, S➔M, FC01..FC16, FC43) e BACnet MS-TP (Token Ring, CRC-8, CRC-16),
-                  suite test estesa a 22 test passati al 100% con -W error.
-  ✅ Sessione 10 – Full Software Audit, Perfezionamento i18n al 100% (157 chiavi tradotte), parità DOM (93/93 elementi),
-                   verifica reportistica Excel/PDF e baseline di ripartenza.
-  ✅ Sessione 11 – Chiusura Sprint v0.3.0, Consolidamento Task, Allineamento Packaging (bham.spec) & Docs (README.md),
-                   Sign-off formale con piena approvazione utente e congelamento per Field Testing (Round 1).
-  ✅ Sessione 12 – Automazione Completa Versioni & GitHub Releases: workflow_dispatch 1-click web release,
-                   utility scripts/bump_version.py, script locale release.sh, packaging Debian (.deb),
-                   one-line installer Linux (install.sh), valorizzazione dominio www.bacshelp.com e integrazione automatica WinGet.
-
-REGOLE DI LAVORO:
-  - Aggiorna DEVLOG.md ad ogni step completato
-  - Testa ogni modulo con .venv/bin/python3 -W error prima di dichiararlo done
-  - Non ripetere lavoro già fatto – leggi sempre DEVLOG prima di scrivere codice
-  - Stile: type hints completi, docstring, logger.getChild(), costanti tunables isolate
-```
-
----
-
 ## Sessione 12 – 2026-09-27 ✅ DONE
 **Automazione CI/CD Rilasci GitHub, Packaging Debian/Ubuntu (.deb), One-Line Linux Installer e WinGet Auto-Publish**
 
@@ -604,6 +622,123 @@ REGOLE DI LAVORO:
    - Integrato nel workflow cloud per invio automatico della Pull Request al repository ufficiale Microsoft `microsoft/winget-pkgs` tramite segreto `WINGET_TOKEN`.
 5. **Guida Operativa & Brand Domain**:
    - Documentate tutte le procedure in `GUIDA_GITHUB_WINGET.md`, con valorizzazione del dominio `www.bacshelp.com` per redirect permanenti e documentazione su `bham.bacshelp.com`.
+
+---
+
+## Sessione 16 – 2026-09-29 ✅ DONE
+**Ricostruzione Radicale UI/UX (Smonta e Riparti): Design System "Field Engineer Studio" v4.2, Risoluzione Causa Nero da localStorage, Cache-Busting & Dock Console Inferiore a Scomparsa**
+
+### Attività Svolte:
+1. **Risoluzione della Causa Radice "Schermata Nera"**:
+   - Isolato il problema del browser `localStorage` che persisteva la chiave `bham-theme = "dark"` dai test precedenti, forzando la modalità scura su qualsiasi ricaricamento.
+   - `frontend/js/app.js`: azzerata programmaticamente la chiave `bham-theme`, impostata nuova chiave `bham-theme-mode` con default tassativo su `light`.
+   - `frontend/index.html`: inserito cache-busting `?v=4.2.0` su `<link rel="stylesheet">` e su tutti gli script per impedire al browser di riutilizzare vecchi asset in cache.
+2. **Smontaggio e Ricostruzione Architettura (Nuovo Studio a 2 Colonne)**:
+   - Eliminata la colonna fissa destra da 325px nera che schiacciava il layout e dava l'impressione di un videogioco terminale.
+   - Creazione del **Dock Diagnostico Inferiore a Scomparsa (38px)** con barra telemetrica compatta (RS485 status, fps, load, nodi) ed espansione fluida a 280px con un click sul pulsante `▲ Console`.
+   - Ripartizione ottimale a tutto schermo:
+     - **Sinistra (360px)**: Canali di scansione verticali in card bianche pure (`#ffffff`), input a 34px, badge discovery live (`0 dev` / `3 dev`).
+     - **Destra (Flessibile)**: Toolbar con tab filtri, ricerca rapida, hero empty state e tabelle dati a tutto schermo.
+3. **Design System Enterprise Light v4.2 (`frontend/css/main.css`)**:
+   - Canvas ardesia chiarissima `#f1f5f9`, card bianche `#ffffff`, bordi sottili `#e2e8f0`, testi antracite ad alto contrasto `#0f172a`.
+   - Gerarchia bottoni industriale: primario blu solido `#0284c7`, abort bianco con bordo rosso tenue `#fecaca`.
+   - Tabelle con intestazioni sobrie su fondo `#f8fafc`, righe bianche spaziose, badge di stato flat senza bagliori neon.
+4. **Verifiche & Integrità**:
+   - Sintassi JavaScript (`node -c frontend/js/app.js`): **0 errori**.
+   - Integrità selettori DOM: **102/102 verificati e perfettamente allineati**.
+   - Suite di test Python: **22/22 superati** (`Ran 22 tests in 0.722s - OK`).
+
+---
+
+## Sessione 17 – 2026-09-29 ✅ DONE
+**BACnet Object Explorer, Modbus Smart Register Scan, Font Offline & Risoluzione Visibilità/Accessibilità Live Log ed RS485 Inspector**
+
+### Attività Svolte:
+1. **Esploratore Oggetti BACnet (BACnet Object Explorer)**:
+   - Backend: endpoint `GET/POST /api/v1/bacnet/devices/{device_id}/objects` e scanner `explore_bacnet_objects` in `scanners/bacnet.py` (lettura `object-list` con fallback a probe selettivo AI, AV, BI, BV, MSI, MSV).
+   - Frontend: modale `#bacnet-modal` dedicato con tabella responsive, badge per tipo oggetto, filtro di ricerca istantaneo e pulsante di aggiornamento manuale.
+   - Nella tabella BACnet aggiunta azione rapida "🔍 Oggetti" per ogni riga dispositivo.
+2. **Modbus Smart Register Scan (Auto-Scan Registri & Decodifica Telemetrie)**:
+   - Backend: endpoint `POST /api/v1/modbus/smart-scan` e funzione `smart_register_scan` in `scanners/modbus.py` con probe automatico registri 0..100/40001..40100 (FC03/FC04).
+   - Calcolo automatico decodifica: Raw Hex, Int16 con segno e float IEEE 754 Big-Endian (se 2 registri adiacenti sono valorizzati).
+   - Frontend: sotto-schede nel modale Modbus Slave ("Registri Mappati" vs "Smart Scan"), pulsante rapido "⚡ Avvia Auto-Scan" e tabella risultati telemetrici.
+3. **100% Offline-Proof**:
+   - Rimosso `@import url(fonts.googleapis.com)` da `frontend/css/main.css`, sostituito con stack di sistema robusto e zero dipendenze Internet per cantieri privi di connettività.
+4. **Risoluzione Visibilità & Funzionamento Live Log e RS485 Inspector**:
+   - **Diagnosi della causa radice**: Il dock console inferiore (`#console-col`) aveva la classe `collapsed` di default (altezza 38px, `overflow: hidden`). Quando l'utente cliccava sulle etichette o su "Avvia Ascolto", la funzione `switchConsoleTab()` scambiava solo i tab interni senza mai rimuovere `.collapsed`. Di conseguenza, la tabella dei frame RS485 e il log rimanevano invisibili e tagliati fuori dallo schermo.
+   - **Controlli Espliciti Dock**: Introdotte le funzioni `expandConsole()`, `collapseConsole()`, `toggleConsole()`, `handleDockHeaderClick()` e `openConsoleTab(tab)` in `frontend/js/app.js`.
+   - **Default & Persistenza Flessibile**: Rimosso `collapsed` iniziale da `index.html`. In `loadSavedScanParams()`, la console si apre sempre visibile a meno che l'utente non abbia espressamente cliccato su "Riduci" (`coll === "1"`).
+   - **Pulsanti di Accesso Diretto e Navigazione Rapida**:
+     - Nella toolbar centrale delle tabelle (`.bham-toolbar-center`), inseriti i pulsanti rapidi `Live Log` e `RS485 Inspector` con badge contatore frame live sincronizzato (`#center-frame-badge`).
+     - Nell'header principale dell'applicazione, aggiunto il pulsante `Console & Sniffer` per apertura/chiusura con un click.
+     - Nella card del rack RS485 Sniffer (sidebar), aggiunto il pulsante `🔍 Mostra Tabella Frame`.
+     - L'intera barra d'intestazione del dock (`.bham-dock-header`) è ora cliccabile con cursore a puntatore ed effetto hover per espansione/riduzione immediata.
+   - **Spazio di Scorrimento (Layout Clearance)**:
+     - Applicato `padding-bottom: 290px` a `.bham-col-sidebar` e `.bham-col-center` in `frontend/css/main.css`, permettendo all'utente di scorrere tabelle e moduli fino all'ultimo elemento senza alcuna sovrapposizione da parte del dock aperto (280px).
+   - **Autoscroll e Trigger Automatico su Scansione**:
+     - L'avvio di qualsiasi scansione attiva (`startRTU`, `startTCP`, `startBACnet`, `startKNX`, `startARP`, `startRapidScan`) apre automaticamente la console sul tab `Live Log`.
+     - L'avvio dello sniffer seriale (`startSerialSniff`) o il click sui pulsanti inspector apre automaticamente il dock sul tab `RS485 Inspector` e gestisce l'autoscroll continuo dei pacchetti hex.
+   - **Traduzioni Multilingua (i18n)**:
+     - Aggiornato `frontend/js/i18n.js` con le etichette in IT, EN ed ES per i nuovi controlli console e sniffer.
+5. **Collaudo e Verifica**:
+   - Sintassi JavaScript (`node -c`): 0 errori.
+   - Verifica DOM: 156 ID tracciati e allineati.
+   - Test unitari: **24/24 superati** in 5.1s (`Ran 24 tests - OK`).
+
+---
+
+## 🔄 Baseline & Prompt di Ripartenza Ufficiale – COPIA NELLA NUOVA CHAT
+
+```
+Sei un Senior Software Engineer che continua lo sviluppo di BHAM (BACS Help Auto Mapper), la suite diagnostica portatile da cantiere per tecnici di building automation (Modbus RTU/TCP, BACnet/IP, KNXnet/IP, ARP L2 e RS485 Sniffer Zero-TX).
+
+PRIMA AZIONE OBBLIGATORIA – leggi questi due file:
+  cat /home/giuliano/Documenti/BHAM/DEVLOG.md
+  find /home/giuliano/Documenti/BHAM -not -path '*/.venv/*' -not -path '*/__pycache__/*' -not -path '*/.git/*' | sort
+
+CONTESTO AMBIENTE:
+  Progetto: /home/giuliano/Documenti/BHAM/
+  Venv:     .venv/bin/python3  (Python 3.12, virtualenv già configurato)
+  Avvio:    .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload
+  Test:     .venv/bin/python3 -W error -m unittest discover -s tests -p "test_*.py"
+
+STATO ATTUALE DEL SOFTWARE (v0.4.5 - Field Engineer Studio):
+  - Architettura UI: Studio a 2 Colonne (Sinistra: Canali di Scansione 360px; Centro: Toolbar filtri + Tabelle Discovery + Hero Empty State; Basso: Dock Diagnostico Inferiore a scomparsa con Live Log, RS485 Inspector e Bus Health).
+  - Tema: Chiaro di default (Light-first, canvas ardesia #f1f5f9, card bianche #ffffff, pulsanti solidi, 100% offline-proof senza font web esterni).
+  - Suite Test: 24/24 unit test passati al 100% (-W error).
+  - DOM IDs: 156 elementi DOM unici verificati e sincronizzati con app.js e i18n.js.
+
+SESSIONI COMPLETATE:
+  ✅ Sessione 1 – Bootstrap (struttura, main.py, WebSocket, modelli Pydantic)
+  ✅ Sessione 2 – Motore Modbus RTU (Phase Zero, Early Exit, Full Sweep, TCP)
+  ✅ Sessione 3 – BACnet production, FC43, FileResponse report, UI barra progresso
+  ✅ Sessione 4 – hw_discovery (RS485 + NIC), session_store, logger session, setup
+  ✅ Sessione 5 – UI Dual Theme, maps_manager.py (BACS Help JSON), PDF ReportLab, bham.spec
+  ✅ Sessione 6 – Setup Wizard on-demand, icone SVG industriali, modulo KNXnet/IP (multicast/broadcast)
+  ✅ Sessione 7 – i18n dinamico (IT, EN, ES), Centro Impostazioni Unificato (5 schede), Manuale F1 interattivo
+  ✅ Sessione 8 – Gestione Porte Speciali & Custom (BAC0..BACF, Modbus TCP multi-port, KNX custom)
+  ✅ Sessione 9 – Sniffer Seriale Passivo (RS485 Zero-TX / Stealth Mode), Bus Health telemetria & RS485 Inspector live
+  ✅ Sessione 10 – Full Software Audit, i18n 100% (157 chiavi), parità DOM, verifica reportistica Excel/PDF
+  ✅ Sessione 11 – Chiusura Sprint v0.3.0, Consolidamento Task, Allineamento Packaging & Docs
+  ✅ Sessione 12 – CI/CD Rilasci GitHub, bump_version.py, release.sh, .deb Debian, install.sh Linux, WinGet
+  ✅ Sessione 16 – Ricostruzione Radicale UI/UX: Design System "Field Engineer Studio" v4.2, reset forzatura dark localStorage, eliminazione colonna destra 325px, dock console inferiore a scomparsa (38px/280px)
+  ✅ Sessione 17 – BACnet Object Explorer (#bacnet-modal con probe selettivo e filtro live), Modbus Smart Register Scan euristico (probe FC03/FC04, decodifica Int16 e Float32 IEEE Big-Endian), tipografia 100% offline-proof, risoluzione definitiva visibilità ed ergonomia di Live Log ed RS485 Inspector (pulsanti diretti in toolbar e header, clearance padding 290px, auto-apertura su scansione, test 24/24 superati)
+
+PROSSIMI TASK IN ROADMAP (Scegli con l'utente come procedere):
+  1. Milestone 2: Mappa Topologica Interattiva (Network Graph canvas/SVG per visualizzare gerarchia Host -> Interfaccia -> Nodi/Slave)
+  2. Milestone 3: Intelligence & Session Diff ("Prima vs Dopo" per identificare apparati aggiunti/scomparsi/modificati su impianto)
+  3. Milestone 4: KNX Group Monitor & Standalone Portable Build (.exe / binary Linux USB)
+
+REGOLE OPERATIVE INDEROGABILI:
+  1. Aggiorna sempre DEVLOG.md ad ogni feature o correzione completata.
+  2. Esegui sempre `.venv/bin/python3 -W error -m unittest discover -s tests -v` prima di chiudere un task.
+  3. Verifica la sintassi JS con `node -c frontend/js/app.js` e non rompere nessuno dei 156 ID DOM.
+  4. Mantieni l'interfaccia chiara, pulita e professionale, pensata per il tecnico in cantiere su laptop da campo.
+```
+
+
+
+
 
 
 

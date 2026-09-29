@@ -5,11 +5,21 @@ Per-session abort events and base class for all scanner implementations.
 
 from __future__ import annotations
 
-import asyncio
+import threading
 from abc import ABC, abstractmethod
 
-# Per-session abort signals – set by POST /scan/abort/{session_id}
-_abort_events: dict[str, asyncio.Event] = {}
+# threading.Event because is_aborted() is also polled from executor threads.
+_abort_events: dict[str, threading.Event] = {}
+
+
+def abort_session(session_id: str) -> None:
+    _abort_events.setdefault(session_id, threading.Event()).set()
+
+
+def abort_all() -> int:
+    for ev in _abort_events.values():
+        ev.set()
+    return len(_abort_events)
 
 
 class BaseScanner(ABC):
@@ -17,27 +27,11 @@ class BaseScanner(ABC):
         self.session_id = session_id
 
     def reset_abort(self) -> None:
-        """Crea un nuovo evento di abort per questa sessione."""
-        if self.session_id in _abort_events:
-            _abort_events[self.session_id].clear()
-        else:
-            _abort_events[self.session_id] = asyncio.Event()
+        _abort_events[self.session_id] = threading.Event()
 
     def is_aborted(self) -> bool:
-        if self.session_id not in _abort_events:
-            _abort_events[self.session_id] = asyncio.Event()
-        return _abort_events[self.session_id].is_set()
-
-    def set_abort(self) -> None:
-        """Segnala l'abort per questa sessione."""
-        if self.session_id not in _abort_events:
-            _abort_events[self.session_id] = asyncio.Event()
-        _abort_events[self.session_id].set()
-
-    @classmethod
-    def clear_session_abort(cls, session_id: str) -> None:
-        """Pulisce l'evento di abort per una sessione completata."""
-        _abort_events.pop(session_id, None)
+        ev = _abort_events.get(self.session_id)
+        return ev is not None and ev.is_set()
 
     @abstractmethod
     async def scan(self, *args, **kwargs) -> None: ...

@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────────────────
     app_name: str = "BHAM – BACS Help Auto Mapper"
-    app_version: str = "0.4.1"
+    app_version: str = "0.5.0"
     debug: bool = False
 
     # ── Server ───────────────────────────────────────────────────────────────

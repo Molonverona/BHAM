@@ -118,6 +118,69 @@ class TestStateAndSnapshot(unittest.TestCase):
         self.app_state.clear()
         self.assertEqual(len(self.app_state.modbus_devices), 0)
 
+    def test_get_topology(self):
+        cfg = SessionConfig(
+            site_name="Topologia Ospedale",
+            serial_port="/dev/ttyUSB0",
+            serial_baudrate=19200,
+            serial_parity=Parity.EVEN,
+            serial_stopbits=1,
+            scan_iface="eth0",
+            scan_ip="192.168.1.100/24",
+        )
+        self.app_state.set_session_config(cfg)
+        self.app_state.upsert_modbus(ModbusDevice(
+            slave_id=1,
+            protocol=Protocol.MODBUS_RTU,
+            serial_params=SerialParams(port="/dev/ttyUSB0", baudrate=19200, parity=Parity.EVEN),
+            response_time_ms=25.0,
+        ))
+        self.app_state.upsert_modbus(ModbusDevice(
+            slave_id=2,
+            protocol=Protocol.MODBUS_TCP,
+            ip="192.168.1.50",
+            tcp_port=502,
+        ))
+        self.app_state.upsert_bacnet(BACnetDevice(
+            device_id=5001,
+            address="192.168.1.60",
+            vendor_name="Trane",
+            model_name="Chiller-RTAF",
+        ))
+        self.app_state.upsert_knx(KNXDevice(
+            individual_address="1.1.20",
+            ip_address="192.168.1.70",
+            device_name="ABB KNX IP Router",
+        ))
+        self.app_state.upsert_ip_host(IPHost(
+            ip="192.168.1.1",
+            mac="00:11:22:33:44:55",
+            hostname="gateway-main",
+        ))
+
+        topo = self.app_state.get_topology()
+        self.assertEqual(topo["root_id"], "node:host")
+        self.assertGreaterEqual(len(topo["nodes"]), 6)
+        self.assertGreaterEqual(len(topo["links"]), 5)
+
+        # Check nodes existence
+        node_ids = {n["id"] for n in topo["nodes"]}
+        self.assertIn("node:host", node_ids)
+        self.assertIn("node:iface:serial", node_ids)
+        self.assertIn("node:iface:nic", node_ids)
+        self.assertIn("node:bus:modbus_rtu", node_ids)
+        self.assertIn("node:bus:modbus_tcp", node_ids)
+        self.assertIn("node:bus:bacnet_ip", node_ids)
+        self.assertIn("node:bus:knx_ip", node_ids)
+        self.assertIn("node:bus:arp", node_ids)
+        self.assertIn("node:dev:modbus:rtu:1", node_ids)
+        self.assertIn("node:dev:bacnet:ip:5001", node_ids)
+        self.assertIn("node:dev:knx:1.1.20", node_ids)
+
+        # Check root label
+        host_node = next(n for n in topo["nodes"] if n["id"] == "node:host")
+        self.assertEqual(host_node["label"], "Topologia Ospedale")
+
 
 class TestSessionStore(unittest.TestCase):
     def test_save_load_list_and_delete(self):
@@ -461,6 +524,38 @@ class TestSerialSniffer(unittest.TestCase):
 
             await routes.abort_scan(res["session_id"])
             await asyncio.sleep(0.05)
+
+        asyncio.run(_test())
+
+    def test_modbus_smart_scan_endpoint(self):
+        async def _test():
+            req = routes.ModbusSmartScanBody(
+                slave_id=1,
+                protocol="tcp",
+                ip="127.0.0.1",
+                tcp_port=502,
+            )
+            res = await routes.modbus_smart_scan(req)
+            self.assertEqual(res["slave_id"], 1)
+            self.assertIn("registers", res)
+
+        asyncio.run(_test())
+
+    def test_bacnet_objects_endpoint(self):
+        async def _test():
+            res = await routes.get_bacnet_objects(device_id=1234, address="127.0.0.1:47808")
+            self.assertEqual(res["device_id"], 1234)
+            self.assertIn("objects", res)
+
+        asyncio.run(_test())
+
+    def test_topology_endpoint(self):
+        async def _test():
+            res = await routes.get_topology()
+            self.assertIn("root_id", res)
+            self.assertIn("nodes", res)
+            self.assertIn("links", res)
+            self.assertIn("summary", res)
 
         asyncio.run(_test())
 

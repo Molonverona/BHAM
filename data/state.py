@@ -212,6 +212,316 @@ class AppState:
             self._notify({"event": "config_updated", "config": self.session_config.model_dump(mode="json")})
         self._notify({"event": "snapshot", "data": self.snapshot()})
 
+    def get_topology(self) -> dict:
+        """
+        Genera la rappresentazione a grafo gerarchico dell'impianto collaudato:
+        Host -> Interfacce (Seriale, NIC) -> Bus/Segmenti di Protocollo -> Dispositivi/Nodi.
+        """
+        with self._state_lock:
+            site_name = self.session_config.site_name if self.session_config and self.session_config.site_name else "BHAM Field Station"
+            serial_port = self.session_config.serial_port if self.session_config and self.session_config.serial_port else "/dev/ttyUSB0"
+            baudrate = self.session_config.serial_baudrate if self.session_config else 9600
+            parity = self.session_config.serial_parity.value if self.session_config and hasattr(self.session_config.serial_parity, "value") else "N"
+            nic_name = self.session_config.scan_iface if self.session_config and self.session_config.scan_iface else "eth0"
+            nic_ip = self.session_config.scan_ip if self.session_config and self.session_config.scan_ip else ""
+
+            nodes: list[dict] = []
+            links: list[dict] = []
+
+            # 1. Root: Diagnostic Host
+            nodes.append({
+                "id": "node:host",
+                "label": site_name,
+                "sublabel": "Host di Collaudo / Master",
+                "category": "host",
+                "protocol": "system",
+                "status": "online",
+                "parent_id": None,
+                "metrics": {"total_devices": len(self.modbus_devices) + len(self.bacnet_devices) + len(self.knx_devices) + len(self.ip_hosts)},
+            })
+
+            # 2. Interfaces: Serial and Ethernet NIC
+            # Serial interface
+            has_serial_traffic = bool(self.bus_health and self.bus_health.total_frames > 0)
+            has_serial_devs = any(
+                (d.protocol == Protocol.MODBUS_RTU or (d.serial_params is not None))
+                for d in self.modbus_devices.values()
+            ) or any(d.protocol == Protocol.BACNET_MSTP for d in self.bacnet_devices.values())
+            serial_status = "active" if (has_serial_traffic or has_serial_devs) else "standby"
+
+            nodes.append({
+                "id": "node:iface:serial",
+                "label": serial_port,
+                "sublabel": f"RS485 ({baudrate} 8{parity}1)",
+                "category": "interface",
+                "protocol": "serial",
+                "status": serial_status,
+                "parent_id": "node:host",
+                "metrics": {
+                    "baudrate": baudrate,
+                    "parity": parity,
+                    "bus_health": self.bus_health.model_dump(mode="json") if self.bus_health else None,
+                },
+            })
+            links.append({"source": "node:host", "target": "node:iface:serial", "protocol": "serial"})
+
+            # Ethernet NIC interface
+            has_ip_devs = any(d.protocol == Protocol.MODBUS_TCP for d in self.modbus_devices.values()) or \
+                          any(d.protocol == Protocol.BACNET_IP for d in self.bacnet_devices.values()) or \
+                          bool(self.knx_devices) or bool(self.ip_hosts)
+            nic_status = "active" if has_ip_devs else "standby"
+
+            nodes.append({
+                "id": "node:iface:nic",
+                "label": nic_name,
+                "sublabel": nic_ip if nic_ip else "Ethernet LAN",
+                "category": "interface",
+                "protocol": "ethernet",
+                "status": nic_status,
+                "parent_id": "node:host",
+                "metrics": {"ip": nic_ip},
+            })
+            links.append({"source": "node:host", "target": "node:iface:nic", "protocol": "ethernet"})
+
+            # 3. Protocol Buses
+            # Modbus RTU bus
+            rtu_devs = [
+                d for d in self.modbus_devices.values()
+                if d.protocol == Protocol.MODBUS_RTU or d.serial_params is not None
+            ]
+            if rtu_devs or has_serial_traffic:
+                nodes.append({
+                    "id": "node:bus:modbus_rtu",
+                    "label": "Modbus RTU Bus",
+                    "sublabel": f"{len(rtu_devs)} slave mappati",
+                    "category": "bus",
+                    "protocol": "modbus_rtu",
+                    "status": "active" if rtu_devs else "standby",
+                    "parent_id": "node:iface:serial",
+                    "metrics": {"device_count": len(rtu_devs)},
+                })
+                links.append({"source": "node:iface:serial", "target": "node:bus:modbus_rtu", "protocol": "modbus_rtu"})
+
+            # BACnet MS-TP bus
+            mstp_devs = [d for d in self.bacnet_devices.values() if d.protocol == Protocol.BACNET_MSTP]
+            if mstp_devs:
+                nodes.append({
+                    "id": "node:bus:bacnet_mstp",
+                    "label": "BACnet MS-TP Token Ring",
+                    "sublabel": f"{len(mstp_devs)} nodi ring",
+                    "category": "bus",
+                    "protocol": "bacnet_mstp",
+                    "status": "active",
+                    "parent_id": "node:iface:serial",
+                    "metrics": {"device_count": len(mstp_devs)},
+                })
+                links.append({"source": "node:iface:serial", "target": "node:bus:bacnet_mstp", "protocol": "bacnet_mstp"})
+
+            # Modbus TCP bus
+            tcp_devs = [d for d in self.modbus_devices.values() if d.protocol == Protocol.MODBUS_TCP]
+            if tcp_devs:
+                nodes.append({
+                    "id": "node:bus:modbus_tcp",
+                    "label": "Modbus TCP Network",
+                    "sublabel": f"{len(tcp_devs)} server attivi",
+                    "category": "bus",
+                    "protocol": "modbus_tcp",
+                    "status": "active",
+                    "parent_id": "node:iface:nic",
+                    "metrics": {"device_count": len(tcp_devs)},
+                })
+                links.append({"source": "node:iface:nic", "target": "node:bus:modbus_tcp", "protocol": "modbus_tcp"})
+
+            # BACnet/IP bus
+            bacnet_ip_devs = [d for d in self.bacnet_devices.values() if d.protocol != Protocol.BACNET_MSTP]
+            if bacnet_ip_devs:
+                nodes.append({
+                    "id": "node:bus:bacnet_ip",
+                    "label": "BACnet/IP Network",
+                    "sublabel": f"{len(bacnet_ip_devs)} dispositivi",
+                    "category": "bus",
+                    "protocol": "bacnet_ip",
+                    "status": "active",
+                    "parent_id": "node:iface:nic",
+                    "metrics": {"device_count": len(bacnet_ip_devs)},
+                })
+                links.append({"source": "node:iface:nic", "target": "node:bus:bacnet_ip", "protocol": "bacnet_ip"})
+
+            # KNXnet/IP bus
+            if self.knx_devices:
+                nodes.append({
+                    "id": "node:bus:knx_ip",
+                    "label": "KNXnet/IP Network",
+                    "sublabel": f"{len(self.knx_devices)} router/gateway",
+                    "category": "bus",
+                    "protocol": "knx_ip",
+                    "status": "active",
+                    "parent_id": "node:iface:nic",
+                    "metrics": {"device_count": len(self.knx_devices)},
+                })
+                links.append({"source": "node:iface:nic", "target": "node:bus:knx_ip", "protocol": "knx_ip"})
+
+            # ARP Hosts bus
+            if self.ip_hosts:
+                nodes.append({
+                    "id": "node:bus:arp",
+                    "label": "IP Subnet (ARP Hosts)",
+                    "sublabel": f"{len(self.ip_hosts)} host L2",
+                    "category": "bus",
+                    "protocol": "arp",
+                    "status": "active",
+                    "parent_id": "node:iface:nic",
+                    "metrics": {"device_count": len(self.ip_hosts)},
+                })
+                links.append({"source": "node:iface:nic", "target": "node:bus:arp", "protocol": "arp"})
+
+            # 4. Device Nodes
+            # Modbus RTU Devices
+            for dev in rtu_devs:
+                nid = f"node:dev:modbus:rtu:{dev.slave_id}"
+                model_str = dev.registers.get("model", "") or dev.registers.get("vendor", "")
+                nodes.append({
+                    "id": nid,
+                    "label": f"Slave #{dev.slave_id}",
+                    "sublabel": model_str if model_str else f"ID {dev.slave_id}",
+                    "category": "device",
+                    "protocol": "modbus_rtu",
+                    "status": "sniffed" if "sniffed" in dev.tags else "active",
+                    "parent_id": "node:bus:modbus_rtu",
+                    "metrics": {
+                        "slave_id": dev.slave_id,
+                        "response_time_ms": dev.response_time_ms,
+                        "registers_count": len(dev.registers),
+                    },
+                    "data": dev.model_dump(mode="json"),
+                })
+                links.append({"source": "node:bus:modbus_rtu", "target": nid, "protocol": "modbus_rtu"})
+
+            # BACnet MS-TP Devices
+            for dev in mstp_devs:
+                nid = f"node:dev:bacnet:mstp:{dev.device_id}"
+                nodes.append({
+                    "id": nid,
+                    "label": f"MS-TP #{dev.device_id}",
+                    "sublabel": f"MAC {dev.address}",
+                    "category": "device",
+                    "protocol": "bacnet_mstp",
+                    "status": "sniffed" if "sniffed" in dev.tags else "active",
+                    "parent_id": "node:bus:bacnet_mstp",
+                    "metrics": {
+                        "device_id": dev.device_id,
+                        "address": dev.address,
+                        "objects_count": len(dev.object_list),
+                    },
+                    "data": dev.model_dump(mode="json"),
+                })
+                links.append({"source": "node:bus:bacnet_mstp", "target": nid, "protocol": "bacnet_mstp"})
+
+            # Modbus TCP Devices
+            for dev in tcp_devs:
+                nid = f"node:dev:modbus:tcp:{dev.ip}_{dev.tcp_port}_{dev.slave_id}"
+                nodes.append({
+                    "id": nid,
+                    "label": f"TCP #{dev.slave_id}",
+                    "sublabel": f"{dev.ip}:{dev.tcp_port}",
+                    "category": "device",
+                    "protocol": "modbus_tcp",
+                    "status": "active",
+                    "parent_id": "node:bus:modbus_tcp",
+                    "metrics": {
+                        "slave_id": dev.slave_id,
+                        "ip": dev.ip,
+                        "tcp_port": dev.tcp_port,
+                        "response_time_ms": dev.response_time_ms,
+                    },
+                    "data": dev.model_dump(mode="json"),
+                })
+                links.append({"source": "node:bus:modbus_tcp", "target": nid, "protocol": "modbus_tcp"})
+
+            # BACnet/IP Devices
+            for dev in bacnet_ip_devs:
+                nid = f"node:dev:bacnet:ip:{dev.device_id}"
+                sub_parts = [p for p in [dev.vendor_name, dev.model_name] if p]
+                sub = " - ".join(sub_parts) if sub_parts else dev.address
+                nodes.append({
+                    "id": nid,
+                    "label": f"BACnet #{dev.device_id}",
+                    "sublabel": sub,
+                    "category": "device",
+                    "protocol": "bacnet_ip",
+                    "status": "active",
+                    "parent_id": "node:bus:bacnet_ip",
+                    "metrics": {
+                        "device_id": dev.device_id,
+                        "address": dev.address,
+                        "vendor": dev.vendor_name,
+                        "model": dev.model_name,
+                        "firmware": dev.firmware_revision,
+                        "objects_count": len(dev.object_list),
+                    },
+                    "data": dev.model_dump(mode="json"),
+                })
+                links.append({"source": "node:bus:bacnet_ip", "target": nid, "protocol": "bacnet_ip"})
+
+            # KNXnet/IP Devices
+            for key, dev in self.knx_devices.items():
+                nid = f"node:dev:knx:{dev.individual_address}"
+                nodes.append({
+                    "id": nid,
+                    "label": f"KNX {dev.individual_address}",
+                    "sublabel": dev.device_name or dev.ip_address,
+                    "category": "device",
+                    "protocol": "knx_ip",
+                    "status": "active",
+                    "parent_id": "node:bus:knx_ip",
+                    "metrics": {
+                        "individual_address": dev.individual_address,
+                        "ip": dev.ip_address,
+                        "medium": dev.medium,
+                        "serial": dev.serial_number,
+                    },
+                    "data": dev.model_dump(mode="json"),
+                })
+                links.append({"source": "node:bus:knx_ip", "target": nid, "protocol": "knx_ip"})
+
+            # ARP Hosts
+            for ip, host in self.ip_hosts.items():
+                nid = f"node:dev:arp:{ip.replace('.', '_')}"
+                nodes.append({
+                    "id": nid,
+                    "label": host.ip,
+                    "sublabel": host.hostname or host.mac or "Host L2",
+                    "category": "device",
+                    "protocol": "arp",
+                    "status": "active",
+                    "parent_id": "node:bus:arp",
+                    "metrics": {
+                        "ip": host.ip,
+                        "mac": host.mac,
+                        "hostname": host.hostname,
+                    },
+                    "data": host.model_dump(mode="json"),
+                })
+                links.append({"source": "node:bus:arp", "target": nid, "protocol": "arp"})
+
+            return {
+                "root_id": "node:host",
+                "nodes": nodes,
+                "links": links,
+                "summary": {
+                    "total_nodes": len(nodes),
+                    "total_links": len(links),
+                    "devices": {
+                        "modbus_rtu": len(rtu_devs),
+                        "modbus_tcp": len(tcp_devs),
+                        "bacnet_mstp": len(mstp_devs),
+                        "bacnet_ip": len(bacnet_ip_devs),
+                        "knx": len(self.knx_devices),
+                        "arp": len(self.ip_hosts),
+                    }
+                }
+            }
+
     def clear(self) -> None:
         with self._state_lock:
             self.bus_health = None

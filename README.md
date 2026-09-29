@@ -8,17 +8,22 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
 
 ## 🌟 Caratteristiche Principali
 
-- **🔌 Modbus RTU Ultra-Fast Engine**:
+- **🗺️ Mappa Topologica Interattiva (Network Graph)**:
+  - Visualizzazione ad albero e grafo SVG gerarchico delle reti d'impianto (Host BHAM ➔ Canali RS485 / Ethernet ➔ Dispositivi Modbus, BACnet, KNX, ARP)
+  - Engine vettoriale reattivo con Pan & Zoom continuo (rotellina o pulsanti HUD), Fit-to-screen e switch di orientamento (Orizzontale / Verticale)
+  - Filtro di ricerca real-time per nome, vendor, IP o Slave ID con evidenziazione visiva immediata dei nodi
+  - Quick Node Inspector laterale con dettagli metadati e scorciatoie dirette per BACnet Object Explorer e Modbus Slave Inspector
+  - Esportazione istantanea del diagramma topologico vettoriale `.svg` ad alta risoluzione per documentazione tecnica d'impianto
+- **🔌 Modbus RTU Ultra-Fast Engine & Smart Register Scan**:
   - Phase Zero: ascolto passivo per auto-baud rate con validazione frame CRC-16 puro Python
   - Early Exit: sentinelle su ID strategici ({1, 2, 10}) per aggancio immediato dei parametri seriali
   - Sweep completo su 247 slave con fast-timeout (120ms) e progress granularità al singolo ID
-- **🌐 Modbus TCP Multi-Port**:
-  - Scansione asincrona concorrente con pool bilanciato (`asyncio.Semaphore(20)`) su singoli IP o intere subnet CIDR
-  - Supporto per porte standard (502), porte custom multiple (`502, 503, 5020`) e range (`502-505`)
-- **🏢 BACnet/IP Discovery**:
+  - Smart Register Scan: euristica predittiva automatica per identificare registri standard (Holding, Input, Coils, Discretes) ed estrarre la mappa canali delle periferiche
+- **🏢 BACnet/IP Discovery & Object Explorer**:
   - Who-Is broadcast nativo async su standard BACnet
   - Gestione I-Am con estrazione metadati: Vendor ID, Vendor Name, Model Name, Firmware & Software Version
   - Supporto per serie porte standard e custom: notazione `BAC0`..`BACF` (47808..47823), range e porte numeriche
+  - BACnet Object Explorer gerarchico: navigazione istanze d'oggetto (Analog/Binary/Multi-state Input/Output/Value, Schedules, Trend Logs, Device) con Present Value e Status Flags
 - **🏠 KNXnet/IP Discovery**:
   - Scanner asincrono UDP conforme allo standard KNXnet/IP Core (SEARCH_REQUEST / SEARCH_RESPONSE)
   - Multicast 224.0.23.12:3671 con fallback broadcast LAN; parsing DIB Device Info (Area.Linea.Device, seriale, MAC, medium TP1/IP/RF)
@@ -32,14 +37,15 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
   - Rilevamento passivo e attivo degli host connessi sulla subnet locale tramite Scapy
 - **🔬 FC43 Device Identification**:
   - Lettura Modbus ME 0x0E (Read Device Identification) per estrarre VendorName, ProductCode, MajorMinorRevision
-- **🎨 Design System v2.0 "Industrial Telemetry" & i18n**:
+- **🎨 Field Engineer Studio Layout v4.2 & i18n**:
+  - Architettura ergonomica a 2 colonne: Sidebar canali e diagnostica a sinistra (360px) + Workspace centrale con Switcher Vista Tabella/Topologia + Dock Diagnostico Inferiore a scomparsa per Live Console e RS485 Inspector
   - Dual Mode (Dark Mode ad alto contrasto per locali tecnici / Light Mode per visibilità sotto luce solare diretta)
   - Color-coding ergonomico per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP, Ambra=Diagnostics)
-  - Live Console e RS485 Inspector dedicato a schede indipendenti con filtri e streaming WebSocket
   - Internazionalizzazione completa (Italiano, Inglese, Spagnolo) e Manuale Tecnico interattivo a bordo (F1)
 - **📊 Reportistica e Mappatura Punti**:
   - Esportazione istantanea Excel (.xlsx) con fogli separati e formattazione industriale
   - Esportazione PDF tecnico vettoriale (ReportLab) con copertina impianto, totali e tabelle color-coded
+  - Esportazione grafica topologica vettoriale (.svg)
   - Import/Export mappe punti compatibili BACS Help (`/api/v1/maps/*`)
 - **💾 Gestione Sessioni e Riconoscimento HW**:
   - Rilevamento automatico convertitori USB↔RS485 (FTDI, Silicon Labs CP210x, CH340, Prolific)
@@ -161,20 +167,21 @@ BHAM/
 │   ├── models.py         # Modelli Pydantic v2
 │   └── state.py          # Singleton di stato in-memory thread-safe
 ├── frontend/             # Interfaccia Utente
-│   ├── css/main.css      # Design System Stitch v2.0 Industrial Telemetry
-│   ├── index.html        # Struttura dashboard a 3 colonne & Centro Impostazioni
+│   ├── css/main.css      # Design System Stitch v4.2 Field Engineer Studio
+│   ├── index.html        # Studio a 2 Colonne, Mappa Topologica SVG & Centro Impostazioni
 │   └── js/
-│       ├── app.js            # Controller UI, WebSocket client, rendering tabelle
-│       ├── i18n.js           # Motore multilingua dinamico (IT, EN, ES)
+│       ├── app.js            # Controller UI, Motore Topologico SVG, WebSocket client, rendering tabelle
+│       ├── i18n.js           # Motore multilingua dinamico (IT, EN, ES - 202 chiavi)
 │       └── manual-content.js # Contenuti manuale tecnico integrato (F1)
 ├── reports/              # Motori di reportistica
 │   ├── excel.py          # Generatore Excel multi-foglio (openpyxl)
 │   └── pdf.py            # Generatore PDF vettoriale a due passate (ReportLab)
 ├── scanners/             # Motori di scansione protocolli
-│   ├── bacnet.py         # Scanner BACnet/IP con Who-Is e supporto BAC0..BACF
+│   ├── base.py           # BaseScanner e registri di diagnostica/annullamento
+│   ├── bacnet.py         # Scanner BACnet/IP con Who-Is, BAC0..BACF e Object Explorer
 │   ├── ip_sniffer.py     # Sniffer ARP/IP (scapy)
 │   ├── knx.py            # Scanner UDP KNXnet/IP multicast/broadcast
-│   ├── modbus.py         # Scanner Modbus RTU/TCP + FC43 ME 0x0E (pymodbus)
+│   ├── modbus.py         # Scanner Modbus RTU/TCP + FC43 + Smart Register Scan (pymodbus)
 │   └── serial_sniffer.py # Sniffer passivo RS485 Zero-TX, Modbus/BACnet MS-TP & Bus Health
 ├── scripts/              # Script di automazione, installazione e packaging
 │   ├── bump_version.py   # Aggiornamento automatico versione SemVer
@@ -187,7 +194,7 @@ BHAM/
 │   └── BacsHelp.BHAM.locale.en-US.yaml
 ├── sessions/             # Storage sessioni JSON e log storici
 ├── tests/                # Test suite automatizzata
-│   └── test_bham.py      # Test unitari e di integrazione (22 test)
+│   └── test_bham.py      # Test unitari e di integrazione (26 test completi)
 ├── .github/workflows/    # Automazioni GitHub Actions
 │   ├── ci.yml            # Test suite automatica su Linux e Windows
 │   └── release.yml       # Build stand-alone, pacchetti .deb e auto-submit WinGet
