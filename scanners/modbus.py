@@ -387,9 +387,22 @@ class ModbusScanner(BaseScanner):
         log = self._log.getChild("tcp")
         state.update_session(self.session_id, status=ScanStatus.RUNNING, progress_pct=0.0)
 
+        # Espandi CIDR subnet se presenti
+        from ipaddress import ip_network, ip_address
+        expanded_hosts: list[str] = []
+        for host_spec in req.hosts:
+            try:
+                net = ip_network(host_spec, strict=False)
+                if net.num_addresses == 1:
+                    expanded_hosts.append(host_spec)
+                else:
+                    expanded_hosts.extend(str(ip) for ip in net.hosts())
+            except ValueError:
+                expanded_hosts.append(host_spec)
+
         target_ports = parse_modbus_tcp_ports(req.tcp_ports or getattr(req, "tcp_port", 502))
         port_desc = ", ".join(str(p) for p in target_ports)
-        targets = [(h, p) for h in req.hosts for p in target_ports]
+        targets = [(h, p) for h in expanded_hosts for p in target_ports]
         total = len(targets)
         log.info("═══ Modbus TCP scan START – %d target(s) across %d host(s) on port(s) %s ═══",
                  total, len(req.hosts), port_desc)

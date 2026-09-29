@@ -165,20 +165,23 @@ class SerialSniffer(BaseScanner):
 
         loop = asyncio.get_event_loop()
         # Esegue il loop di cattura in un thread del pool per non bloccare l'event loop di FastAPI
-        await loop.run_in_executor(None, self._run_capture_loop, req)
+        success = await loop.run_in_executor(None, self._run_capture_loop, req)
 
         state.update_session(self.session_id, progress_pct=100.0)
-        state.finish_session(self.session_id, ScanStatus.COMPLETED)
+        if success:
+            state.finish_session(self.session_id, ScanStatus.COMPLETED)
         log.info("═══ Serial RS485 Sniffer FINISHED ═══")
 
     # ── Loop di Cattura (Thread Worker) ───────────────────────────────────────
 
-    def _run_capture_loop(self, req: "SerialSniffRequest") -> None:
+    def _run_capture_loop(self, req: "SerialSniffRequest") -> bool:
         try:
             import serial
         except ImportError:
             self._log.error("pyserial non installato – sniffer seriale non disponibile.")
-            return
+            state.update_session(self.session_id, error_message="pyserial non disponibile")
+            state.finish_session(self.session_id, ScanStatus.ERROR)
+            return False
 
         baud = req.baudrate
         parity_str = req.parity.upper() if req.parity else "AUTO"
@@ -219,11 +222,17 @@ class SerialSniffer(BaseScanner):
                     f"Aggiungiti al gruppo dialout (poi logout/login): "
                     f"sudo usermod -aG dialout {os.environ.get('USER', '$USER')}"
                 )
-            self._log.error("Permesso negato su %s: %s – %s", req.port, exc, hint)
-            return
+            msg = f"Permesso negato su {req.port}: {exc} – {hint}"
+            self._log.error(msg)
+            state.update_session(self.session_id, error_message=msg)
+            state.finish_session(self.session_id, ScanStatus.ERROR)
+            return False
         except Exception as exc:
-            self._log.error("Impossibile aprire la porta seriale %s: %s", req.port, exc)
-            return
+            msg = f"Impossibile aprire la porta seriale {req.port}: {exc}"
+            self._log.error(msg)
+            state.update_session(self.session_id, error_message=msg)
+            state.finish_session(self.session_id, ScanStatus.ERROR)
+            return False
 
         # Metriche Bus Health
         start_time = time.monotonic()
@@ -305,6 +314,8 @@ class SerialSniffer(BaseScanner):
                 ser.close()
             except Exception:
                 pass
+
+        return True
 
     # ── Auto-Detect Parametri Seriale ─────────────────────────────────────────
 
@@ -393,6 +404,27 @@ class SerialSniffer(BaseScanner):
                     if mstp_idx > 0:
                         del buf[:mstp_idx]
 
+                    # Se mancano byte per almeno l'header, aspetta altri dati
+                    if len(buf) < 8:
+                        break
+
+                    # Verifica il CRC dell'header
+                    header = bytes(buf[2:8])
+                    if not check_mstp_header_crc(header):
+                        # Header CRC non valido: scarta solo il preambolo per avanzare
+                        del buf[:2]
+                        results.append((
+                            SerialFrame(
+                                protocol=Protocol.BACNET_MSTP,
+                                direction=FrameDirection.UNKNOWN,
+                                summary="BACnet MS-TP: Header CRC Error",
+                                raw_hex=buf[:8].hex(" ").upper() if len(buf) >= 8 else buf.hex(" ").upper(),
+                                crc_ok=False,
+                            ),
+                            False,
+                        ))
+                        continue
+
                     parsed = self._parse_mstp_frame(buf, port, active_nodes)
                     if parsed is not None:
                         frame, consumed, is_valid = parsed
@@ -401,22 +433,8 @@ class SerialSniffer(BaseScanner):
                         results.append((frame, is_valid))
                         continue
                     else:
-                        # Se il preambolo c'è ma mancano byte per l'header, attendiamo altri dati
-                        if len(buf) < 8:
-                            break
-                        # Se l'header CRC non è valido, scartiamo solo il preambolo per avanzare
-                        del buf[:2]
-                        results.append((
-                            SerialFrame(
-                                protocol=Protocol.BACNET_MSTP,
-                                direction=FrameDirection.UNKNOWN,
-                                summary="BACnet MS-TP: Header CRC Error / Frammento corrotto",
-                                raw_hex=buf[:8].hex(" ").upper(),
-                                crc_ok=False,
-                            ),
-                            False,
-                        ))
-                        continue
+                        # Header CRC è valido ma il payload non è completo, aspetta altri dati
+                        break
 
             # 2. Tentativo Modbus RTU
             if proto_filter in ("auto", "modbus_rtu"):

@@ -38,11 +38,13 @@ class ConnectionManager:
         # Queue for cross-thread event injection (scanners run in thread-pool)
         self._queue: asyncio.Queue[dict] = asyncio.Queue()
         self._pump_task: asyncio.Task | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
 
     async def startup(self) -> None:
         """Start the background queue-pump coroutine. Call once at app startup."""
+        self._loop = asyncio.get_running_loop()
         self._pump_task = asyncio.create_task(self._pump_queue(), name="ws-pump")
         # Register log hook so every log line also reaches WebSocket clients
         register_ws_hook(self._enqueue_log)
@@ -91,19 +93,25 @@ class ConnectionManager:
         Thread-safe variant: enqueues *payload* for delivery by the pump task.
         Call from synchronous scanner code or logging hooks.
         """
-        self._queue.put_nowait(payload)
+        if self._loop:
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, payload)
 
     # ── Log streaming ────────────────────────────────────────────────────────
 
     def _enqueue_log(self, message: str) -> None:
         """Called by the logger WebSocketHandler on every record."""
-        self._queue.put_nowait({"event": "log", "message": message})
+        if self._loop:
+            self._loop.call_soon_threadsafe(
+                self._queue.put_nowait,
+                {"event": "log", "message": message}
+            )
 
     # ── State hook (registered with AppState) ────────────────────────────────
 
     def enqueue_state_event(self, payload: dict) -> None:
-        """Registered with AppState.register_broadcast_hook."""
-        self._queue.put_nowait(payload)
+        """Registered with AppState.register_broadcast_hook; thread-safe."""
+        if self._loop:
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, payload)
 
     # ── Pump coroutine ────────────────────────────────────────────────────────
 
