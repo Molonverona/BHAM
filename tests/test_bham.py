@@ -248,8 +248,17 @@ class TestApiRoutes(unittest.TestCase):
         self.assertTrue(del_res["deleted"])
 
     def test_abort_scan(self):
-        res = asyncio.run(routes.abort_scan())
-        self.assertTrue(res["aborted"])
+        async def _test():
+            # Create a dummy session to abort
+            tcp_req = routes.ModbusTCPScanRequest(hosts=["127.0.0.1"])
+            res = await routes.start_modbus_tcp(tcp_req)
+            session_id = res["session_id"]
+
+            # Now abort it
+            abort_res = await routes.abort_scan(session_id)
+            self.assertTrue(abort_res["aborted"])
+
+        asyncio.run(_test())
 
 
 class TestCustomPorts(unittest.TestCase):
@@ -307,7 +316,7 @@ class TestCustomPorts(unittest.TestCase):
             self.assertIn(res_knx["session_id"], state.sessions)
 
             # Abort to let any spawned background coroutines terminate cleanly
-            await routes.abort_scan()
+            await routes.abort_scan(res_knx["session_id"])
             await asyncio.sleep(0.05)
 
         asyncio.run(_test())
@@ -450,7 +459,7 @@ class TestSerialSniffer(unittest.TestCase):
             # Legge bus health (puo essere None se non ancora calcolato)
             _ = await routes.get_serial_bus_health()
 
-            await routes.abort_scan()
+            await routes.abort_scan(res["session_id"])
             await asyncio.sleep(0.05)
 
         asyncio.run(_test())
