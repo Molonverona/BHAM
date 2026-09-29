@@ -268,6 +268,25 @@ class BACnetScanner(BaseScanner):
 
     async def _enrich_devices(self, devices: dict[int, BACnetDevice]) -> None:
         """Read diagnostic properties for each discovered device (batched)."""
+        if not devices:
+            return
+
+        # Crea una singola Application per tutte le letture (riuso, non 10 bind concorrenti)
+        try:
+            from bacpypes3.app import Application
+            from bacpypes3.local.device import DeviceObject
+            from bacpypes3.primitivedata import ObjectIdentifier
+
+            local_device = DeviceObject(
+                objectIdentifier=ObjectIdentifier("device,9998"),
+                objectName="BHAM-enricher",
+                vendorIdentifier=999,
+            )
+            app = Application(local_device)
+        except Exception as exc:
+            self._log.warning("Cannot create BACnet app for property enrichment: %s", exc)
+            return
+
         sem = asyncio.Semaphore(BATCH_SIZE)
         total = len(devices)
 
@@ -275,7 +294,7 @@ class BACnetScanner(BaseScanner):
             async with sem:
                 if self.is_aborted():
                     return
-                await self._read_device_properties(device)
+                await self._read_device_properties(device, app)
                 state.upsert_bacnet(device)  # push enriched data
                 pct = (idx + 1) / total * 100
                 state.update_session(
@@ -290,27 +309,24 @@ class BACnetScanner(BaseScanner):
         ]
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _read_device_properties(self, device: BACnetDevice) -> None:
+        try:
+            await app.close()
+        except Exception:
+            pass
+
+    async def _read_device_properties(self, device: BACnetDevice, app) -> None:
         """
         Read diagnostic properties from a single BACnet device.
+        Uses a shared Application passed from _enrich_devices.
         Errors on individual properties are silently swallowed.
         """
         log = self._log.getChild("read_prop")
         try:
-            from bacpypes3.app import Application
-            from bacpypes3.local.device import DeviceObject
             from bacpypes3.pdu import Address
             from bacpypes3.apdu import ReadPropertyRequest, ReadPropertyACK
             from bacpypes3.primitivedata import ObjectIdentifier, CharacterString
             from bacpypes3.basetypes import PropertyIdentifier
 
-            # Spin up a transient application for this read
-            local_device = DeviceObject(
-                objectIdentifier=ObjectIdentifier("device,9997"),
-                objectName="BHAM-reader",
-                vendorIdentifier=999,
-            )
-            app = Application(local_device)
             target = Address(device.address)
             obj_id = ObjectIdentifier(f"device,{device.device_id}")
 
@@ -341,8 +357,6 @@ class BACnetScanner(BaseScanner):
                     log.debug("  Timeout reading %s from device %d", prop_name, device.device_id)
                 except Exception as exc:
                     log.debug("  Error reading %s from device %d: %s", prop_name, device.device_id, exc)
-
-            await app.close()
 
         except Exception as exc:
             log.warning("Property read failed for device %d: %s", device.device_id, exc)

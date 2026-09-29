@@ -14,6 +14,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Body, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
 from api.websockets import manager
 from core.logger import logger
@@ -106,78 +107,73 @@ class SerialSniffRequest(BaseModel):
 
 @router.post("/scan/modbus/rtu", tags=["scans"])
 async def start_modbus_rtu(req: ModbusRTUScanRequest) -> dict:
-    from scanners.base import BaseScanner
     from scanners.modbus import ModbusScanner
-    BaseScanner.reset_abort()
     session = state.new_session(Protocol.MODBUS_RTU, req.model_dump())
     scanner = ModbusScanner(session_id=session.id)
+    scanner.reset_abort()
     asyncio.create_task(scanner.scan_rtu(req))
     return {"session_id": session.id, "status": "started"}
 
 
 @router.post("/scan/serial/sniff", tags=["scans"])
 async def start_serial_sniff(req: SerialSniffRequest) -> dict:
-    from scanners.base import BaseScanner
     from scanners.serial_sniffer import SerialSniffer
-    BaseScanner.reset_abort()
     proto = Protocol.MODBUS_RTU if req.protocol_filter == "modbus_rtu" else (
         Protocol.BACNET_MSTP if req.protocol_filter == "bacnet_mstp" else Protocol.UNKNOWN
     )
     session = state.new_session(proto, req.model_dump())
     sniffer = SerialSniffer(session_id=session.id)
+    sniffer.reset_abort()
     asyncio.create_task(sniffer.sniff(req))
     return {"session_id": session.id, "status": "started"}
 
 
 @router.post("/scan/modbus/tcp", tags=["scans"])
 async def start_modbus_tcp(req: ModbusTCPScanRequest) -> dict:
-    from scanners.base import BaseScanner
     from scanners.modbus import ModbusScanner
-    BaseScanner.reset_abort()
     session = state.new_session(Protocol.MODBUS_TCP, req.model_dump())
     scanner = ModbusScanner(session_id=session.id)
+    scanner.reset_abort()
     asyncio.create_task(scanner.scan_tcp(req))
     return {"session_id": session.id, "status": "started"}
 
 
 @router.post("/scan/bacnet/ip", tags=["scans"])
 async def start_bacnet_ip(req: BACnetIPScanRequest) -> dict:
-    from scanners.base import BaseScanner
     from scanners.bacnet import BACnetScanner
-    BaseScanner.reset_abort()
     session = state.new_session(Protocol.BACNET_IP, req.model_dump())
     scanner = BACnetScanner(session_id=session.id)
+    scanner.reset_abort()
     asyncio.create_task(scanner.scan_ip(req))
     return {"session_id": session.id, "status": "started"}
 
 
 @router.post("/scan/knx/ip", tags=["scans"])
 async def start_knx_ip(req: KNXIPScanRequest) -> dict:
-    from scanners.base import BaseScanner
     from scanners.knx import KNXScanner
-    BaseScanner.reset_abort()
     session = state.new_session(Protocol.KNX_IP, req.model_dump())
     scanner = KNXScanner(session_id=session.id)
+    scanner.reset_abort()
     asyncio.create_task(scanner.scan(req))
     return {"session_id": session.id, "status": "started"}
 
 
 @router.post("/scan/arp", tags=["scans"])
 async def start_arp_sniff(req: ARPSniffRequest) -> dict:
-    from scanners.base import BaseScanner
     from scanners.ip_sniffer import IPSniffer
-    BaseScanner.reset_abort()
     session = state.new_session(Protocol.UNKNOWN, req.model_dump())
     sniffer = IPSniffer(session_id=session.id)
+    sniffer.reset_abort()
     asyncio.create_task(sniffer.sniff(req))
     return {"session_id": session.id, "status": "started"}
 
 
-@router.post("/scan/abort", tags=["scans"])
-async def abort_scan() -> dict:
-    # Signal via a global abort event (scanner must check it)
-    from scanners.base import abort_event
-    abort_event.set()
+@router.post("/scan/abort/{session_id}", tags=["scans"])
+async def abort_scan(session_id: str) -> dict:
+    from scanners.base import _abort_events
+    if session_id not in _abort_events:
+        _abort_events[session_id] = asyncio.Event()
+    _abort_events[session_id].set()
     return {"aborted": True}
 
 
@@ -226,13 +222,14 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             summary="Download discovery results as Excel")
 async def export_excel():
     from reports.excel import generate_excel
-    tmp = tempfile.mktemp(suffix=".xlsx", prefix="bham_report_")
+    fd, tmp = tempfile.mkstemp(suffix=".xlsx", prefix="bham_report_")
+    os.close(fd)
     generate_excel(tmp)
     return FileResponse(
         path=tmp,
         filename="bham_report.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        background=None,
+        background=BackgroundTask(os.unlink, tmp),
     )
 
 
@@ -241,12 +238,14 @@ async def export_excel():
             summary="Download discovery results as PDF")
 async def export_pdf():
     from reports.pdf import generate_pdf
-    tmp = tempfile.mktemp(suffix=".pdf", prefix="bham_report_")
+    fd, tmp = tempfile.mkstemp(suffix=".pdf", prefix="bham_report_")
+    os.close(fd)
     generate_pdf(tmp)
     return FileResponse(
         path=tmp,
         filename="bham_report.pdf",
         media_type="application/pdf",
+        background=BackgroundTask(os.unlink, tmp),
     )
 
 

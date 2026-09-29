@@ -68,6 +68,9 @@ def create_app() -> FastAPI:
     )
 
     # CORS – allow the bundled frontend and local dev servers
+    # ⚠️  WARNING: This daemon has NO AUTHENTICATION and listens on 0.0.0.0.
+    # Anyone on the network can trigger scans, read discovered devices, export reports.
+    # For production/untrusted networks: bind to 127.0.0.1 or add authentication.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
