@@ -24,23 +24,16 @@ echo "=========================================================="
 
 # ── Controllo permessi (Linux) ──────────────────────────────────────────────
 if [ "$(uname -s)" = "Linux" ]; then
-  WARN=0
+  NEED_SUDO=0
 
   # Controlla gruppo dialout (porte seriali RS485)
   if ! groups | grep -qw dialout; then
     echo ""
-    echo "⚠️  AVVISO – Porte seriali RS485"
-    echo "   Il tuo utente non è nel gruppo 'dialout'."
-    echo "   L'ARS Sniffer RS485 NON sarà disponibile finché non esegui:"
-    echo ""
-    echo "     sudo usermod -aG dialout $USER"
-    echo "     (poi effettua logout e login)"
-    echo ""
-    WARN=1
+    echo "⚠️  Porte seriali RS485: utente non in gruppo 'dialout'"
+    NEED_SUDO=1
   fi
 
   # Controlla CAP_NET_RAW (ARP Sniffer)
-  # Legge il bitmask CapPrm da /proc/self/status; bit 13 = CAP_NET_RAW
   CAP_PRM=$(awk '/^CapPrm:/{print $2}' /proc/self/status 2>/dev/null)
   if [ -n "$CAP_PRM" ]; then
     CAP_INT=$((16#$CAP_PRM))
@@ -50,19 +43,36 @@ if [ "$(uname -s)" = "Linux" ]; then
   fi
 
   if [ "$HAS_NET_RAW" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
-    echo ""
-    echo "⚠️  AVVISO – ARP Sniffer (raw socket)"
-    echo "   CAP_NET_RAW non impostata su $(which python3)."
-    echo "   L'ARP Sniffer NON sarà disponibile finché non esegui:"
-    echo ""
-    echo "     sudo setcap cap_net_raw+eip .venv/bin/python3"
-    echo "   (oppure: sudo python3 main.py  per avvio immediato)"
-    echo ""
-    WARN=1
+    echo "⚠️  ARP Sniffer: CAP_NET_RAW non configurata"
+    NEED_SUDO=1
   fi
 
-  if [ "$WARN" -eq 0 ]; then
-    echo "  ✅  Permessi OK (dialout e cap_net_raw rilevati)"
+  # Offri esecuzione con sudo se mancano permessi
+  if [ "$NEED_SUDO" -eq 1 ]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════╗"
+    echo "║ Permessi insufficienti rilevati                        ║"
+    echo "╚════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Per configurare i permessi in modo permanente, esegui:"
+    echo "  sudo ./scripts/setup_permissions.sh"
+    echo ""
+    echo "Opzioni per avviare BHAM:"
+    echo "  1. Avvia con sudo (accesso completo subito):"
+    echo "     sudo ./start.sh"
+    echo ""
+    echo "  2. Esegui setup e poi avvia normalmente:"
+    echo "     sudo ./scripts/setup_permissions.sh"
+    echo "     (logout/login se aggiunti a 'dialout')"
+    echo "     ./start.sh"
+    echo ""
+    read -p "Avvio con sudo? (s/n): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Ss]$ ]]; then
+      exec sudo .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload
+    fi
+  else
+    echo "  ✅  Permessi OK (dialout + cap_net_raw)"
   fi
 fi
 
