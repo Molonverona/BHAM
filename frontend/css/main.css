@@ -1221,3 +1221,184 @@ html, body {
   padding: 10px;
   font-size: 11px;
 }
+
+/* ============================================================
+   RESPONSIVE DESIGN – Tablet & Mobile Optimizations
+   ============================================================ */
+
+/* TABLET (768px - 1023px) */
+@media (max-width: 1023px) {
+  body { font-size: 11px; }
+
+  .bham-header { flex-wrap: wrap; gap: 8px; }
+  .bham-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .bham-main-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .bham-panel { border-radius: 6px; }
+
+  .bham-table { font-size: 10px; }
+  .bham-table th, .bham-table td { padding: 6px 4px; }
+
+  .bham-btn-scan-rapid { padding: 6px 10px; font-size: 10px; }
+
+  .bham-modal-content {
+    max-height: 90vh;
+    width: 90vw;
+    max-width: 800px;
+  }
+}
+
+/* MOBILE (< 768px) */
+@media (max-width: 767px) {
+  body { font-size: 10px; }
+
+  .bham-header {
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .bham-header-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .bham-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .bham-header-btn {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+
+  .bham-btn-scan-rapid {
+    padding: 6px 8px;
+    font-size: 9px;
+    flex: 1;
+  }
+
+  .bham-version-badge { display: none; }
+
+  .bham-main-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .bham-panel {
+    border-radius: 4px;
+    padding: 8px;
+  }
+
+  .bham-panel-header { margin-bottom: 8px; }
+
+  .bham-table {
+    font-size: 9px;
+    display: block;
+    overflow-x: auto;
+  }
+
+  .bham-table thead { display: none; }
+  .bham-table tbody { display: block; }
+
+  .bham-table tr {
+    display: block;
+    border-bottom: 1px solid var(--bham-border);
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    background: var(--bham-bg-surface);
+  }
+
+  .bham-table td {
+    display: block;
+    text-align: right;
+    padding: 4px 0;
+  }
+
+  .bham-table td::before {
+    content: attr(data-label);
+    float: left;
+    font-weight: 600;
+    color: var(--bham-text-muted);
+  }
+
+  .bham-modal-content {
+    max-height: 95vh;
+    width: 95vw;
+    max-width: 100%;
+    border-radius: 12px;
+  }
+
+  .bham-modal-header h2 { font-size: 14px; }
+
+  .bham-settings-tab-list {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bham-settings-tab-list button {
+    width: 100%;
+    text-align: left;
+  }
+
+  .bham-active-params-bar {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .bham-active-tag { font-size: 8px; }
+  .bham-active-pill { font-size: 9px; }
+
+  .bham-lang-group button {
+    font-size: 8px;
+    padding: 4px 6px;
+  }
+
+  .bham-log-line {
+    font-size: 8px;
+    padding: 2px 4px;
+  }
+}
+
+/* SMALL MOBILE (< 480px) */
+@media (max-width: 479px) {
+  body { font-size: 9px; }
+
+  .bham-brand { font-size: 14px; }
+
+  .bham-header-btn span { display: none; }
+  .bham-header-btn { padding: 6px; }
+
+  .bham-btn-scan-rapid span { display: none; }
+
+  .bham-modal-content {
+    width: 98vw;
+    max-height: 98vh;
+    padding: 8px;
+  }
+
+  .bham-table td {
+    display: block;
+    text-align: right;
+    padding: 2px 0;
+    font-size: 8px;
+  }
+
+  .bham-panel { padding: 6px; }
+}
