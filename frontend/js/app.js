@@ -349,6 +349,30 @@ function matchesSearch(text) {
   return (text || "").toLowerCase().includes(currentSearch.toLowerCase());
 }
 
+// Utility: sort devices by column (helper for sortable headers)
+window.sortDeviceTable = function(table, colIndex, dataType = 'string') {
+  const rows = Array.from(document.querySelectorAll(`#${table} tbody tr`));
+  const isAsc = rows[0]?.dataset.sortAsc !== 'true';
+
+  rows.sort((a, b) => {
+    const aVal = a.children[colIndex].textContent.trim();
+    const bVal = b.children[colIndex].textContent.trim();
+
+    let compare = 0;
+    if (dataType === 'number') {
+      compare = parseFloat(aVal) - parseFloat(bVal);
+    } else {
+      compare = aVal.localeCompare(bVal);
+    }
+    return isAsc ? compare : -compare;
+  });
+
+  rows.forEach(row => row.dataset.sortAsc = isAsc);
+  const tbody = document.querySelector(`#${table} tbody`);
+  tbody.innerHTML = '';
+  rows.forEach(row => tbody.appendChild(row));
+};
+
 function renderModbusTable() {
   const tb = document.getElementById("modbus-table");
   if (!tb) return;
@@ -356,7 +380,7 @@ function renderModbusTable() {
   const rows = store.modbus.filter(d => {
     const hay = `${d.slave_id} ${d.protocol} ${d.ip} ${d.vendor_name} ${d.model_name}`;
     return matchesSearch(hay);
-  });
+  }).sort((a, b) => a.slave_id - b.slave_id);
 
   const detailsTxt = window.t ? window.t("btn_details") : "Dettagli";
 
