@@ -4,6 +4,38 @@
 
 ---
 
+## Sessione 14 – 2026-09-29 ✅ COMPLETE – v0.4.0
+**Audit fixes, permissions automation, responsive UI & deployment ready**
+
+**Highlights:**
+- ✅ **Audit resolution**: 11 issues fixed (3 critical, 4 high, 4 medium)
+  - Race condition WebSocket broadcast (loop.call_soon_threadsafe)
+  - AppState thread-safety (threading.Lock + error logging)
+  - Serial sniffer error status propagation
+  - BACnet MS-TP frame handling (incomplete vs invalid)
+  - Modbus TCP CIDR subnet expansion
+  - BACnet enrichment single Application reuse
+  - Per-session abort events (vs global)
+  - Secure tempfile handling + BackgroundTask cleanup
+  
+- ✅ **Permissions**: Automated setup (`scripts/setup_permissions.sh`)
+  - Linux: setcap + dialout group configuration
+  - Windows: documented UAC elevation
+  - start.sh smart detection + sudo prompt
+  - PERMESSI.md complete guide
+
+- ✅ **UI/UX**: Responsive mobile/tablet design
+  - Media queries: tablet (1023px), mobile (767px), small (479px)
+  - Card-based table rendering for mobile
+  - Device table sorting by ID
+  - Touch-friendly button sizing
+
+- **Version**: v0.4.0 (was 0.3.5)
+- **Commits**: 7 (6 feature/fix + 1 merge)
+- **Status**: Ready for production deployment
+
+---
+
 ## Sessione 13 – 2026-09-27 ✅ DONE
 **Gestione permessi admin – Linux & Windows**
 
