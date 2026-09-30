@@ -241,8 +241,18 @@ class TestMapsManager(unittest.TestCase):
 class TestReporting(unittest.TestCase):
     def setUp(self):
         state.clear()
-        state.upsert_modbus(ModbusDevice(slave_id=1, protocol=Protocol.MODBUS_RTU, response_time_ms=12.5))
-        state.upsert_bacnet(BACnetDevice(device_id=101, address="192.168.1.5", vendor_name="WAGO"))
+        state.upsert_modbus(ModbusDevice(
+            slave_id=1,
+            protocol=Protocol.MODBUS_RTU,
+            response_time_ms=12.5,
+            registers={"40001": {"hex": "0x00E4", "int16": 228, "dec": 228, "float32": "", "description": "Temp Mandata"}},
+        ))
+        state.upsert_bacnet(BACnetDevice(
+            device_id=101,
+            address="192.168.1.5",
+            vendor_name="WAGO",
+            object_list=[{"object_identifier": "analog-input:1", "object_type": "analogInput", "object_name": "T_Esterna", "present_value": 18.2, "units": "°C"}],
+        ))
         state.upsert_knx(KNXDevice(individual_address="1.1.0", ip_address="192.168.1.8", device_name="Router"))
         state.upsert_ip_host(IPHost(ip="192.168.1.1", mac="00:1c:06:aa:bb:cc"))
 
@@ -253,6 +263,17 @@ class TestReporting(unittest.TestCase):
             generate_excel(path)
             self.assertTrue(os.path.exists(path))
             self.assertGreater(os.path.getsize(path), 1000)
+
+            # Verifica presenza di tutti i fogli arricchiti v2.0
+            import openpyxl
+            wb = openpyxl.load_workbook(path)
+            expected_sheets = [
+                "Network Topology", "Modbus Devices", "BACnet Devices",
+                "KNX Devices", "IP Hosts", "Modbus Registers",
+                "BACnet Objects", "Report Info"
+            ]
+            for s in expected_sheets:
+                self.assertIn(s, wb.sheetnames)
         finally:
             if os.path.exists(path):
                 os.unlink(path)
@@ -267,6 +288,7 @@ class TestReporting(unittest.TestCase):
         finally:
             if os.path.exists(path):
                 os.unlink(path)
+
 
 
 class TestApiRoutes(unittest.TestCase):
@@ -560,5 +582,328 @@ class TestSerialSniffer(unittest.TestCase):
         asyncio.run(_test())
 
 
+class TestSessionDiff(unittest.TestCase):
+    """Test suite per il modulo core/session_diff.py ed endpoint /sessions/diff."""
+
+    def test_compare_snapshots_full(self):
+        from core.session_diff import compare_snapshots
+        from data.models import DiffStatus
+
+        base_snap = {
+            "modbus_devices": [
+                {
+                    "slave_id": 1,
+                    "protocol": "modbus_rtu",
+                    "serial_params": {"port": "/dev/ttyUSB0", "baudrate": 9600, "parity": "N", "stopbits": 1},
+                    "registers": {"40001": 215},
+                    "response_time_ms": 35.0,
+                },
+                {
+                    "slave_id": 5,
+                    "protocol": "modbus_rtu",
+                    "serial_params": {"port": "/dev/ttyUSB0", "baudrate": 9600, "parity": "N", "stopbits": 1},
+                },
+            ],
+            "bacnet_devices": [
+                {
+                    "device_id": 100,
+                    "address": "192.168.1.50",
+                    "vendor_name": "Siemens",
+                    "model_name": "PXC001",
+                    "firmware_revision": "1.0",
+                }
+            ],
+            "knx_devices": [
+                {
+                    "individual_address": "1.1.0",
+                    "ip_address": "192.168.1.200",
+                    "device_name": "KNX IP Router",
+                    "medium": "TP1",
+                }
+            ],
+            "ip_hosts": [
+                {
+                    "ip": "192.168.1.10",
+                    "mac": "AA:BB:CC:DD:EE:01",
+                    "hostname": "controller-1",
+                    "open_ports": [80, 502],
+                }
+            ],
+        }
+
+        target_snap = {
+            "modbus_devices": [
+                # Modbus 1: modificato baudrate e latenza
+                {
+                    "slave_id": 1,
+                    "protocol": "modbus_rtu",
+                    "serial_params": {"port": "/dev/ttyUSB0", "baudrate": 19200, "parity": "N", "stopbits": 1},
+                    "registers": {"40001": 215},
+                    "response_time_ms": 320.0,
+                },
+                # Modbus 2: nuovo apparato
+                {
+                    "slave_id": 2,
+                    "protocol": "modbus_rtu",
+                    "serial_params": {"port": "/dev/ttyUSB0", "baudrate": 19200, "parity": "N", "stopbits": 1},
+                },
+                # Modbus 5: rimosso (non presente in target)
+            ],
+            "bacnet_devices": [
+                # BACnet 100: modificato indirizzo e firmware
+                {
+                    "device_id": 100,
+                    "address": "192.168.1.55",
+                    "vendor_name": "Siemens",
+                    "model_name": "PXC001",
+                    "firmware_revision": "2.0",
+                },
+                # BACnet 200: nuovo apparato
+                {
+                    "device_id": 200,
+                    "address": "192.168.1.60",
+                    "vendor_name": "Carel",
+                    "model_name": "pCO5",
+                },
+            ],
+            "knx_devices": [
+                # KNX 1.1.0: invariato
+                {
+                    "individual_address": "1.1.0",
+                    "ip_address": "192.168.1.200",
+                    "device_name": "KNX IP Router",
+                    "medium": "TP1",
+                },
+                # KNX 1.1.5: nuovo apparato
+                {
+                    "individual_address": "1.1.5",
+                    "ip_address": "192.168.1.205",
+                    "device_name": "KNX Actuator",
+                    "medium": "TP1",
+                },
+            ],
+            "ip_hosts": [
+                # Host MAC AA:BB:CC:DD:EE:01: IP riassegnato da .10 a .15
+                {
+                    "ip": "192.168.1.15",
+                    "mac": "AA:BB:CC:DD:EE:01",
+                    "hostname": "controller-1",
+                    "open_ports": [80, 502, 47808],
+                },
+                # Nuovo host
+                {
+                    "ip": "192.168.1.99",
+                    "mac": "11:22:33:44:55:66",
+                    "hostname": "printer",
+                },
+            ],
+        }
+
+        diff = compare_snapshots(base_snap, target_snap, "Collaudo 2026-09-01", "Collaudo 2026-09-29")
+        self.assertEqual(diff.baseline_name, "Collaudo 2026-09-01")
+        self.assertEqual(diff.target_name, "Collaudo 2026-09-29")
+
+        # Modbus: 1 modificato, 1 aggiunto, 1 rimosso
+        mb_sum = diff.summary["modbus"]
+        self.assertEqual(mb_sum.added, 1)
+        self.assertEqual(mb_sum.removed, 1)
+        self.assertEqual(mb_sum.modified, 1)
+        self.assertEqual(mb_sum.unchanged, 0)
+
+        # BACnet: 1 modificato, 1 aggiunto, 0 rimossi
+        bn_sum = diff.summary["bacnet"]
+        self.assertEqual(bn_sum.added, 1)
+        self.assertEqual(bn_sum.removed, 0)
+        self.assertEqual(bn_sum.modified, 1)
+
+        # KNX: 1 invariato, 1 aggiunto
+        knx_sum = diff.summary["knx"]
+        self.assertEqual(knx_sum.added, 1)
+        self.assertEqual(knx_sum.unchanged, 1)
+
+        # IP Host: 1 modificato (stesso MAC con nuovo IP), 1 aggiunto
+        host_sum = diff.summary["ip_host"]
+        self.assertEqual(host_sum.modified, 1)
+        self.assertEqual(host_sum.added, 1)
+
+        # Totali aggregati
+        tot = diff.summary["total"]
+        self.assertEqual(tot.added, 4)      # Modbus 2, BACnet 200, KNX 1.1.5, Host .99
+        self.assertEqual(tot.removed, 1)    # Modbus 5
+        self.assertEqual(tot.modified, 3)   # Modbus 1, BACnet 100, Host MAC ...01
+        self.assertEqual(tot.unchanged, 1)  # KNX 1.1.0
+
+        # Verifica dettagli modifiche su Modbus 1
+        mb1 = next(it for it in diff.items if it.identifier == "RTU Slave #1")
+        self.assertEqual(mb1.status, DiffStatus.MODIFIED)
+        changed_fields = {c.field for c in mb1.changes}
+        self.assertIn("serial_baudrate", changed_fields)
+        self.assertIn("response_time_ms", changed_fields)
+
+    def test_diff_sessions_api_endpoint(self):
+        from core.session_store import save_session, delete_session
+        from data.models import ModbusDevice, BACnetDevice, Protocol, SessionDiffRequest
+
+        # 1. Salva una sessione baseline fittizia
+        base_state = {
+            "modbus_devices": [
+                {"slave_id": 10, "protocol": "modbus_rtu", "response_time_ms": 25.0}
+            ],
+            "bacnet_devices": [
+                {"device_id": 555, "address": "192.168.1.80", "vendor_name": "Trane"}
+            ],
+            "knx_devices": [],
+            "ip_hosts": [],
+        }
+        saved_path = save_session("UnitTest_DiffBaseline", {}, base_state)
+        filename = saved_path.name
+
+        try:
+            # 2. Configura lo stato live con un dispositivo modificato e uno nuovo
+            state.clear()
+            state.upsert_modbus(ModbusDevice(slave_id=10, protocol=Protocol.MODBUS_RTU, response_time_ms=25.0))
+            state.upsert_bacnet(BACnetDevice(device_id=555, address="192.168.1.90", vendor_name="Trane")) # IP variato
+            state.upsert_bacnet(BACnetDevice(device_id=777, address="192.168.1.95", vendor_name="Daikin")) # Nuovo
+
+            async def _test():
+                req = SessionDiffRequest(
+                    baseline_filename=filename,
+                    target_filename=None, # Live AppState
+                )
+                res = await routes.diff_sessions(req)
+                self.assertIn("summary", res)
+                self.assertIn("items", res)
+                self.assertEqual(res["summary"]["total"]["added"], 1)     # BACnet 777
+                self.assertEqual(res["summary"]["total"]["modified"], 1)  # BACnet 555
+                self.assertEqual(res["summary"]["total"]["unchanged"], 1) # Modbus 10
+
+            asyncio.run(_test())
+        finally:
+            delete_session(filename)
+
+
+class TestBACnetBBMD(unittest.TestCase):
+    """Test suite per gestione avanzata router BBMD e Foreign Device."""
+
+    def test_bbmd_payload_decoders(self):
+        from scanners.bacnet import decode_bdt_payload, decode_fdt_payload
+        import socket, struct
+
+        # BDT: 2 record x 10 byte
+        rec1 = struct.pack("!4sH4s", socket.inet_aton("192.168.1.1"), 47808, socket.inet_aton("255.255.255.255"))
+        rec2 = struct.pack("!4sH4s", socket.inet_aton("192.168.20.254"), 47809, socket.inet_aton("255.255.255.0"))
+        bdt = decode_bdt_payload(rec1 + rec2)
+        self.assertEqual(len(bdt), 2)
+        self.assertEqual(bdt[0]["ip"], "192.168.1.1")
+        self.assertEqual(bdt[0]["port"], 47808)
+        self.assertEqual(bdt[0]["broadcast_mask"], "255.255.255.255")
+        self.assertEqual(bdt[1]["ip"], "192.168.20.254")
+        self.assertEqual(bdt[1]["port"], 47809)
+        self.assertEqual(bdt[1]["broadcast_mask"], "255.255.255.0")
+
+        # FDT: 2 record x 10 byte
+        frec1 = struct.pack("!4sHHH", socket.inet_aton("10.0.1.50"), 47808, 60, 42)
+        frec2 = struct.pack("!4sHHH", socket.inet_aton("10.0.2.77"), 47808, 120, 95)
+        fdt = decode_fdt_payload(frec1 + frec2)
+        self.assertEqual(len(fdt), 2)
+        self.assertEqual(fdt[0]["ip"], "10.0.1.50")
+        self.assertEqual(fdt[0]["ttl"], 60)
+        self.assertEqual(fdt[0]["remaining_time"], 42)
+        self.assertEqual(fdt[1]["ip"], "10.0.2.77")
+        self.assertEqual(fdt[1]["remaining_time"], 95)
+
+    def test_bbmd_tables_query_mock(self):
+        import asyncio, socket, struct
+        from scanners.bacnet import get_bbmd_tables
+
+        class MockBBMDServer(asyncio.DatagramProtocol):
+            def __init__(self):
+                self.transport = None
+            def connection_made(self, transport):
+                self.transport = transport
+            def datagram_received(self, data, addr):
+                if len(data) >= 4 and data[0] == 0x81:
+                    fn = data[1]
+                    if fn == 0x02:  # Read-BDT
+                        ip_b = socket.inet_aton("192.168.50.1")
+                        mask_b = socket.inet_aton("255.255.255.255")
+                        resp = bytes([0x81, 0x03, 0x00, 0x0E]) + struct.pack("!4sH4s", ip_b, 47808, mask_b)
+                        self.transport.sendto(resp, addr)
+                    elif fn == 0x06:  # Read-FDT
+                        ip_b = socket.inet_aton("10.0.0.88")
+                        resp = bytes([0x81, 0x07, 0x00, 0x0E]) + struct.pack("!4sHHH", ip_b, 47808, 60, 30)
+                        self.transport.sendto(resp, addr)
+
+        async def _run():
+            loop = asyncio.get_running_loop()
+            srv_tr, _ = await loop.create_datagram_endpoint(
+                lambda: MockBBMDServer(),
+                local_addr=("127.0.0.1", 47895)
+            )
+            try:
+                res = await get_bbmd_tables("127.0.0.1", 47895, timeout=1.0)
+                self.assertEqual(res["bbmd_ip"], "127.0.0.1")
+                self.assertEqual(res["bbmd_port"], 47895)
+                self.assertEqual(len(res["bdt"]), 1)
+                self.assertEqual(res["bdt"][0]["ip"], "192.168.50.1")
+                self.assertEqual(len(res["fdt"]), 1)
+                self.assertEqual(res["fdt"][0]["ip"], "10.0.0.88")
+            finally:
+                srv_tr.close()
+                await asyncio.sleep(0.02)
+
+        asyncio.run(_run())
+
+    def test_bbmd_routed_topology(self):
+        state.clear()
+        # 1 device locale
+        state.upsert_bacnet(BACnetDevice(device_id=10, address="192.168.1.10", vendor_name="LocalBACnet"))
+        # 1 device routed via BBMD
+        state.upsert_bacnet(BACnetDevice(
+            device_id=20,
+            address="10.50.0.25",
+            vendor_name="RemoteBACnet",
+            bbmd_routed=True,
+            routed_via="10.50.0.1:47808",
+            tags=["bbmd_routed"]
+        ))
+
+        topo = state.get_topology()
+        nodes = {n["id"]: n for n in topo["nodes"]}
+        links = [(l["source"], l["target"]) for l in topo["links"]]
+
+        # Verifica presenza del router BBMD
+        router_id = "node:router:bbmd:10_50_0_1_47808"
+        self.assertIn(router_id, nodes)
+        self.assertEqual(nodes[router_id]["category"], "router")
+        self.assertEqual(nodes[router_id]["parent_id"], "node:bus:bacnet_ip")
+
+        # Verifica gerarchia del dispositivo routed
+        dev20_id = "node:dev:bacnet:ip:20"
+        self.assertIn(dev20_id, nodes)
+        self.assertEqual(nodes[dev20_id]["parent_id"], router_id)
+        self.assertTrue(nodes[dev20_id]["metrics"]["bbmd_routed"])
+        self.assertIn((router_id, dev20_id), links)
+
+        # Verifica dispositivo locale
+        dev10_id = "node:dev:bacnet:ip:10"
+        self.assertEqual(nodes[dev10_id]["parent_id"], "node:bus:bacnet_ip")
+        self.assertIn(("node:bus:bacnet_ip", dev10_id), links)
+
+    def test_bacnet_ip_scan_request_bbmd_fields(self):
+        req = routes.BACnetIPScanRequest(
+            iface="eth0",
+            port="BAC0",
+            bbmd_ip="192.168.10.1",
+            bbmd_port=47808,
+            bbmd_ttl=120,
+        )
+        self.assertEqual(req.bbmd_ip, "192.168.10.1")
+        self.assertEqual(req.bbmd_port, 47808)
+        self.assertEqual(req.bbmd_ttl, 120)
+
+
 if __name__ == "__main__":
     unittest.main()
+
+

@@ -85,7 +85,7 @@ const MANUAL_DATA = {
         </ul>
 
         <div class="bham-callout callout-info">
-          <strong>Nota sulle sottoreti (BBMD):</strong> Per impianti con router IP tra sottoreti diverse, assicurarsi che il traffico broadcast UDP 47808 sia instradato tramite un BACnet Broadcast Management Device (BBMD).
+          <strong>Attraversamento Router (BBMD) &amp; Foreign Device:</strong> Per impianti multisito o con router/VLAN intermedie che bloccano i broadcast UDP, inserisci l'IP del router BBMD nella sezione dedicata della card BACnet. BHAM effettuerà una registrazione <em>Foreign Device</em> (Annex J) per inoltrare ed acquisire telegrammi Who-Is/I-Am attraverso la subnet remota. Tramite il pulsante <strong>Tabelle BDT/FDT</strong> è possibile interrogare in sola lettura la Broadcast Distribution Table e la Foreign Device Table del router.
         </div>
       `,
       knx: `
@@ -321,6 +321,10 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
           <li><strong>BAC1..BACF:</strong> Ports <code>47809</code> to <code>47823</code> for secondary networks, virtual routers, or proprietary gateways.</li>
           <li><strong>Supported Syntax in BHAM:</strong> Single symbols (<code>BAC0</code>, <code>BAC1</code>), ranges (<code>BAC0..BAC3</code>), comma-separated lists (<code>BAC0, BAC1, 50000</code>), or custom integer ports (e.g. <code>50000</code>).</li>
         </ul>
+
+        <div class="bham-callout callout-info">
+          <strong>BBMD Router Traversal &amp; Foreign Device Registration:</strong> For multi-subnet facilities or VLAN networks blocking UDP broadcast forwarding, specify the BBMD router IP in the BACnet card drawer. BHAM performs an active <em>Foreign Device Registration</em> (Annex J) to route Who-Is and collect I-Am telegrams across distant subnets. Click <strong>BDT/FDT Tables</strong> to inspect the router's active Broadcast Distribution Table and registered Foreign Device Table in real-time.
+        </div>
       `,
       knx: `
         <h3>4. KNXnet/IP Discovery</h3>
@@ -539,6 +543,10 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
           <li><strong>BAC1..BACF:</strong> Puertos <code>47809</code> a <code>47823</code> para redes secundarias, routers virtuales o pasarelas propietarias.</li>
           <li><strong>Sintaxis Compatible en BHAM:</strong> Símbolos individuales (<code>BAC0</code>, <code>BAC1</code>), rangos (<code>BAC0..BAC3</code>), listas separadas por coma (<code>BAC0, BAC1, 50000</code>) o puertos enteros personalizados (ej. <code>50000</code>).</li>
         </ul>
+
+        <div class="bham-callout callout-info">
+          <strong>Cruce de Enrutador (BBMD) y Foreign Device:</strong> Para instalaciones multi-subred o con VLANs que bloquean el broadcast UDP, indique la IP del enrutador BBMD en la sección correspondiente. BHAM realizará un registro <em>Foreign Device</em> (Anexo J) para cursar telegramas Who-Is/I-Am a través del enrutador. Con el botón <strong>Tablas BDT/FDT</strong> puede inspeccionar la Broadcast Distribution Table y la Foreign Device Table en tiempo real.
+        </div>
       `,
       knx: `
         <h3>4. KNXnet/IP Discovery</h3>

@@ -492,10 +492,12 @@ function renderBACnetTable() {
   tb.innerHTML = rows.map(d => {
     const fw = d.firmware_revision ? (d.firmware_revision.startsWith('v') ? d.firmware_revision : `v${d.firmware_revision}`) : "—";
     const objCount = d.object_list?.length ? `${d.object_list.length} obj` : "—";
+    const isBbmd = Boolean(d.bbmd_routed || (d.tags && d.tags.includes('bbmd_routed')));
+    const bbmdBadge = isBbmd ? `<span class="bham-badge-proto" style="font-size:10px;margin-left:5px;vertical-align:middle;background:rgba(6,182,212,0.18);color:#06b6d4;border:1px solid rgba(6,182,212,0.4)" title="Dispositivo traversato via router BBMD ${d.routed_via || ''}">BBMD</span>` : "";
 
     return `
       <tr>
-        <td class="cell-mono color-bacnet" style="font-weight:700">${d.device_id}</td>
+        <td class="cell-mono color-bacnet" style="font-weight:700">${d.device_id}${bbmdBadge}</td>
         <td class="cell-mono cell-text-main">${d.address}</td>
         <td class="cell-text-main">${d.vendor_name || "—"}</td>
         <td class="cell-text-muted">${d.model_name || "—"}</td>
@@ -1148,10 +1150,23 @@ function startTCP() {
 function startBACnet() {
   const iface = document.getElementById("bacnet-iface")?.value.trim() || "";
   const portVal = document.getElementById("bacnet-port")?.value.trim() || "BAC0";
+  const bbmdIp = document.getElementById("bbmd-ip")?.value.trim() || "";
+  const bbmdPort = document.getElementById("bbmd-port")?.value.trim() || "47808";
+  const bbmdTtl = parseInt(document.getElementById("bbmd-ttl")?.value) || 60;
+
   openConsoleTab("log");
   setRackLed("bacnet", "scanning");
-  log(`[BACNET] Who-Is inviato in broadcast su ${iface || "default"} (porta: ${portVal})...`);
-  postAPI("/scan/bacnet/ip", { iface, port: portVal });
+
+  const payload = { iface, port: portVal };
+  if (bbmdIp) {
+    payload.bbmd_ip = bbmdIp;
+    payload.bbmd_port = bbmdPort;
+    payload.bbmd_ttl = bbmdTtl;
+    log(`[BACNET] Foreign Device Registration verso BBMD ${bbmdIp}:${bbmdPort} (TTL: ${bbmdTtl}s)...`);
+  } else {
+    log(`[BACNET] Who-Is inviato in broadcast su ${iface || "default"} (porta: ${portVal})...`);
+  }
+  postAPI("/scan/bacnet/ip", payload);
 }
 
 function startKNX() {
@@ -1693,6 +1708,7 @@ async function refreshSavedSessionsList() {
           <td class="mono text-dim">${s.saved_at ? s.saved_at.substring(0, 19).replace('T', ' ') : '—'}</td>
           <td><span class="mono text-dim" style="font-size:11px">${devBadge}</span></td>
           <td style="display:flex;gap:4px">
+            <button onclick="openDiffModalForSession('${s.filename}')" class="bham-action-btn-sm" style="color:#d97706;font-weight:600">⚡ Diff</button>
             <button onclick="restoreSession('${s.filename}')" class="bham-action-btn-sm" style="color:var(--bham-modbus);font-weight:600">Ripristina</button>
             <a href="${API}/saved-sessions/${s.filename}" target="_blank" class="bham-action-btn-sm">JSON</a>
             <button onclick="deleteSessionFile('${s.filename}')" class="bham-action-btn-sm bham-action-btn-danger">Elimina</button>
@@ -2641,8 +2657,466 @@ function loadSavedScanParams() {
   }
 }
 
+// ── Session Diff ("Prima vs Dopo") Engine ─────────────────────────────────────
+
+let _diffSessionsList = [];
+let _lastDiffResult = null;
+let _diffProtoFilter = "all";
+let _diffStatusFilter = "all";
+
+function escapeDiffHTML(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+async function openDiffModal() {
+  const modal = document.getElementById("diff-modal");
+  if (!modal) return;
+  modal.style.display = "flex";
+
+  const baseSelect = document.getElementById("diff-baseline-select");
+  const targetSelect = document.getElementById("diff-target-select");
+  if (!baseSelect || !targetSelect) return;
+
+  baseSelect.innerHTML = `<option value="">Caricamento sessioni...</option>`;
+  targetSelect.innerHTML = `<option value="__live__">⚡ Stato Attivo Attuale (Live)</option>`;
+
+  try {
+    const list = await fetch(`${API}/saved-sessions/list`).then(r => r.json());
+    _diffSessionsList = list || [];
+
+    if (!_diffSessionsList.length) {
+      baseSelect.innerHTML = `<option value="">Nessuna sessione salvata trovata in archivio</option>`;
+      targetSelect.innerHTML = `<option value="__live__">⚡ Stato Attivo Attuale (Live)</option>`;
+      return;
+    }
+
+    baseSelect.innerHTML = _diffSessionsList.map(s => {
+      const counts = s.device_counts || {};
+      const devBadge = `(MB:${counts.modbus || 0} BN:${counts.bacnet || 0} KNX:${counts.knx || 0} IP:${counts.ip_hosts || 0})`;
+      const dt = s.saved_at ? s.saved_at.substring(0, 19).replace('T', ' ') : '';
+      return `<option value="${s.filename}">${s.name} [${dt}] ${devBadge}</option>`;
+    }).join("");
+
+    targetSelect.innerHTML = `
+      <option value="__live__">⚡ Stato Attivo Attuale (Live State)</option>
+      ${_diffSessionsList.map(s => {
+        const counts = s.device_counts || {};
+        const devBadge = `(MB:${counts.modbus || 0} BN:${counts.bacnet || 0} KNX:${counts.knx || 0} IP:${counts.ip_hosts || 0})`;
+        const dt = s.saved_at ? s.saved_at.substring(0, 19).replace('T', ' ') : '';
+        return `<option value="${s.filename}">${s.name} [${dt}] ${devBadge}</option>`;
+      }).join("")}
+    `;
+
+    if (_lastDiffResult) {
+      displayDiffResults(_lastDiffResult);
+    }
+  } catch (err) {
+    console.error("Errore caricamento sessioni per diff:", err);
+    baseSelect.innerHTML = `<option value="">Errore caricamento: ${err.message}</option>`;
+  }
+}
+
+async function openDiffModalForSession(filename) {
+  closeSettingsModal();
+  await openDiffModal();
+  const baseSelect = document.getElementById("diff-baseline-select");
+  const targetSelect = document.getElementById("diff-target-select");
+  if (baseSelect) baseSelect.value = filename;
+  if (targetSelect) targetSelect.value = "__live__";
+  await runSessionDiff();
+}
+
+function closeDiffModal() {
+  const modal = document.getElementById("diff-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function runSessionDiff() {
+  const baseSelect = document.getElementById("diff-baseline-select");
+  const targetSelect = document.getElementById("diff-target-select");
+  const btn = document.getElementById("btn-run-diff");
+  if (!baseSelect || !targetSelect) return;
+
+  const baseline_filename = baseSelect.value;
+  const target_filename = targetSelect.value;
+
+  if (!baseline_filename) {
+    alert("Seleziona una sessione di Baseline valida.");
+    return;
+  }
+
+  const oldBtnHtml = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="bham-svg-sm bham-spin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle></svg> Calcolo in corso...`;
+  }
+
+  try {
+    const res = await postAPI("/sessions/diff", {
+      baseline_filename: baseline_filename,
+      target_filename: target_filename === "__live__" ? null : target_filename,
+    });
+
+    if (res && res.summary) {
+      _lastDiffResult = res;
+      displayDiffResults(res);
+      log(`[OK] [DIFF] Confronto completato: +${res.summary.total.added} aggiunti, -${res.summary.total.removed} rimossi, ~${res.summary.total.modified} modificati.`);
+    } else {
+      alert("Errore durante il calcolo del confronto: risposta non valida.");
+    }
+  } catch (err) {
+    console.error("Errore calcolo diff:", err);
+    alert(`Errore calcolo diff: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = oldBtnHtml;
+    }
+  }
+}
+
+function displayDiffResults(res) {
+  const banner = document.getElementById("diff-summary-banner");
+  const filterToolbar = document.getElementById("diff-filter-toolbar");
+  const prompt = document.getElementById("diff-empty-prompt");
+  const table = document.getElementById("diff-data-table");
+  const btnCsv = document.getElementById("btn-export-diff-csv");
+  const btnJson = document.getElementById("btn-export-diff-json");
+
+  if (banner) banner.style.display = "flex";
+  if (filterToolbar) filterToolbar.style.display = "flex";
+  if (prompt) prompt.style.display = "none";
+  if (table) table.style.display = "table";
+  if (btnCsv) btnCsv.style.display = "inline-flex";
+  if (btnJson) btnJson.style.display = "inline-flex";
+
+  const tot = res.summary?.total || {};
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val !== undefined ? val : 0;
+  };
+
+  setTxt("diff-stat-added", tot.added);
+  setTxt("diff-stat-removed", tot.removed);
+  setTxt("diff-stat-modified", tot.modified);
+  setTxt("diff-stat-unchanged", tot.unchanged);
+
+  renderDiffTable();
+}
+
+function setDiffProtoFilter(proto) {
+  _diffProtoFilter = proto;
+  const tabs = document.querySelectorAll("#diff-filter-toolbar .bham-tabs .bham-tab");
+  tabs.forEach(tab => {
+    const id = tab.id;
+    if (
+      (proto === "all" && id === "diff-tab-all") ||
+      (proto === "modbus" && id === "diff-tab-modbus") ||
+      (proto === "bacnet" && id === "diff-tab-bacnet") ||
+      (proto === "knx" && id === "diff-tab-knx") ||
+      (proto === "ip_host" && id === "diff-tab-hosts")
+    ) {
+      tab.classList.add("active");
+    } else {
+      tab.classList.remove("active");
+    }
+  });
+  renderDiffTable();
+}
+
+function setDiffStatusFilter(status) {
+  _diffStatusFilter = status;
+  const btns = document.querySelectorAll(".bham-diff-status-btn");
+  btns.forEach(btn => {
+    if (btn.id === `diff-status-${status}`) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+  renderDiffTable();
+}
+
+function renderDiffTable() {
+  const tbody = document.getElementById("diff-data-tbody");
+  if (!tbody || !_lastDiffResult) return;
+
+  let items = _lastDiffResult.items || [];
+
+  if (_diffProtoFilter !== "all") {
+    items = items.filter(it => it.protocol === _diffProtoFilter);
+  }
+
+  if (_diffStatusFilter !== "all") {
+    items = items.filter(it => it.status === _diffStatusFilter);
+  }
+
+  if (!items.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-dim" style="text-align:center;padding:20px">Nessuna periferica corrisponde ai filtri selezionati.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = items.map(it => {
+    let protoBadge = `<span class="badge" style="font-size:10px">${it.protocol.toUpperCase()}</span>`;
+    if (it.protocol === "modbus") protoBadge = `<span class="badge badge-modbus" style="font-size:10px">MODBUS</span>`;
+    else if (it.protocol === "bacnet") protoBadge = `<span class="badge badge-bacnet" style="font-size:10px">BACNET</span>`;
+    else if (it.protocol === "knx") protoBadge = `<span class="badge badge-knx" style="font-size:10px">KNX</span>`;
+    else if (it.protocol === "ip_host") protoBadge = `<span class="badge badge-arp" style="font-size:10px">ARP HOST</span>`;
+
+    let statusBadge = "";
+    if (it.status === "added") {
+      statusBadge = `<span class="bham-diff-badge bham-diff-badge-added">🟢 + NUOVO</span>`;
+    } else if (it.status === "removed") {
+      statusBadge = `<span class="bham-diff-badge bham-diff-badge-removed">🔴 - ASSENTE</span>`;
+    } else if (it.status === "modified") {
+      statusBadge = `<span class="bham-diff-badge bham-diff-badge-modified">🟡 ~ MODIFICATO</span>`;
+    } else {
+      statusBadge = `<span class="bham-diff-badge bham-diff-badge-unchanged">⚪ = INVARIATO</span>`;
+    }
+
+    let detailsHtml = "";
+    if (it.status === "modified" && it.changes && it.changes.length) {
+      detailsHtml = it.changes.map(ch => {
+        const desc = ch.description || ch.field;
+        const oldVal = ch.baseline !== null && ch.baseline !== undefined ? JSON.stringify(ch.baseline) : "—";
+        const newVal = ch.target !== null && ch.target !== undefined ? JSON.stringify(ch.target) : "—";
+        return `
+          <div class="bham-diff-change-item">
+            <b>${desc}</b>:
+            <span class="bham-diff-change-val-old">${escapeDiffHTML(oldVal)}</span>
+            ➔
+            <span class="bham-diff-change-val-new">${escapeDiffHTML(newVal)}</span>
+          </div>
+        `;
+      }).join("");
+    } else if (it.status === "added") {
+      const td = it.target_data || {};
+      const parts = [];
+      if (td.ip) parts.push(`IP: ${td.ip}`);
+      if (td.tcp_port) parts.push(`Porta: ${td.tcp_port}`);
+      if (td.serial_params) parts.push(`Seriale: ${td.serial_params.port} @ ${td.serial_params.baudrate}bps`);
+      if (td.address) parts.push(`Addr: ${td.address}`);
+      if (td.individual_address) parts.push(`Indirizzo KNX: ${td.individual_address}`);
+      if (td.vendor_name) parts.push(`Costruttore: ${td.vendor_name}`);
+      if (td.model_name) parts.push(`Modello: ${td.model_name}`);
+      if (td.mac) parts.push(`MAC: ${td.mac}`);
+      detailsHtml = `<span class="text-dim" style="font-size:11px">${escapeDiffHTML(parts.join(" | ") || "Apparato rilevato nella nuova scansione")}</span>`;
+    } else if (it.status === "removed") {
+      const bd = it.baseline_data || {};
+      const parts = [];
+      if (bd.ip) parts.push(`IP: ${bd.ip}`);
+      if (bd.tcp_port) parts.push(`Porta: ${bd.tcp_port}`);
+      if (bd.serial_params) parts.push(`Seriale: ${bd.serial_params.port} @ ${bd.serial_params.baudrate}bps`);
+      if (bd.address) parts.push(`Addr: ${bd.address}`);
+      if (bd.individual_address) parts.push(`Indirizzo KNX: ${bd.individual_address}`);
+      if (bd.vendor_name) parts.push(`Costruttore: ${bd.vendor_name}`);
+      if (bd.model_name) parts.push(`Modello: ${bd.model_name}`);
+      if (bd.mac) parts.push(`MAC: ${bd.mac}`);
+      detailsHtml = `<span class="text-dim" style="font-size:11px;color:#ef4444">${escapeDiffHTML(parts.join(" | ") || "Non risponde più alle richieste o scollegato")}</span>`;
+    } else {
+      detailsHtml = `<span class="text-dim" style="font-size:11px">Configurazione e parametri identici.</span>`;
+    }
+
+    return `
+      <tr>
+        <td>${protoBadge}</td>
+        <td>
+          <div style="font-weight:600;font-size:12px">${escapeDiffHTML(it.identifier)}</div>
+          <div class="text-dim" style="font-size:10.5px">${escapeDiffHTML(it.label)}</div>
+        </td>
+        <td style="text-align:center">${statusBadge}</td>
+        <td>${detailsHtml}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function exportDiffCSV() {
+  if (!_lastDiffResult || !_lastDiffResult.items) return;
+  const headers = ["Protocollo", "Identificatore", "Etichetta", "Stato", "Dettagli"];
+  const rows = _lastDiffResult.items.map(it => {
+    let details = "";
+    if (it.changes && it.changes.length) {
+      details = it.changes.map(c => `${c.description || c.field}: ${c.baseline} -> ${c.target}`).join(" ; ");
+    } else if (it.status === "added") {
+      details = "Nuovo apparato";
+    } else if (it.status === "removed") {
+      details = "Apparato offline o rimosso";
+    } else {
+      details = "Invariato";
+    }
+    return [
+      `"${it.protocol}"`,
+      `"${it.identifier}"`,
+      `"${it.label.replace(/"/g, '""')}"`,
+      `"${it.status}"`,
+      `"${details.replace(/"/g, '""')}"`,
+    ].join(",");
+  });
+
+  const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().replace(/[:.]/g, "-").substring(0, 19);
+  a.href = url;
+  a.download = `bham_session_diff_${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportDiffJSON() {
+  if (!_lastDiffResult) return;
+  const jsonStr = JSON.stringify(_lastDiffResult, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().replace(/[:.]/g, "-").substring(0, 19);
+  a.href = url;
+  a.download = `bham_session_diff_${ts}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── BBMD (BACnet Broadcast Management Device) Diagnostics ────────────────────
+
+function toggleBBMDBox() {
+  const drawer = document.getElementById("bbmd-fields-drawer");
+  const chevron = document.getElementById("bbmd-toggle-chevron");
+  if (!drawer) return;
+  const isHidden = drawer.style.display === "none";
+  drawer.style.display = isHidden ? "block" : "none";
+  if (chevron) chevron.textContent = isHidden ? "▼" : "▶";
+}
+
+function openBBMDModal() {
+  const defaultIp = document.getElementById("bbmd-ip")?.value.trim() || "";
+  const defaultPort = document.getElementById("bbmd-port")?.value.trim() || "47808";
+
+  const modalIp = document.getElementById("modal-bbmd-ip");
+  const modalPort = document.getElementById("modal-bbmd-port");
+  if (modalIp && !modalIp.value && defaultIp) modalIp.value = defaultIp;
+  if (modalPort && !modalPort.value && defaultPort) modalPort.value = defaultPort;
+
+  const modal = document.getElementById("bbmd-modal");
+  if (modal) modal.style.display = "flex";
+  if (modalIp && modalIp.value) {
+    fetchBBMDTables();
+  }
+}
+
+function closeBBMDModal() {
+  const m = document.getElementById("bbmd-modal");
+  if (m) m.style.display = "none";
+}
+
+async function fetchBBMDTables() {
+  const ipInput = document.getElementById("modal-bbmd-ip");
+  const portInput = document.getElementById("modal-bbmd-port");
+  const ip = ipInput?.value.trim();
+  const port = parseInt(portInput?.value) || 47808;
+
+  if (!ip) {
+    alert(window.t ? window.t("bbmd_missing_ip_alert") : "Inserisci un indirizzo IP valido per il router BBMD.");
+    return;
+  }
+
+  // Sincronizza anche il campo nella sidebar se vuoto
+  const sideIp = document.getElementById("bbmd-ip");
+  if (sideIp && !sideIp.value) sideIp.value = ip;
+
+  const btn = document.getElementById("btn-modal-query-bbmd");
+  const statusMsg = document.getElementById("bbmd-status-msg");
+  if (btn) btn.disabled = true;
+  if (statusMsg) {
+    statusMsg.style.display = "block";
+    statusMsg.innerHTML = `<span style="color:var(--text-muted)">Interrogazione tabelle BBMD in corso (${ip}:${port})...</span>`;
+  }
+
+  try {
+    const res = await fetch(`/api/v1/bacnet/bbmd/tables?bbmd_ip=${encodeURIComponent(ip)}&bbmd_port=${port}&timeout=3.5`);
+    const data = await res.json();
+    renderBBMDTables(data);
+  } catch (err) {
+    console.error("Errore lettura tabelle BBMD:", err);
+    if (statusMsg) {
+      statusMsg.innerHTML = `<span style="color:var(--accent-danger)">Errore di comunicazione: ${err.message || err}</span>`;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderBBMDTables(data) {
+  const statusMsg = document.getElementById("bbmd-status-msg");
+  const bdtTbody = document.getElementById("bbmd-bdt-tbody");
+  const fdtTbody = document.getElementById("bbmd-fdt-tbody");
+  const bdtCount = document.getElementById("bbmd-bdt-count");
+  const fdtCount = document.getElementById("bbmd-fdt-count");
+
+  const bdtList = data?.bdt || [];
+  const fdtList = data?.fdt || [];
+
+  if (bdtCount) bdtCount.textContent = `${bdtList.length} peer`;
+  if (fdtCount) fdtCount.textContent = `${fdtList.length} dev`;
+
+  if (statusMsg) {
+    if (data.error) {
+      statusMsg.innerHTML = `<span style="color:var(--accent-warning)">Avviso BBMD: ${data.error}</span>`;
+      statusMsg.style.display = "block";
+    } else if (bdtList.length === 0 && fdtList.length === 0) {
+      statusMsg.innerHTML = `<span style="color:var(--text-muted)">Nessuna voce presente o risposta BVLL vuota dal nodo ${data.bbmd_ip}.</span>`;
+      statusMsg.style.display = "block";
+    } else {
+      statusMsg.innerHTML = `<span style="color:var(--accent-success)">Tabelle lette con successo da ${data.bbmd_ip}:${data.bbmd_port}</span>`;
+      statusMsg.style.display = "block";
+    }
+  }
+
+  if (bdtTbody) {
+    if (bdtList.length === 0) {
+      bdtTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:14px;">Nessun peer router BBMD configurato nella tabella BDT.</td></tr>`;
+    } else {
+      bdtTbody.innerHTML = bdtList.map(entry => `
+        <tr>
+          <td class="cell-mono cell-text-main" style="font-weight:600">${entry.ip}</td>
+          <td class="cell-mono cell-text-dim">${entry.port}</td>
+          <td class="cell-mono cell-text-muted">${entry.broadcast_mask}</td>
+          <td style="text-align:center"><span class="bham-badge-proto proto-bacnet">Peer BDT</span></td>
+        </tr>
+      `).join("");
+    }
+  }
+
+  if (fdtTbody) {
+    if (fdtList.length === 0) {
+      fdtTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:14px;">Nessun Foreign Device attualmente registrato nella tabella FDT.</td></tr>`;
+    } else {
+      fdtTbody.innerHTML = fdtList.map(entry => `
+        <tr>
+          <td class="cell-mono color-bacnet" style="font-weight:600">${entry.ip}</td>
+          <td class="cell-mono cell-text-dim">${entry.port}</td>
+          <td class="cell-mono cell-text-muted">${entry.ttl}s</td>
+          <td class="cell-mono cell-text-main" style="font-weight:600; color:var(--accent-success)">${entry.remaining_time}s</td>
+        </tr>
+      `).join("");
+    }
+  }
+}
+
 if (window.I18N) {
   window.I18N.init();
 }
 loadSavedScanParams();
 connectWS();
+

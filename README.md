@@ -37,16 +37,25 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
   - Rilevamento passivo e attivo degli host connessi sulla subnet locale tramite Scapy
 - **🔬 FC43 Device Identification**:
   - Lettura Modbus ME 0x0E (Read Device Identification) per estrarre VendorName, ProductCode, MajorMinorRevision
-- **🎨 Field Engineer Studio Layout v4.2 & i18n**:
+- **⚡ Intelligence & Session Diff ("Prima vs Dopo")**:
+  - Confronto analitico deterministico multi-protocollo tra sessioni archiviate (Baseline) e stato attivo (Live State) o tra due collaudi storicizzati
+  - Riconoscimento intelligente riassegnazione indirizzi DHCP su base MAC address per dispositivi Ethernet
+  - Monitoraggio variazioni firmware, modello, registri mappati e latenza bus
+  - Banner con contatori a 4 stati (🟢 Nuovi, 🔴 Scomparsi, 🟡 Modificati, ⚪ Invariati), filtri granulari ed esportazione `.csv` / `.json`
+- **🌐 Attraversamento Router (BBMD) & Foreign Device BACnet/IP**:
+  - Superamento delle limitazioni broadcast su reti multi-subnet e VLAN tramite registrazione *Foreign Device* nativa (Annex J)
+  - Ispezione diagnostica in tempo reale delle tabelle router: **Broadcast Distribution Table (BDT)** e **Foreign Device Table (FDT)** con countdown TTL
+  - Rappresentazione gerarchica dedicata dei router BBMD e dei dispositivi instradati nella Mappa Topologica
+- **📊 Reportistica Arricchita As-Built 2.0**:
+  - Cartella Excel multi-foglio a **8 fogli di lavoro** stilizzati: `Network Topology`, `Modbus Devices`, `BACnet Devices`, `KNX Devices`, `IP Hosts`, `Modbus Registers` (con valori Hex, Int16, Float32 IEEE), `BACnet Objects` (con Present Value e unità ingegneristiche) e `Report Info`
+  - Verbale PDF tecnico vettoriale a due passate con diagramma gerarchico topologico d'impianto ad albero e tabelle as-built complete
+  - Esportazione grafica topologica vettoriale (.svg) ad alta definizione
+  - Import/Export mappe punti compatibili BACS Help (`/api/v1/maps/*`)
+- **🎨 Field Engineer Studio Layout & i18n (v0.6.0)**:
   - Architettura ergonomica a 2 colonne: Sidebar canali e diagnostica a sinistra (360px) + Workspace centrale con Switcher Vista Tabella/Topologia + Dock Diagnostico Inferiore a scomparsa per Live Console e RS485 Inspector
   - Dual Mode (Dark Mode ad alto contrasto per locali tecnici / Light Mode per visibilità sotto luce solare diretta)
   - Color-coding ergonomico per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP, Ambra=Diagnostics)
-  - Internazionalizzazione completa (Italiano, Inglese, Spagnolo) e Manuale Tecnico interattivo a bordo (F1)
-- **📊 Reportistica e Mappatura Punti**:
-  - Esportazione istantanea Excel (.xlsx) con fogli separati e formattazione industriale
-  - Esportazione PDF tecnico vettoriale (ReportLab) con copertina impianto, totali e tabelle color-coded
-  - Esportazione grafica topologica vettoriale (.svg)
-  - Import/Export mappe punti compatibili BACS Help (`/api/v1/maps/*`)
+  - Internazionalizzazione completa (Italiano, Inglese, Spagnolo, **218 chiavi per lingua**) e Manuale Tecnico interattivo a bordo (F1)
 - **💾 Gestione Sessioni e Riconoscimento HW**:
   - Rilevamento automatico convertitori USB↔RS485 (FTDI, Silicon Labs CP210x, CH340, Prolific)
   - Selezione interfacce di rete attive con modalità single-interface

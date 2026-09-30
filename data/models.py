@@ -115,6 +115,8 @@ class BACnetDevice(BaseModel):
     firmware_revision: Optional[str] = None
     application_software_version: Optional[str] = None
     object_list: list[dict[str, Any]] = Field(default_factory=list)
+    bbmd_routed: bool = False
+    routed_via: Optional[str] = None     # es. "192.168.10.1:47808"
     discovered_at: datetime = Field(default_factory=utc_now)
     tags: list[str] = Field(default_factory=list)
 
@@ -218,3 +220,84 @@ class SavedSessionMeta(BaseModel):
     has_log:       bool = False
     size_bytes:    int = 0
     device_counts: dict[str, int] = Field(default_factory=dict)
+
+
+# ── Session Diff Models ───────────────────────────────────────────────────────
+
+class DiffStatus(str, Enum):
+    ADDED     = "added"       # Nuovo dispositivo rispetto a baseline
+    REMOVED   = "removed"     # Dispositivo presente in baseline ma assente/offline
+    MODIFIED  = "modified"    # Dispositivo con parametri modificati
+    UNCHANGED = "unchanged"   # Dispositivo identico
+
+
+class FieldChange(BaseModel):
+    """Singola variazione rilevata su un campo/parametro del dispositivo."""
+    field:       str
+    baseline:    Any = None
+    target:      Any = None
+    description: str = ""
+
+
+class DeviceDiffItem(BaseModel):
+    """Elemento differenziale analitico per un dispositivo."""
+    protocol:      str            # "modbus", "bacnet", "knx", "ip_host"
+    identifier:    str            # "Slave 1", "Device 1234", "1.1.0", "192.168.1.10"
+    label:         str            # Descrizione sintetica leggibile
+    status:        DiffStatus
+    baseline_data: Optional[dict[str, Any]] = None
+    target_data:   Optional[dict[str, Any]] = None
+    changes:       list[FieldChange] = Field(default_factory=list)
+
+
+class ProtocolDiffSummary(BaseModel):
+    """Conteggi di sintesi per protocollo o aggregati."""
+    added:          int = 0
+    removed:        int = 0
+    modified:       int = 0
+    unchanged:      int = 0
+    total_baseline: int = 0
+    total_target:   int = 0
+
+
+class SessionDiffResult(BaseModel):
+    """Risultato completo del confronto differenziale tra due sessioni."""
+    baseline_name: str
+    target_name:   str
+    compared_at:   datetime = Field(default_factory=utc_now)
+    summary:       dict[str, ProtocolDiffSummary] = Field(default_factory=dict)
+    items:         list[DeviceDiffItem] = Field(default_factory=list)
+
+
+class SessionDiffRequest(BaseModel):
+    """Richiesta di confronto differenziale."""
+    baseline_filename: str
+    target_filename:   Optional[str] = None   # None o 'live' = AppState corrente
+
+
+# ── BBMD (BACnet Broadcast Management Device) Models ─────────────────────────
+
+class BBDTEntry(BaseModel):
+    """Singola voce della Broadcast Distribution Table (BDT) di un BBMD."""
+    ip: str
+    port: int = 47808
+    broadcast_mask: str = "255.255.255.255"
+
+
+class FDTEntry(BaseModel):
+    """Singola voce della Foreign Device Table (FDT) di un BBMD."""
+    ip: str
+    port: int = 47808
+    ttl: int = 60
+    remaining_time: int = 60
+
+
+class BBMDInfoResponse(BaseModel):
+    """Tabelle BDT e FDT lette da un router BBMD."""
+    bbmd_ip: str
+    bbmd_port: int = 47808
+    bdt: list[BBDTEntry] = Field(default_factory=list)
+    fdt: list[FDTEntry] = Field(default_factory=list)
+    error: Optional[str] = None
+
+

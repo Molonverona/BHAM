@@ -1,25 +1,27 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.5.0)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.6.0)
 
 ---
 
 ## 1. Panoramica del Sistema & Architettura
 **BHAM (BACS Help Auto Mapper)** è una piattaforma di collaudo industriale, ricognizione e diagnostica attiva/passiva progettata per impianti di automazione edificio (BACS / BMS).
-Consente l'inventario rapido, l'identificazione hardware, l'arricchimento dei registri, la visualizzazione topologica e l'esportazione di verbali di collaudo per reti:
+Consente l'inventario rapido, l'identificazione hardware, l'arricchimento dei registri, la visualizzazione topologica, il confronto differenziale di sessione e l'esportazione di verbali di collaudo per reti:
 - **Modbus RTU (RS485)** (Scansione attiva, Smart Scan registri e Sniffing passivo Zero-TX)
 - **Modbus TCP**
-- **BACnet/IP & BACnet MS-TP** (Who-Is Discovery, Object Explorer e Sniffing passivo Zero-TX)
+- **BACnet/IP & BACnet MS-TP** (Who-Is Discovery, Object Explorer, Sniffing passivo Zero-TX e attraversamento Router BBMD/Foreign Device)
 - **KNXnet/IP**
 - **Sottoreti IP (ARP Passive Sniffer)**
 - **Diagnostica Telemetrica Bus Health (RS485)**
 - **Mappa Topologica d'Impianto Interattiva (Network Graph)**
+- **Intelligence & Session Diff ("Prima vs Dopo")** (Confronto deterministico baseline vs collaudo corrente)
+- **Reporting As-Built 2.0** (Cartella Excel a 8 fogli e PDF vettoriale con diagramma gerarchico)
 
 ### Architettura
 - **Backend:** Python 3.12, FastAPI, WebSocket streaming a bassa latenza, protocolli nativi asincroni (`pymodbus`, `bacpypes3`, `scapy`).
 - **Frontend:** Field Engineer Studio v4.2 in Vanilla JS ad alte prestazioni senza dipendenze esterne: architettura a 2 colonne (Sidebar Canali 360px + Workspace centrale con Switcher Vista Tabella/Topologia + Dock Diagnostico a scomparsa).
 - **Mappa Topologica SVG:** Engine vettoriale nativo con calcolo gerarchico, Pan & Zoom continuo, fit-to-screen, orientamento H/V ed esportazione vettoriale .svg.
-- **Reporting:** Generazione istantanea di verbali in formato **PDF Vettoriale a due passate (ReportLab)** e **Fogli Excel (openpyxl)** con fogli dedicati e metadati.
-- **Internazionalizzazione (i18n):** Supporto completo e reattivo per **Italiano**, **Inglese** e **Spagnolo** (202 chiavi per lingua).
+- **Reporting:** Generazione istantanea di verbali in formato **PDF Vettoriale a due passate (ReportLab)** e **Fogli Excel (openpyxl)** a 8 fogli di lavoro con metadati, as-built registri e oggetti.
+- **Internazionalizzazione (i18n):** Supporto completo e reattivo per **Italiano**, **Inglese** e **Spagnolo** (218 chiavi per lingua).
 
 ---
 
@@ -175,8 +177,11 @@ Documentazione Swagger interattiva su: `http://localhost:8765/docs`
 | `POST` | `/api/v1/scan/modbus/smart-scan` | Smart Scan euristico registri slave Modbus |
 | `POST` | `/api/v1/scan/serial/sniff` | Avvio ascolto passivo RS485 Zero-TX (Modbus RTU & BACnet MS-TP) |
 | `GET` | `/api/v1/diag/serial/health` | Metriche Bus Health in tempo reale (PER %, FPS, Bus Load %, nodi attivi) |
-| `POST` | `/api/v1/scan/bacnet/ip` | Avvio Who-Is broadcast BACnet/IP |
-| `GET` | `/api/v1/scan/bacnet/device/{device_id}/objects` | Esplorazione completa oggetti dispositivo BACnet |
+| `POST` | `/api/v1/scan/bacnet/ip` | Avvio Who-Is broadcast BACnet/IP (supporta parametri BBMD) |
+| `GET` | `/api/v1/bacnet/devices/{device_id}/objects` | Esplorazione completa oggetti dispositivo BACnet |
+| `GET` | `/api/v1/bacnet/bbmd/tables` | Interrogazione congiunta tabelle BDT ed FDT di un router BBMD |
+| `GET` | `/api/v1/bacnet/bbmd/bdt` | Lettura Broadcast Distribution Table da router BBMD |
+| `GET` | `/api/v1/bacnet/bbmd/fdt` | Lettura Foreign Device Table da router BBMD |
 | `POST` | `/api/v1/scan/knx/ip` | Avvio discovery multicast KNXnet/IP |
 | `POST` | `/api/v1/scan/arp` | Avvio sniffer promiscuo ARP L2 |
 | `POST` | `/api/v1/scan/abort` | Arresto immediato di tutte le scansioni e sniffer |
@@ -185,18 +190,20 @@ Documentazione Swagger interattiva su: `http://localhost:8765/docs`
 | `GET` | `/api/v1/saved-sessions/list` | Elenco delle sessioni archiviate |
 | `POST` | `/api/v1/saved-sessions/{file}/restore` | Ripristino di una sessione archiviata nello stato attivo |
 | `DELETE`| `/api/v1/saved-sessions/{file}` | Eliminazione di una sessione salvata |
+| `POST` | `/api/v1/sessions/diff` | Confronto differenziale analitico baseline vs collaudo corrente |
 | `GET` | `/api/v1/report/pdf` | Download diretto report di collaudo in PDF vettoriale |
 | `GET` | `/api/v1/report/excel` | Download diretto report di collaudo in formato Excel |
 
 ---
 
 ## 11. Mappa Topologica Interattiva (Network Graph)
-La vista **Mappa Topologica** fornisce una rappresentazione grafica immediata dell'infrastruttura d'impianto rilevata, evidenziando le relazioni tra canali fisici (bus seriale RS485, schede di rete Ethernet) e periferiche di campo.
+La vista **Mappa Topologica** fornisce una rappresentazione grafica immediata dell'infrastruttura d'impianto rilevata, evidenziando le relazioni tra canali fisici (bus seriale RS485, schede di rete Ethernet), router BBMD e periferiche di campo.
 
 ### Funzionalità dell'Engine Grafico SVG:
 - **Albero Gerarchico d'Impianto:**
   - **Nodo Radice (Root):** Rappresenta l'host BHAM con l'indicazione della sessione attiva.
   - **Nodi Canale (Livello 1):** Linea seriale RS485 (porta, baudrate, parità) e Rete Ethernet (interfaccia, IP locale, subnet).
+  - **Nodi Router BBMD:** Nodi intermedi di routing per dispositivi inter-VLAN.
   - **Nodi Dispositivo (Livello 2):** Periferiche scoperte con badge colorati per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP) e contatori (registri mappati, oggetti BACnet).
 - **Controlli HUD Flottanti:**
   - **Zoom In / Zoom Out (`+` / `-`):** Ingrandimento continuo o riduzione dell'area di lavoro (supportato anche tramite rotellina del mouse).
@@ -208,3 +215,36 @@ La vista **Mappa Topologica** fornisce una rappresentazione grafica immediata de
   - Include scorciatoie contestuali per aprire direttamente il **BACnet Object Explorer** o l'**Ispezione Slave Modbus**.
 - **Esportazione Vettoriale SVG:**
   - Il pulsante **Esporta SVG** genera un file vettoriale `.svg` autonomo ad alta definizione, ideale per allegare lo schema as-built ai verbali di collaudo o presentazioni al cliente.
+
+---
+
+## 12. Intelligence & Session Diff ("Prima vs Dopo")
+La funzionalità **Session Diff** consente di confrontare determinismo e precisione una sessione di collaudo archiviata (*Baseline* o stato "Prima") con la sessione di lavoro attiva (*Live State* o stato "Dopo") o tra due collaudi storicizzati differenti.
+
+### Caratteristiche Principali:
+- **Riconoscimento Entità Multi-Protocollo:**
+  - Mappatura su base MAC per apparati Ethernet per discernere riassegnazioni DHCP da sostituzioni hardware reali.
+  - Mappatura per Slave ID su Modbus con rilevamento variazioni baudrate, parità, latenza bus o registri.
+  - Mappatura per Device Instance su BACnet con rilevamento cambi firmware, modello e oggetti.
+  - Mappatura per Indirizzo Individuale su KNX.
+- **Classificazione degli Stati di Variazione:**
+  - 🟢 **ADDED:** Nuovo dispositivo rilevato sul campo non presente nella baseline.
+  - 🔴 **REMOVED:** Dispositivo presente nella baseline ora spento, rimosso o irraggiungibile.
+  - 🟡 **MODIFIED:** Dispositivo presente in entrambe ma con variazioni nei parametri (IP, firmware, canali).
+  - ⚪ **UNCHANGED:** Dispositivo stabile e identico.
+- **Interfaccia e Reportistica Diff:**
+  - Modale interattivo `#diff-modal` con 4 card contatori, filtri a due livelli e confronto visivo (vecchi parametri sbarrati in rosso ➔ nuovi in verde).
+  - Esportazione diretta del verbale differenziale in formato standard `.csv` e `.json`.
+
+---
+
+## 13. Attraversamento Router BBMD & Foreign Device BACnet/IP
+Nelle reti BACS complesse con segmentazione di sicurezza (VLAN o subnet IP separate), i pacchetti UDP broadcast (Who-Is) non superano i router di layer 3.
+
+### Soluzione BHAM:
+- **Foreign Device Registration (Annex J):** BHAM si registra temporaneamente come *Foreign Device* presso il router BBMD di campo specificato, potendo così trasmettere Who-Is e ricevere risposte I-Am da controllori dislocati su altre sottoreti.
+- **Ispezione Tabelle BDT & FDT:**
+  - **Broadcast Distribution Table (BDT):** Rileva l'elenco dei router BBMD peer configurati per l'instradamento broadcast inter-subnet.
+  - **Foreign Device Table (FDT):** Mostra l'elenco dei dispositivi remoti registrati, le rispettive porte, il TTL assegnato e il conto alla rovescia dei secondi rimanenti.
+- **Topologia di Rete Trasparente:** I dispositivi raggiunti attraverso un router vengono contrassegnati con il badge **BBMD** e raggruppati gerarchicamente sotto il nodo router corrispondente nella Mappa Topologica.
+

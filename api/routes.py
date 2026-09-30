@@ -11,14 +11,14 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Body, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Body, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
 from api.websockets import manager
 from core.logger import logger
-from data.models import Protocol
+from data.models import Protocol, SessionDiffRequest
 from data.state import state
 
 router = APIRouter()
@@ -86,6 +86,9 @@ class BACnetIPScanRequest(BaseModel):
     iface: str = ""                         # empty = auto
     port: str | int = "47808"               # singolo port (47808), notazione BACx (BAC0, BAC1) o range (BAC0..BAC3)
     ports: list[int] = []                   # lista opzionale di porte intere esplicite
+    bbmd_ip: Optional[str] = None           # IP del router BBMD per Foreign Device traversal
+    bbmd_port: int | str = 47808            # Porta BBMD UDP (default 47808)
+    bbmd_ttl: int = 60                      # Time to Live per Foreign Device registration (secondi)
 
 
 class KNXIPScanRequest(BaseModel):
@@ -451,6 +454,50 @@ async def restore_saved_session(filename: str) -> dict:
     }
 
 
+@router.post("/sessions/diff", tags=["saved-sessions"],
+             summary="Confronto differenziale (Prima vs Dopo) tra sessioni o stato live")
+async def diff_sessions(req: SessionDiffRequest) -> dict:
+    """
+    Esegue il confronto analitico tra una sessione baseline salvata su disco
+    e una sessione target (un altro file salvato oppure lo stato attivo corrente).
+    """
+    from core.session_store import load_session
+    from core.session_diff import compare_snapshots
+
+    # 1. Carica baseline
+    try:
+        base_data = load_session(req.baseline_filename)
+        base_snapshot = base_data.get("results", {})
+        base_name = base_data.get("name", req.baseline_filename)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Sessione baseline non trovata: {req.baseline_filename}")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # 2. Carica o ottiene target
+    if not req.target_filename or req.target_filename.lower() in ("live", "current", "__live__"):
+        target_snapshot = state.snapshot()
+        target_name = "Stato Attivo (Live)"
+    else:
+        try:
+            target_data = load_session(req.target_filename)
+            target_snapshot = target_data.get("results", {})
+            target_name = target_data.get("name", req.target_filename)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Sessione target non trovata: {req.target_filename}")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    result = compare_snapshots(
+        baseline_snapshot=base_snapshot,
+        target_snapshot=target_snapshot,
+        baseline_name=base_name,
+        target_name=target_name,
+    )
+    return result.model_dump(mode="json")
+
+
+
 # ── BACS Help Maps ────────────────────────────────────────────────────────────
 
 @router.post("/maps/import", tags=["maps"],
@@ -544,4 +591,40 @@ async def modbus_smart_scan(body: ModbusSmartScanBody) -> dict:
 async def get_bacnet_objects(device_id: int, address: Optional[str] = None) -> dict:
     from scanners.bacnet import explore_bacnet_objects
     return await explore_bacnet_objects(device_id=device_id, address=address)
+
+
+# ── BBMD (BACnet Broadcast Management Device) Endpoints ───────────────────────
+
+@router.get("/bacnet/bbmd/tables", tags=["bacnet"],
+            summary="Interroga le tabelle BDT e FDT di un router BBMD")
+async def get_bbmd_tables_endpoint(
+    bbmd_ip: str = Query(..., description="Indirizzo IPv4 del router BBMD"),
+    bbmd_port: int = Query(47808, description="Porta UDP del BBMD (default 47808)"),
+    timeout: float = Query(3.0, description="Timeout richiesta in secondi"),
+) -> dict:
+    from scanners.bacnet import get_bbmd_tables
+    return await get_bbmd_tables(bbmd_ip=bbmd_ip.strip(), bbmd_port=bbmd_port, timeout=timeout)
+
+
+@router.get("/bacnet/bbmd/bdt", tags=["bacnet"],
+            summary="Legge la Broadcast Distribution Table (BDT) di un router BBMD")
+async def get_bbmd_bdt_endpoint(
+    bbmd_ip: str = Query(..., description="Indirizzo IPv4 del router BBMD"),
+    bbmd_port: int = Query(47808, description="Porta UDP del BBMD (default 47808)"),
+    timeout: float = Query(3.0, description="Timeout richiesta in secondi"),
+) -> list[dict]:
+    from scanners.bacnet import read_bdt
+    return await read_bdt(bbmd_ip=bbmd_ip.strip(), bbmd_port=bbmd_port, timeout=timeout)
+
+
+@router.get("/bacnet/bbmd/fdt", tags=["bacnet"],
+            summary="Legge la Foreign Device Table (FDT) di un router BBMD")
+async def get_bbmd_fdt_endpoint(
+    bbmd_ip: str = Query(..., description="Indirizzo IPv4 del router BBMD"),
+    bbmd_port: int = Query(47808, description="Porta UDP del BBMD (default 47808)"),
+    timeout: float = Query(3.0, description="Timeout richiesta in secondi"),
+) -> list[dict]:
+    from scanners.bacnet import read_fdt
+    return await read_fdt(bbmd_ip=bbmd_ip.strip(), bbmd_port=bbmd_port, timeout=timeout)
+
 

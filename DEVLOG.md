@@ -5,6 +5,125 @@
 
 ---
 
+## Sessione 22 – 2026-09-30 ✅ COMPLETE – v0.6.0 OFFICIAL RELEASE
+**Rilascio Ufficiale BHAM v0.6.0: Session Diff Engine, Report Arricchiti 2.0 (8 Fogli & PDF Gerarchico), BBMD Router Traversal & Foreign Device BACnet/IP**
+
+**Final Checks & Packaging:**
+- ✅ **Version Bump & Sincronizzazione Completa (v0.6.0)**:
+  - `core/config.py`: `app_version = "0.6.0"`
+  - `pyproject.toml`: `version = "0.6.0"`
+  - `frontend/index.html`: Header, badge e cache busters asset (`?v=0.6.0`)
+  - `frontend/js/i18n.js`: `brand_sub: "BACS Help Auto Mapper v0.6.0"` (IT, EN, ES)
+  - `README.md`, `MANUALE_UTENTE.md` e `frontend/MANUALE_UTENTE.md` aggiornati e allineati a `v0.6.0`.
+  - Manifest Winget (`winget/BacsHelp.BHAM.*.yaml`) e script packaging Debian (`scripts/package_deb.sh`) aggiornati a `0.6.0`.
+- ✅ **Qualità del Codice & Test Suite**:
+  - Test suite unificata: **32/32 unit test superati al 100% con flag `-W error`** in 5.5s.
+  - Sintassi JavaScript: 0 errori (`node -c`).
+  - DOM IDs: 221 elementi unici, 0 duplicati.
+  - Dizionario i18n: 218 chiavi per lingua con parità assoluta (IT, EN, ES).
+
+---
+
+## Sessione 21 – 2026-09-29 ✅ COMPLETE – v0.6.0 MILESTONE 3 (BBMD Router Traversal & Foreign Device BACnet/IP)
+**Attraversamento Router Inter-VLAN via Foreign Device Registration (Annex J), Ispezione Tabelle BDT & FDT, Topologia Gerarchica con Nodi BBMD & Modale Diagnostico**
+
+**Highlights:**
+- ✅ **Backend BBMD & Foreign Device Engine (`scanners/bacnet.py`)**:
+  - Implementata la registrazione Foreign Device nativa tramite `bacpypes3.ipv4.app.ForeignApplication` con socket UDP asincrono su porta locale dinamica (`:0`).
+  - Gestione del flusso di registrazione verso BBMD (`app.register(bbmd_addr, ttl)`) e deregistrazione pulita in blocco `finally` (`app.unregister()`, `app.close()`).
+  - Marcatura dei dispositivi scoperti tramite traversata con flag `device.bbmd_routed = True`, `device.routed_via = f"{bbmd_ip}:{bbmd_port}"` e tag `"bbmd_routed"`.
+  - Implementato parser e client asincrono UDP puro per i messaggi BVLL (BACnet Virtual Link Layer) secondo standard ASHRAE 135 Annex J:
+    - `read_bdt(bbmd_ip, bbmd_port, timeout)`: interroga la Broadcast Distribution Table con comando BVLL `Read-BDT` (`0x81 0x02 0x00 0x04`) e decodifica le entry di 10 byte (4B IP, 2B Port, 4B Broadcast Mask).
+    - `read_fdt(bbmd_ip, bbmd_port, timeout)`: interroga la Foreign Device Table con comando BVLL `Read-FDT` (`0x81 0x06 0x00 0x04`) e decodifica le entry di 10 byte (4B IP, 2B Port, 2B TTL, 2B Remaining Seconds).
+    - `get_bbmd_tables(bbmd_ip, bbmd_port, timeout)`: esegue la lettura concorrente parallela di BDT ed FDT tramite `asyncio.gather`.
+- ✅ **Data Models & REST API (`data/models.py`, `api/routes.py`)**:
+  - Modelli `BBDTEntry`, `FDTEntry`, `BBMDInfoResponse`.
+  - Estesa `BACnetIPScanRequest` con `bbmd_ip: Optional[str] = None`, `bbmd_port: int | str = 47808`, `bbmd_ttl: int = 60`.
+  - Nuovi endpoint REST:
+    - `GET /api/v1/bacnet/bbmd/tables`
+    - `GET /api/v1/bacnet/bbmd/bdt`
+    - `GET /api/v1/bacnet/bbmd/fdt`
+- ✅ **Topologia Gerarchica d'Impianto (`data/state.py`)**:
+  - `get_topology()` raggruppa automaticamente i dispositivi con tag o flag `bbmd_routed` sotto nodi router dedicati (`node:router:bbmd:<ip>_<port>`), posizionati logicamente tra il bus `node:bus:bacnet_ip` e i rispettivi controllori periferici.
+  - La visualizzazione topologica grafica (SVG/PDF/Excel) riflette fedelmente la struttura di routing inter-VLAN dell'infrastruttura BACS.
+- ✅ **Frontend UI / UX & Modale Diagnostico (`frontend/index.html`, `frontend/css/main.css`, `frontend/js/app.js`)**:
+  - Drawer collassabile compatto nella card BACnet della colonna rack: input `bbmd-ip`, `bbmd-port`, `bbmd-ttl`, e pulsante di interrogazione rapida `[📋 Tabelle BDT/FDT]`.
+  - Modale diagnostico interattivo `#bbmd-modal` per l'ispezione immediata delle tabelle BDT e FDT di qualsiasi router di campo, con conteggi in tempo reale, scroll dedicato e gestione errori/NAK.
+  - Badge distintivo `[BBMD]` ciano con tooltip esplicito accanto ai dispositivi BACnet scoperti via attraversamento router nella tabella centrale.
+- ✅ **i18n & Manuale Operativo (`frontend/js/i18n.js`, `frontend/js/manual-content.js`)**:
+  - Aggiunte 15 nuove chiavi tradotte in Italiano, Inglese e Spagnolo (218 chiavi totali per lingua, 100% di parità verificata via script).
+  - Aggiornato il capitolo 3 del manuale tecnico con guida all'uso di BBMD e Foreign Device.
+- ✅ **Test Suite (`tests/test_bham.py`)**:
+  - Aggiunta test suite `TestBACnetBBMD` con mock server UDP asincrono per decodifica pacchetti BDT ed FDT, validazione request model e test gerarchia topologica.
+  - **32/32 unit test passati al 100% con flag tassativo `-W error`** in 5.5s.
+
+---
+
+## Sessione 20 – 2026-09-29 ✅ COMPLETE – v0.6.0 MILESTONE 2 (Report Arricchiti con Topologia & As-Built)
+**Integrazione Mappa Topologica e As-Built Registri/Oggetti in Report PDF e Cartella Excel v2.0 (8 Fogli)**
+
+**Highlights:**
+- ✅ **Cartella Excel Multi-Foglio Arricchita v2.0 (`reports/excel.py`)**:
+  - Estesa la generazione da 5 a **8 fogli di lavoro** stilizzati con palette industriale dedicata:
+    1. `Network Topology` (Header Slate `#334155`): albero gerarchico d'impianto con livello (Host, Canale, Bus, Nodo), categoria, protocollo, canali fisici, nodi parent e stato operativo.
+    2. `Modbus Devices` (Header Cyan `#0E7490`): censimento slave seriali RTU e TCP con parametri seriali e latenza.
+    3. `BACnet Devices` (Header Purple `#6D28D9`): censimento controllori con Device Instance ID, IP/MAC, vendor, modello e revisione firmware.
+    4. `KNX Devices` (Header Orange `#C2410C`): gateway e nodi KNXnet/IP con indirizzo individuale, seriale, MAC e medium.
+    5. `IP Hosts` (Header Green `#065F46`): host di rete rilevati da sniffing ARP L2 con porte aperte e protocol hints.
+    6. `Modbus Registers` (Header Amber `#B45309`): censimento analitico di tutti i registri Holding / Input acquisiti da Smart Scan o mappe BACS Help, con valori Raw Hex, Dec Int16 con segno e Float32 IEEE 754 Big-Endian.
+    7. `BACnet Objects` (Header Indigo `#4338CA`): censimento oggetti controllori (AI, AO, AV, BI, BO, BV, MSI, MSO) con object-identifier, nome punto, Present Value, unità ingegneristiche (`°C`, `bar`, `%`, `kW`, ecc.) e Status Flags.
+    8. `Report Info`: metadati completi di collaudo con conteggio analitico di tutti i nodi topologici, registri e oggetti censiti.
+  - Alternanza righe migliorata con fondo morbido e riposante `#F8FAFC`, auto-width colonne fino a 60 caratteri e freeze pane.
+- ✅ **Verbale PDF Vettoriale ReportLab Arricchito (`reports/pdf.py`)**:
+  - Aggiunta **Sezione 5: "Mappa Topologica Gerarchica d'Impianto"**:
+    - Algoritmo tree-walker deterministico a partire dal nodo root `node:host`.
+    - Indentazione gerarchica visiva ad albero con prefissi (`🖥️ Host`, `├─ Interfaccia`, `└─ Bus`, `• Nodo Dispositivo`).
+    - Tabella 4 colonne: Albero/Nodo con sublabel canali, Livello gerarchico, Protocollo, Stato operativo (ONLINE / ACTIVE / STANDBY).
+  - Aggiunta **Sezione 6: "As-Built – Censimento Registri Modbus"**:
+    - Generata automaticamente se presenti registri scansionati: Slave ID, Canale/Endpoint, Registro, Raw Hex, Dec Int16, Float32 IEEE, Etichetta/Tag.
+  - Aggiunta **Sezione 7: "As-Built – Censimento Oggetti BACnet"**:
+    - Generata automaticamente se presenti oggetti esplorati: Device ID, Tipo Oggetto, ID Oggetto, Nome Oggetto, Present Value, Unità di misura.
+  - Paginazione dinamica `NumberedCanvas` a due passate (Pagina X di Y) preservata senza overflow di pagina.
+- ✅ **Testing & Validazione**:
+  - Aggiornato `TestReporting` in `tests/test_bham.py` con verifica formale di tutti gli 8 fogli Excel e compilazione PDF con registri e oggetti.
+  - **28/28 unit test passati al 100% con flag tassativo `-W error`** in 5.4s.
+
+---
+
+## Sessione 19 – 2026-09-29 ✅ COMPLETE – v0.6.0 MILESTONE 1 (Intelligence & Session Diff)
+**Confronto Differenziale Impianto "Prima vs Dopo", Algoritmo Deterministico Multi-Protocollo, Modale Diagnostico & Esportazione Diff**
+
+**Highlights:**
+- ✅ **Backend Diff Engine (`core/session_diff.py`)**:
+  - Algoritmo analitico di confronto per snapshot d'impianto con supporto Modbus (RTU/TCP), BACnet (IP/MS-TP), KNXnet/IP e ARP Hosts.
+  - Riconoscimento intelligente delle entità fisiche:
+    - Match per MAC address preferenziale su apparati Ethernet per identificare riassegnazioni di IP via DHCP vs sostituzioni fisiche.
+    - Match per slave ID / protocollo su Modbus e rilevamento variazioni di baudrate, parità, latenza bus (>200ms) o conteggio registri.
+    - Match per Device Instance Number su BACnet e rilevamento cambi IP, firmware revision, software version e oggetti censiti.
+    - Match per Indirizzo Individuale (Area.Linea.Device) su KNX e tracking gateway IP/porte.
+  - Classificazione categorizzata: `ADDED` (🟢), `REMOVED` (🔴), `MODIFIED` (🟡), `UNCHANGED` (⚪) con tracciamento puntuale dei singoli campi variati.
+  - Metriche aggregate di sintesi (`added`, `removed`, `modified`, `unchanged`) per protocollo e globali.
+- ✅ **REST API (`api/routes.py`)**:
+  - Endpoint `POST /api/v1/sessions/diff` con schema `SessionDiffRequest` (`baseline_filename`, `target_filename` opzionale con default a Live AppState).
+- ✅ **Frontend UI / UX (`frontend/index.html`, `frontend/css/main.css`, `frontend/js/app.js`)**:
+  - Pulsante tattico d'azione rapida `[⚡ Diff Impianto]` nella toolbar centrale delle tabelle.
+  - Pulsante diretto `[⚡ Diff]` su ogni riga di sessione salvata nella scheda Archivio del Centro Impostazioni.
+  - Modale dedicato `#diff-modal` con:
+    - Selettore dinamico Baseline (sessioni archiviate) vs Target (Live State o altra sessione).
+    - Banner telemetrico con card contatori di sintesi per stato (🟢 Nuovi, 🔴 Scomparsi, 🟡 Modificati, ⚪ Invariati).
+    - Toolbar di filtraggio a doppio livello (Protocollo + Stato variazione).
+    - Tabella differenziale ad alto contrasto con badge cromatici e disamina puntuale dei parametri prima/dopo (valori vecchi sbarrati in rosso ➔ nuovi in verde).
+    - Esportazione istantanea del verbale di diff in formato `.csv` e `.json`.
+- ✅ **Internazionalizzazione (i18n)**:
+  - 15 nuove chiavi di traduzione allineate al 100% in Italiano, Inglese e Spagnolo in `frontend/js/i18n.js` (203 chiavi per lingua, 0 mancanti).
+- ✅ **Testing & Validazione**:
+  - Aggiunta test suite `TestSessionDiff` in `tests/test_bham.py` con test analitico completo di confronto snapshot e test d'integrazione API REST.
+  - Risultato test: **28/28 unit test passati al 100% con `-W error`** in 5.4s.
+  - Sintassi JavaScript (`node -c`): 0 errori su `app.js`, `i18n.js` e `manual-content.js`.
+  - DOM IDs: 206 elementi verificati, 0 duplicati, preservati tutti i 180 preesistenti.
+
+---
+
 ## Sessione 18 – 2026-09-29 ✅ COMPLETE – v0.5.0 RELEASE (Field Studio Milestone 2)
 **Mappa Topologica Interattiva (Network Graph SVG Engine), View Switcher, Pan & Zoom, Node Inspector & High-Res Export**
 

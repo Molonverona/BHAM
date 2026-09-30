@@ -45,6 +45,7 @@ hiddenimports = [
     'scanners.knx',
     'scanners.serial_sniffer',
     'core.priv_check',
+    'core.session_diff',
 ]
 
 a = Analysis(

@@ -2195,3 +2195,225 @@ html, body {
   flex-direction: column;
   gap: 6px;
 }
+
+/* ── Session Diff ("Prima vs Dopo") Styles ────────────────────────────────── */
+
+.bham-btn-diff {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
+  padding: 5px 11px;
+  border-radius: var(--bham-radius);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--bham-shadow-xs);
+  transition: all 0.15s;
+}
+.bham-btn-diff:hover {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+[data-theme="dark"] .bham-btn-diff {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.bham-diff-controls-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.bham-diff-control-group {
+  flex: 1;
+  min-width: 220px;
+}
+.bham-diff-summary-banner {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.bham-diff-stat-chip {
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--bham-radius);
+  border: 1px solid var(--bham-border);
+  background: var(--bham-bg-surface);
+}
+.bham-diff-stat-chip.stat-added {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.bham-diff-stat-chip.stat-removed {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.bham-diff-stat-chip.stat-modified {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+.bham-diff-stat-chip.stat-unchanged {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+[data-theme="dark"] .bham-diff-stat-chip.stat-added {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+[data-theme="dark"] .bham-diff-stat-chip.stat-removed {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+[data-theme="dark"] .bham-diff-stat-chip.stat-modified {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+[data-theme="dark"] .bham-diff-stat-chip.stat-unchanged {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+.diff-stat-count {
+  font-family: var(--bham-font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bham-text-main);
+}
+.diff-stat-label {
+  font-size: 11px;
+  color: var(--bham-text-muted);
+  font-weight: 600;
+}
+.bham-diff-filter-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.bham-diff-status-filters {
+  display: flex;
+  gap: 4px;
+}
+.bham-diff-status-btn {
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--bham-radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bham-diff-status-btn:hover {
+  background: var(--bham-bg-surface-elevated);
+  color: var(--bham-text-main);
+}
+.bham-diff-status-btn.active {
+  background: var(--bham-modbus);
+  color: #ffffff;
+  border-color: var(--bham-modbus);
+}
+.bham-diff-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.bham-diff-badge-added {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+.bham-diff-badge-removed {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+.bham-diff-badge-modified {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+.bham-diff-badge-unchanged {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+[data-theme="dark"] .bham-diff-badge-added {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+[data-theme="dark"] .bham-diff-badge-removed {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+[data-theme="dark"] .bham-diff-badge-modified {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+[data-theme="dark"] .bham-diff-badge-unchanged {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+.bham-diff-change-item {
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 2px 0;
+  color: var(--bham-text-main);
+}
+.bham-diff-change-val-old {
+  color: #b91c1c;
+  text-decoration: line-through;
+  margin-right: 4px;
+}
+.bham-diff-change-val-new {
+  color: #15803d;
+  font-weight: 600;
+}
+
+/* ── BBMD (BACnet Broadcast Management Device) Styling ── */
+.bbmd-config-box {
+  border-top: 1px dashed var(--bham-border, #334155);
+  margin-top: 6px;
+  padding-top: 4px;
+}
+.bbmd-config-header:hover {
+  opacity: 0.85;
+}
+.proto-bbmd {
+  background: rgba(6, 182, 212, 0.18);
+  color: #06b6d4;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+}
+[data-theme="light"] .proto-bbmd {
+  background: #ecfeff;
+  color: #0891b2;
+  border-color: #a5f3fc;
+}
+
+

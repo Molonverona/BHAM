@@ -14,7 +14,7 @@ const I18N = {
   translations: {
     it: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.5.0",
+      brand_sub: "BACS Help Auto Mapper v0.6.0",
       rapid_scan: "AVVIA SCAN RAPIDO",
       rapid_scan_title: "Avvia scansione sequenziale RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -228,11 +228,45 @@ const I18N = {
       // Help Modal
       help_title: "Manuale Tecnico & Guida di Campo BHAM",
       help_sub: "Manuale operativo completo per il collaudo e la diagnosi di reti BACS.",
+
+      // Session Diff
+      btn_diff: "Diff Impianto",
+      diff_modal_title: "Intelligence & Session Diff (\"Prima vs Dopo\")",
+      diff_baseline_label: "Baseline (Sessione Storica / Prima):",
+      diff_target_label: "Target (Sessione Attuale / Dopo):",
+      diff_run_btn: "Calcola Differenze",
+      diff_stat_added: "Nuovi / Aggiunti",
+      diff_stat_removed: "Assenti / Scomparsi",
+      diff_stat_modified: "Modificati / Variazioni",
+      diff_stat_unchanged: "Invariati",
+      diff_select_prompt: "Seleziona la sessione di Baseline e clicca su \"Calcola Differenze\" per confrontare l'impianto.",
+      diff_col_device: "Dispositivo",
+      diff_col_status: "Stato Variazione",
+      diff_col_details: "Dettaglio Parametri / Modifiche Rilevate",
+      diff_export_csv: "Esporta Diff CSV",
+      diff_export_json: "Esporta Diff JSON",
+
+      // BBMD & Foreign Device
+      bbmd_traversal_title: "Router BBMD (Foreign Dev)",
+      bbmd_ip_label: "IP Router BBMD",
+      bbmd_port_label: "Porta",
+      bbmd_ttl_label: "TTL Registrazione (s)",
+      btn_inspect_bbmd: "Tabelle BDT/FDT",
+      bbmd_modal_title: "Diagnostica Router BBMD (BACnet/IP)",
+      bbmd_query_btn: "Interroga Tabelle BBMD",
+      bbmd_bdt_title: "Broadcast Distribution Table (BDT)",
+      bbmd_fdt_title: "Foreign Device Table (FDT)",
+      bbmd_bdt_desc: "Elenco router BBMD peer per inoltro broadcast tra subnet IP.",
+      bbmd_fdt_desc: "Dispositivi e workstation temporaneamente registrati come Foreign Device.",
+      bbmd_col_mask: "Maschera Broadcast",
+      bbmd_col_ttl: "TTL (s)",
+      bbmd_col_remaining: "Rimanente (s)",
+      bbmd_missing_ip_alert: "Inserisci un indirizzo IP valido per il router BBMD.",
     },
 
     en: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.5.0",
+      brand_sub: "BACS Help Auto Mapper v0.6.0",
       rapid_scan: "START RAPID SCAN",
       rapid_scan_title: "Start automated sequential scan RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -446,11 +480,45 @@ const I18N = {
       // Help Modal
       help_title: "BHAM Technical Manual & Field Guide",
       help_sub: "Comprehensive field operations handbook for BACS network commissioning and diagnosis.",
+
+      // Session Diff
+      btn_diff: "Plant Diff",
+      diff_modal_title: "Intelligence & Session Diff (\"Before vs After\")",
+      diff_baseline_label: "Baseline (Historical Session / Before):",
+      diff_target_label: "Target (Current Session / After):",
+      diff_run_btn: "Calculate Differences",
+      diff_stat_added: "New / Added",
+      diff_stat_removed: "Missing / Offline",
+      diff_stat_modified: "Modified / Changes",
+      diff_stat_unchanged: "Unchanged",
+      diff_select_prompt: "Select Baseline session and click \"Calculate Differences\" to compare plant.",
+      diff_col_device: "Device",
+      diff_col_status: "Diff Status",
+      diff_col_details: "Parameter Details / Detected Changes",
+      diff_export_csv: "Export Diff CSV",
+      diff_export_json: "Export Diff JSON",
+
+      // BBMD & Foreign Device
+      bbmd_traversal_title: "BBMD Router (Foreign Dev)",
+      bbmd_ip_label: "BBMD Router IP",
+      bbmd_port_label: "Port",
+      bbmd_ttl_label: "Registration TTL (s)",
+      btn_inspect_bbmd: "BDT/FDT Tables",
+      bbmd_modal_title: "BBMD Router Diagnostics (BACnet/IP)",
+      bbmd_query_btn: "Query BBMD Tables",
+      bbmd_bdt_title: "Broadcast Distribution Table (BDT)",
+      bbmd_fdt_title: "Foreign Device Table (FDT)",
+      bbmd_bdt_desc: "List of peer BBMD routers for broadcast forwarding between IP subnets.",
+      bbmd_fdt_desc: "Devices and workstations temporarily registered as Foreign Devices.",
+      bbmd_col_mask: "Broadcast Mask",
+      bbmd_col_ttl: "TTL (s)",
+      bbmd_col_remaining: "Remaining (s)",
+      bbmd_missing_ip_alert: "Enter a valid IP address for the BBMD router.",
     },
 
     es: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.5.0",
+      brand_sub: "BACS Help Auto Mapper v0.6.0",
       rapid_scan: "INICIAR ESCANEO RÁPIDO",
       rapid_scan_title: "Iniciar escaneo secuencial RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -664,6 +732,40 @@ const I18N = {
       // Help Modal
       help_title: "Manual Técnico y Guía de Campo BHAM",
       help_sub: "Manual operativo completo para la puesta en marcha y diagnóstico de redes BACS.",
+
+      // Session Diff
+      btn_diff: "Diff Instalación",
+      diff_modal_title: "Intelligence & Session Diff (\"Antes vs Después\")",
+      diff_baseline_label: "Línea Base (Sesión Histórica / Antes):",
+      diff_target_label: "Destino (Sesión Actual / Después):",
+      diff_run_btn: "Calcular Diferencias",
+      diff_stat_added: "Nuevos / Añadidos",
+      diff_stat_removed: "Ausentes / Desconectados",
+      diff_stat_modified: "Modificados / Variaciones",
+      diff_stat_unchanged: "Sin cambios",
+      diff_select_prompt: "Seleccione la sesión de Línea Base y haga clic en \"Calcular Diferencias\" para comparar la instalación.",
+      diff_col_device: "Dispositivo",
+      diff_col_status: "Estado Variación",
+      diff_col_details: "Detalle Parámetros / Cambios Detectados",
+      diff_export_csv: "Exportar Diff CSV",
+      diff_export_json: "Exportar Diff JSON",
+
+      // BBMD & Foreign Device
+      bbmd_traversal_title: "Enrutador BBMD (Foreign Dev)",
+      bbmd_ip_label: "IP Enrutador BBMD",
+      bbmd_port_label: "Puerto",
+      bbmd_ttl_label: "TTL Registro (s)",
+      btn_inspect_bbmd: "Tablas BDT/FDT",
+      bbmd_modal_title: "Diagnóstico de Enrutador BBMD (BACnet/IP)",
+      bbmd_query_btn: "Consultar Tablas BBMD",
+      bbmd_bdt_title: "Tabla de Distribución Broadcast (BDT)",
+      bbmd_fdt_title: "Tabla de Dispositivos Externos (FDT)",
+      bbmd_bdt_desc: "Lista de enrutadores BBMD pares para reenvío broadcast entre subredes IP.",
+      bbmd_fdt_desc: "Dispositivos y estaciones registrados temporalmente como Foreign Device.",
+      bbmd_col_mask: "Máscara Broadcast",
+      bbmd_col_ttl: "TTL (s)",
+      bbmd_col_remaining: "Restante (s)",
+      bbmd_missing_ip_alert: "Ingrese una dirección IP válida para el enrutador BBMD.",
     }
   },
 

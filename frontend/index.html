@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BHAM – BACS Help Auto Mapper v0.5.0</title>
-  <link rel="stylesheet" href="css/main.css?v=4.3.0" />
+  <title>BHAM – BACS Help Auto Mapper v0.6.0</title>
+  <link rel="stylesheet" href="css/main.css?v=0.6.0" />
 </head>
 <body>
 
@@ -17,7 +17,7 @@
         </svg>
         BHAM
       </span>
-      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.5.0</span>
+      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.6.0</span>
       <span id="ws-pill" class="bham-ws-pill disconnected">
         <span class="bham-ws-dot"></span> <span id="ws-pill-text">Connecting…</span>
       </span>
@@ -214,6 +214,42 @@
           <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC1')">BAC1</button>
           <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC0..BAC3')">BAC0..3</button>
         </div>
+
+        <!-- BBMD / Foreign Device Router Traversal Drawer -->
+        <div class="bbmd-config-box">
+          <div class="bbmd-config-header" onclick="toggleBBMDBox()" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin-top:6px; margin-bottom:4px;">
+            <span style="font-size:11px; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+              <svg class="bham-svg-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              <span data-i18n="bbmd_traversal_title">Router BBMD (Foreign Dev)</span>
+            </span>
+            <span id="bbmd-toggle-chevron" style="font-size:10px; color:var(--text-muted)">▶</span>
+          </div>
+          <div id="bbmd-fields-drawer" style="display:none; padding:6px; background:rgba(0,0,0,0.15); border:1px solid #334155; border-radius:4px; margin-bottom:6px;">
+            <div class="bham-field-row" style="margin-bottom:4px;">
+              <div style="flex:2">
+                <label class="bham-label" data-i18n="bbmd_ip_label">IP Router BBMD</label>
+                <input id="bbmd-ip" type="text" class="bham-input" placeholder="es. 192.168.10.1" />
+              </div>
+              <div style="flex:1">
+                <label class="bham-label" data-i18n="bbmd_port_label">Porta</label>
+                <input id="bbmd-port" type="text" value="47808" class="bham-input" />
+              </div>
+            </div>
+            <div class="bham-field-row" style="align-items:center; margin-bottom:4px;">
+              <div style="flex:1">
+                <label class="bham-label" data-i18n="bbmd_ttl_label">TTL Registrazione (s)</label>
+                <input id="bbmd-ttl" type="number" value="60" min="10" max="3600" class="bham-input" />
+              </div>
+              <div style="flex:1; display:flex; align-items:flex-end;">
+                <button type="button" id="btn-read-bbmd" onclick="openBBMDModal()" class="bham-btn-chip" style="width:100%; height:26px; justify-content:center; gap:4px; margin-top:14px;" title="Interroga tabelle BDT/FDT">
+                  <svg class="bham-svg-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                  <span data-i18n="btn_inspect_bbmd">Tabelle BDT/FDT</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <button onclick="startBACnet()" class="bham-btn-action bham-btn-bacnet" style="margin-top:2px">
           <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
           <span data-i18n="btn_start_bacnet">Who-Is Broadcast</span>
@@ -437,6 +473,10 @@
         </div>
 
         <div class="bham-export-group">
+          <button id="btn-session-diff" onclick="openDiffModal()" class="bham-btn-diff" title="Confronta impianto con una sessione salvata (Prima vs Dopo)">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path></svg>
+            <span data-i18n="btn_diff">Diff Impianto</span>
+          </button>
           <button onclick="exportCSV()" class="bham-btn-export" title="Esporta risultati in formato CSV">
             <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
             <span data-i18n="export_csv">CSV</span>
@@ -1150,9 +1190,212 @@
     </div>
   </div>
 
+  <!-- ── Modal: Session Diff ("Prima vs Dopo") ── -->
+  <div id="diff-modal" class="bham-modal-backdrop" style="display:none" onclick="if(event.target===this)closeDiffModal()">
+    <div class="bham-modal" style="max-width:880px;max-height:88vh">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:10px">
+        <h2 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:8px;margin:0">
+          <svg class="bham-svg-md" viewBox="0 0 24 24"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path></svg>
+          <span data-i18n="diff_modal_title">Intelligence & Session Diff ("Prima vs Dopo")</span>
+        </h2>
+        <button onclick="closeDiffModal()" class="bham-btn-ghost" style="padding:4px 8px;font-size:16px">&times;</button>
+      </div>
+
+      <!-- Selector Controls -->
+      <div class="bham-diff-controls-bar">
+        <div class="bham-diff-control-group">
+          <label class="bham-field-label" data-i18n="diff_baseline_label">Baseline (Sessione Storica / Prima):</label>
+          <select id="diff-baseline-select" class="bham-select-field"></select>
+        </div>
+        <div class="bham-diff-control-group">
+          <label class="bham-field-label" data-i18n="diff_target_label">Target (Sessione Attuale / Dopo):</label>
+          <select id="diff-target-select" class="bham-select-field"></select>
+        </div>
+        <button id="btn-run-diff" onclick="runSessionDiff()" class="bham-btn-primary" style="align-self:flex-end">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline></svg>
+          <span data-i18n="diff_run_btn">Calcola Differenze</span>
+        </button>
+      </div>
+
+      <!-- Summary Banner -->
+      <div id="diff-summary-banner" class="bham-diff-summary-banner" style="display:none">
+        <div class="bham-diff-stat-chip stat-added">
+          <span class="diff-stat-icon">🟢</span>
+          <span class="diff-stat-count" id="diff-stat-added">0</span>
+          <span class="diff-stat-label" data-i18n="diff_stat_added">Nuovi / Aggiunti</span>
+        </div>
+        <div class="bham-diff-stat-chip stat-removed">
+          <span class="diff-stat-icon">🔴</span>
+          <span class="diff-stat-count" id="diff-stat-removed">0</span>
+          <span class="diff-stat-label" data-i18n="diff_stat_removed">Assenti / Scomparsi</span>
+        </div>
+        <div class="bham-diff-stat-chip stat-modified">
+          <span class="diff-stat-icon">🟡</span>
+          <span class="diff-stat-count" id="diff-stat-modified">0</span>
+          <span class="diff-stat-label" data-i18n="diff_stat_modified">Modificati / Variazioni</span>
+        </div>
+        <div class="bham-diff-stat-chip stat-unchanged">
+          <span class="diff-stat-icon">⚪</span>
+          <span class="diff-stat-count" id="diff-stat-unchanged">0</span>
+          <span class="diff-stat-label" data-i18n="diff_stat_unchanged">Invariati</span>
+        </div>
+      </div>
+
+      <!-- Filters Bar (Protocol & Status) -->
+      <div id="diff-filter-toolbar" class="bham-diff-filter-toolbar" style="display:none">
+        <div class="bham-tabs" style="margin-bottom:0">
+          <button id="diff-tab-all" class="bham-tab active" onclick="setDiffProtoFilter('all')">Tutti</button>
+          <button id="diff-tab-modbus" class="bham-tab" onclick="setDiffProtoFilter('modbus')">Modbus</button>
+          <button id="diff-tab-bacnet" class="bham-tab" onclick="setDiffProtoFilter('bacnet')">BACnet</button>
+          <button id="diff-tab-knx" class="bham-tab" onclick="setDiffProtoFilter('knx')">KNX</button>
+          <button id="diff-tab-hosts" class="bham-tab" onclick="setDiffProtoFilter('ip_host')">ARP Hosts</button>
+        </div>
+        <div class="bham-diff-status-filters">
+          <button id="diff-status-all" class="bham-diff-status-btn active" onclick="setDiffStatusFilter('all')">Tutti gli stati</button>
+          <button id="diff-status-added" class="bham-diff-status-btn" onclick="setDiffStatusFilter('added')">🟢 Solo Aggiunti</button>
+          <button id="diff-status-removed" class="bham-diff-status-btn" onclick="setDiffStatusFilter('removed')">🔴 Solo Scomparsi</button>
+          <button id="diff-status-modified" class="bham-diff-status-btn" onclick="setDiffStatusFilter('modified')">🟡 Solo Modificati</button>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div id="diff-table-container" class="bham-diff-table-container" style="overflow-y:auto;max-height:360px;margin-top:10px">
+        <div id="diff-empty-prompt" style="text-align:center;padding:30px;color:#64748b" data-i18n="diff_select_prompt">
+          Seleziona la sessione di Baseline e clicca su "Calcola Differenze" per confrontare l'impianto.
+        </div>
+        <table id="diff-data-table" class="bham-modal-table" style="display:none;width:100%">
+          <thead>
+            <tr>
+              <th style="width:100px" data-i18n="col_proto">Protocollo</th>
+              <th style="width:200px" data-i18n="diff_col_device">Dispositivo</th>
+              <th style="width:130px;text-align:center" data-i18n="diff_col_status">Stato Variazione</th>
+              <th data-i18n="diff_col_details">Dettaglio Parametri / Modifiche Rilevate</th>
+            </tr>
+          </thead>
+          <tbody id="diff-data-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid #e2e8f0;padding-top:10px">
+        <div style="display:flex;gap:8px">
+          <button id="btn-export-diff-csv" onclick="exportDiffCSV()" class="bham-btn-secondary" style="display:none">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span data-i18n="diff_export_csv">Esporta Diff CSV</span>
+          </button>
+          <button id="btn-export-diff-json" onclick="exportDiffJSON()" class="bham-btn-secondary" style="display:none">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <span data-i18n="diff_export_json">Esporta Diff JSON</span>
+          </button>
+        </div>
+        <button onclick="closeDiffModal()" class="bham-btn-secondary" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BBMD Router Diagnostics Modal (Annex J BDT / FDT Explorer) -->
+  <div id="bbmd-modal" class="bham-modal-backdrop" style="display:none" onclick="if(event.target===this)closeBBMDModal()">
+    <div class="bham-modal" style="max-width:860px;max-height:88vh">
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <svg class="bham-svg-md color-bacnet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <div>
+            <h2 class="bham-modal-title color-bacnet" style="margin:0;font-size:16px" data-i18n="bbmd_modal_title">Diagnostica Router BBMD (BACnet/IP)</h2>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Ispezione tabelle Annex J: Broadcast Distribution (BDT) & Foreign Device (FDT)</div>
+          </div>
+        </div>
+        <button onclick="closeBBMDModal()" class="bham-modal-close" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+
+      <!-- Query Bar -->
+      <div style="background:rgba(0,0,0,0.15);border:1px solid #334155;border-radius:6px;padding:8px 12px;margin-bottom:12px">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div style="flex:2">
+            <label class="bham-label" data-i18n="bbmd_ip_label">IP Router BBMD</label>
+            <input id="modal-bbmd-ip" type="text" class="bham-input" placeholder="es. 192.168.10.1" />
+          </div>
+          <div style="flex:1">
+            <label class="bham-label" data-i18n="bbmd_port_label">Porta UDP</label>
+            <input id="modal-bbmd-port" type="text" value="47808" class="bham-input" />
+          </div>
+          <div>
+            <button id="btn-modal-query-bbmd" onclick="fetchBBMDTables()" class="bham-btn-action bham-btn-bacnet" style="height:32px;padding:0 14px;gap:6px">
+              <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span data-i18n="bbmd_query_btn">Interroga Tabelle BBMD</span>
+            </button>
+          </div>
+        </div>
+        <div id="bbmd-status-msg" style="display:none;font-size:11px;margin-top:6px;padding:4px 8px;border-radius:4px;background:rgba(0,0,0,0.25)"></div>
+      </div>
+
+      <!-- Tables Content (Scrollable) -->
+      <div style="overflow-y:auto;max-height:calc(88vh - 200px);display:flex;flex-direction:column;gap:14px">
+        <!-- 1. BDT Table -->
+        <div style="border:1px solid #334155;border-radius:6px;padding:10px;background:rgba(0,0,0,0.1)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-weight:700;font-size:13px;color:var(--text-main)" data-i18n="bbmd_bdt_title">Broadcast Distribution Table (BDT)</span>
+              <span id="bbmd-bdt-count" class="bham-badge-proto proto-bacnet" style="font-size:10px">0 peer</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px" data-i18n="bbmd_bdt_desc">Elenco router BBMD peer per inoltro broadcast tra subnet IP.</div>
+          <table class="bham-modal-table" style="width:100%">
+            <thead>
+              <tr>
+                <th style="width:200px">IP Peer Router</th>
+                <th style="width:100px">Porta UDP</th>
+                <th data-i18n="bbmd_col_mask">Maschera Broadcast</th>
+                <th style="width:110px;text-align:center">Ruolo</th>
+              </tr>
+            </thead>
+            <tbody id="bbmd-bdt-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:14px">Inserisci l'IP del router BBMD e clicca "Interroga Tabelle BBMD".</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 2. FDT Table -->
+        <div style="border:1px solid #334155;border-radius:6px;padding:10px;background:rgba(0,0,0,0.1)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-weight:700;font-size:13px;color:var(--text-main)" data-i18n="bbmd_fdt_title">Foreign Device Table (FDT)</span>
+              <span id="bbmd-fdt-count" class="bham-badge-proto" style="font-size:10px;background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.3)">0 dev</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px" data-i18n="bbmd_fdt_desc">Dispositivi e workstation temporaneamente registrati come Foreign Device.</div>
+          <table class="bham-modal-table" style="width:100%">
+            <thead>
+              <tr>
+                <th style="width:200px">IP Dispositivo Registrato</th>
+                <th style="width:100px">Porta UDP</th>
+                <th style="width:110px" data-i18n="bbmd_col_ttl">TTL (s)</th>
+                <th data-i18n="bbmd_col_remaining">Rimanente (s)</th>
+              </tr>
+            </thead>
+            <tbody id="bbmd-fdt-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:14px">Nessuna informazione Foreign Device caricata.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;border-top:1px solid #334155;padding-top:10px">
+        <button onclick="closeBBMDModal()" class="bham-btn-secondary" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+
+
   <!-- Scripts: Relative paths for 100% reliable local & server loading -->
-  <script src="js/i18n.js?v=4.3.0"></script>
-  <script src="js/manual-content.js?v=4.3.0"></script>
-  <script src="js/app.js?v=4.3.0"></script>
+  <script src="js/i18n.js?v=0.6.0"></script>
+  <script src="js/manual-content.js?v=0.6.0"></script>
+  <script src="js/app.js?v=0.6.0"></script>
 </body>
 </html>

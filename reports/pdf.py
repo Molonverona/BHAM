@@ -410,6 +410,182 @@ def generate_pdf(filepath: str) -> str:
         t_ip.setStyle(TableStyle(t_ip_style))
         elements.append(t_ip)
 
+    elements.append(Spacer(1, 16))
+
+    # ── 5. Mappa Topologica Gerarchica ───────────────────────────────────────
+    topo = state.get_topology()
+    topo_nodes = topo.get("nodes", [])
+    elements.append(Paragraph(f"5. Mappa Topologica Gerarchica d'Impianto ({len(topo_nodes)} nodi)", h2_style))
+
+    nodes_by_id = {n["id"]: n for n in topo_nodes}
+    children_map: dict[str, list[str]] = {}
+    for n in topo_nodes:
+        parent = n.get("parent_id")
+        if parent:
+            children_map.setdefault(parent, []).append(n["id"])
+
+    def _walk_tree(nid: str, depth: int = 0) -> list[tuple[dict, int]]:
+        node = nodes_by_id.get(nid)
+        if not node:
+            return []
+        res = [(node, depth)]
+        for cid in children_map.get(nid, []):
+            res.extend(_walk_tree(cid, depth + 1))
+        return res
+
+    tree_walk = _walk_tree("node:host", 0)
+    visited_ids = {node["id"] for node, _ in tree_walk}
+    for n in topo_nodes:
+        if n["id"] not in visited_ids:
+            tree_walk.append((n, 1))
+
+    topo_headers = [
+        Paragraph("Albero d'Impianto / Nodo", tbl_hdr_style),
+        Paragraph("Livello", tbl_hdr_style),
+        Paragraph("Protocollo", tbl_hdr_style),
+        Paragraph("Stato", tbl_hdr_style),
+    ]
+    topo_rows = [topo_headers]
+    level_names = {"host": "1: Host", "interface": "2: Canale", "bus": "3: Bus", "device": "4: Nodo"}
+
+    for n, depth in tree_walk:
+        indent = "&nbsp;" * (depth * 5)
+        prefix = "• " if depth >= 3 else ("└─ " if depth == 2 else ("├─ " if depth == 1 else "🖥️ "))
+        sub = f" <font color='#64748B'>({n.get('sublabel')})</font>" if n.get("sublabel") else ""
+        label_html = f"{indent}{prefix}<b>{n.get('label', '')}</b>{sub}"
+
+        cat = n.get("category", "device")
+        lvl_str = level_names.get(cat, f"Lvl {depth}")
+        proto_str = n.get("protocol", "").upper()
+        status_str = n.get("status", "unknown").upper()
+
+        topo_rows.append([
+            Paragraph(label_html, tbl_cell_style),
+            Paragraph(lvl_str, tbl_cell_center),
+            Paragraph(proto_str, tbl_cell_center),
+            Paragraph(status_str, tbl_cell_center),
+        ])
+
+    col_w_topo = [240, 85, 105, 85]
+    t_topo = Table(topo_rows, colWidths=col_w_topo, repeatRows=1)
+    t_topo_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+    for i in range(1, len(topo_rows)):
+        if i % 2 == 0:
+            t_topo_style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#F8FAFC")))
+    t_topo.setStyle(TableStyle(t_topo_style))
+    elements.append(t_topo)
+
+    # ── 6. As-Built Modbus Registers ─────────────────────────────────────────
+    total_modbus_regs = sum(len(d.registers) for d in state.modbus_devices.values() if d.registers)
+    if total_modbus_regs > 0:
+        elements.append(Spacer(1, 16))
+        elements.append(Paragraph(f"6. As-Built – Censimento Registri Modbus ({total_modbus_regs} registri)", h2_style))
+        reg_headers = [
+            Paragraph("Slave ID", tbl_hdr_style),
+            Paragraph("Canale", tbl_hdr_style),
+            Paragraph("Registro", tbl_hdr_style),
+            Paragraph("Raw Hex", tbl_hdr_style),
+            Paragraph("Dec Int16", tbl_hdr_style),
+            Paragraph("Float32", tbl_hdr_style),
+            Paragraph("Etichetta / Tag", tbl_hdr_style),
+        ]
+        reg_rows = [reg_headers]
+        for d in sorted(state.modbus_devices.values(), key=lambda x: x.slave_id):
+            endpoint = d.ip if d.ip else (d.serial_params.port if d.serial_params else "RS485")
+            if d.ip and d.tcp_port:
+                endpoint = f"{d.ip}:{d.tcp_port}"
+            if d.registers:
+                for reg_addr, rdata in sorted(d.registers.items(), key=lambda x: str(x[0])):
+                    if isinstance(rdata, dict):
+                        hex_val = rdata.get("hex", "")
+                        dec_val = rdata.get("int16", rdata.get("dec", ""))
+                        float_val = rdata.get("float32", "")
+                        desc = rdata.get("description", rdata.get("label", ""))
+                    else:
+                        hex_val = hex(rdata) if isinstance(rdata, int) else ""
+                        dec_val = str(rdata)
+                        float_val = ""
+                        desc = ""
+                    reg_rows.append([
+                        Paragraph(str(d.slave_id), tbl_cell_bold),
+                        Paragraph(endpoint, tbl_cell_style),
+                        Paragraph(str(reg_addr), tbl_cell_center),
+                        Paragraph(str(hex_val), tbl_cell_center),
+                        Paragraph(str(dec_val), tbl_cell_center),
+                        Paragraph(str(float_val), tbl_cell_center),
+                        Paragraph(str(desc) or "—", tbl_cell_style),
+                    ])
+        col_w_reg = [45, 95, 60, 65, 65, 80, 105]
+        t_regs = Table(reg_rows, colWidths=col_w_reg, repeatRows=1)
+        t_regs_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#B45309")),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]
+        for i in range(1, len(reg_rows)):
+            if i % 2 == 0:
+                t_regs_style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#FFFBEB")))
+        t_regs.setStyle(TableStyle(t_regs_style))
+        elements.append(t_regs)
+
+    # ── 7. As-Built BACnet Objects Explorer ──────────────────────────────────
+    total_bacnet_objs = sum(len(d.object_list) for d in state.bacnet_devices.values() if d.object_list)
+    if total_bacnet_objs > 0:
+        elements.append(Spacer(1, 16))
+        elements.append(Paragraph(f"7. As-Built – Censimento Oggetti BACnet ({total_bacnet_objs} oggetti)", h2_style))
+        obj_headers = [
+            Paragraph("Device ID", tbl_hdr_style),
+            Paragraph("Tipo", tbl_hdr_style),
+            Paragraph("ID Oggetto", tbl_hdr_style),
+            Paragraph("Nome Oggetto", tbl_hdr_style),
+            Paragraph("Valore", tbl_hdr_style),
+            Paragraph("Unità", tbl_hdr_style),
+        ]
+        obj_rows = [obj_headers]
+        for d in sorted(state.bacnet_devices.values(), key=lambda x: x.device_id):
+            if d.object_list:
+                for obj in d.object_list:
+                    obj_id = obj.get("object_identifier") or obj.get("id", "")
+                    obj_type = obj.get("object_type") or obj.get("type", "")
+                    obj_name = obj.get("object_name") or obj.get("name", "")
+                    pval = obj.get("present_value")
+                    pval_str = str(pval) if pval is not None else "—"
+                    units = obj.get("units", "—")
+                    obj_rows.append([
+                        Paragraph(str(d.device_id), tbl_cell_bold),
+                        Paragraph(str(obj_type), tbl_cell_center),
+                        Paragraph(str(obj_id), tbl_cell_style),
+                        Paragraph(str(obj_name), tbl_cell_style),
+                        Paragraph(pval_str, tbl_cell_center),
+                        Paragraph(str(units) or "—", tbl_cell_center),
+                    ])
+        col_w_obj = [55, 75, 85, 155, 85, 60]
+        t_objs = Table(obj_rows, colWidths=col_w_obj, repeatRows=1)
+        t_objs_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4338CA")),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]
+        for i in range(1, len(obj_rows)):
+            if i % 2 == 0:
+                t_objs_style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#EEF2FF")))
+        t_objs.setStyle(TableStyle(t_objs_style))
+        elements.append(t_objs)
+
     # Compilazione documento con il canvas personalizzato
     doc.build(elements, canvasmaker=NumberedCanvas)
     return filepath
+

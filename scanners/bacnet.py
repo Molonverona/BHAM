@@ -195,6 +195,83 @@ class BACnetScanner(BaseScanner):
             except Exception:
                 host_ip = "127.0.0.1"
 
+        # Se è specificato un router BBMD, effettua registrazione Foreign Device e Who-Is traversale
+        if req.bbmd_ip and req.bbmd_ip.strip():
+            bbmd_ip = req.bbmd_ip.strip()
+            bbmd_ports = parse_bacnet_ports(req.bbmd_port or 47808)
+            bbmd_port = bbmd_ports[0] if bbmd_ports else 47808
+            ttl = int(req.bbmd_ttl) if req.bbmd_ttl else 60
+
+            log.info("═══ BACnet/IP BBMD Foreign Device Discovery -> %s:%d (TTL=%ds) ═══", bbmd_ip, bbmd_port, ttl)
+            state.update_session(self.session_id, progress_pct=15.0)
+
+            from bacpypes3.ipv4.app import ForeignApplication
+
+            local_device = DeviceObject(
+                objectIdentifier=ObjectIdentifier("device,9991"),
+                objectName="BHAM-bbmd-probe",
+                vendorIdentifier=999,
+                vendorName="BHAM",
+            )
+            bind_str = f"{host_ip}:0" if host_ip and host_ip != "0.0.0.0" else "0.0.0.0:0"
+            try:
+                bind_addr = IPv4Address(bind_str)
+                app = ForeignApplication(local_device, bind_addr)
+                if hasattr(app.server, "_transport_tasks") and app.server._transport_tasks:
+                    await asyncio.gather(*app.server._transport_tasks)
+
+                bbmd_addr = IPv4Address(f"{bbmd_ip}:{bbmd_port}")
+                app.register(bbmd_addr, ttl)
+                log.info("  ✓ Foreign Device registrato presso BBMD %s:%d (attesa I-Am...)", bbmd_ip, bbmd_port)
+            except Exception as reg_err:
+                log.warning("Impossibile registrare Foreign Device su %s:%d: %s", bbmd_ip, bbmd_port, reg_err)
+                return
+
+            try:
+                fut = app.who_is(timeout=max(1, int(round(WHOIS_WINDOW))))
+                while not fut.done():
+                    if self.is_aborted():
+                        fut.cancel()
+                        break
+                    await asyncio.sleep(0.05)
+
+                if fut.done() and not fut.cancelled():
+                    i_ams = fut.result()
+                    for iam_apdu in (i_ams or []):
+                        try:
+                            dev_id = int(iam_apdu.iAmDeviceIdentifier[1])
+                            address = str(iam_apdu.pduSource)
+                            vendor_id = int(getattr(iam_apdu, "vendorID", 0)) or None
+                            if dev_id in found:
+                                continue
+                            device = BACnetDevice(
+                                device_id=dev_id,
+                                protocol=Protocol.BACNET_IP,
+                                address=address,
+                                vendor_id=vendor_id,
+                                bbmd_routed=True,
+                                routed_via=f"{bbmd_ip}:{bbmd_port}",
+                                tags=["bbmd_routed"],
+                            )
+                            found[dev_id] = device
+                            state.upsert_bacnet(device)
+                            log.info("  ✓ I-Am via BBMD: device_id=%d address=%s", dev_id, address)
+                        except Exception as exc:
+                            log.debug("I-Am parse error: %s", exc)
+            except Exception as whois_err:
+                log.warning("Errore durante Who-Is via BBMD %s:%d: %s", bbmd_ip, bbmd_port, whois_err)
+            finally:
+                try:
+                    app.unregister()
+                except Exception:
+                    pass
+                try:
+                    app.close()
+                    await asyncio.sleep(0.03)
+                except Exception:
+                    pass
+            return
+
         # Finestra di ascolto per porta (più breve se scansioniamo molte porte)
         window = WHOIS_WINDOW if len(target_ports) == 1 else max(1.5, WHOIS_WINDOW / len(target_ports))
 
@@ -554,3 +631,183 @@ async def explore_bacnet_objects(
         "count": len(discovered_objects),
         "objects": discovered_objects,
     }
+
+
+# =========================================================================
+# BBMD Table Inspection (Annex J BVLL Read-BDT & Read-FDT)
+# =========================================================================
+
+class _BVLLResponseProtocol(asyncio.DatagramProtocol):
+    """Protocollo Datagram asyncio per transazioni BVLL request-response."""
+
+    def __init__(self) -> None:
+        self.fut = asyncio.get_running_loop().create_future()
+        self.transport: Optional[asyncio.DatagramTransport] = None
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        self.transport = transport  # type: ignore[assignment]
+
+    def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
+        if not self.fut.done():
+            self.fut.set_result((data, addr))
+
+    def error_received(self, exc: Exception) -> None:
+        if not self.fut.done():
+            self.fut.set_exception(exc)
+
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        if not self.fut.done():
+            self.fut.set_exception(exc or asyncio.CancelledError())
+
+
+def decode_bdt_payload(payload: bytes) -> list[dict[str, Any]]:
+    """
+    Decodifica il payload di un Read-BDT-Ack (ASHRAE 135 Annex J.4.2).
+    Ogni entry è di 10 byte:
+      - 4 byte: IPv4 Address
+      - 2 byte: UDP Port
+      - 4 byte: Broadcast Distribution Mask
+    """
+    import socket
+    import struct
+    records = []
+    for i in range(0, len(payload), 10):
+        chunk = payload[i:i + 10]
+        if len(chunk) == 10:
+            ip_b, port, mask_b = struct.unpack("!4sH4s", chunk)
+            records.append({
+                "ip": socket.inet_ntoa(ip_b),
+                "port": port,
+                "broadcast_mask": socket.inet_ntoa(mask_b),
+            })
+    return records
+
+
+def decode_fdt_payload(payload: bytes) -> list[dict[str, Any]]:
+    """
+    Decodifica il payload di un Read-FDT-Ack (ASHRAE 135 Annex J.4.4).
+    Ogni entry è di 10 byte:
+      - 4 byte: IPv4 Address
+      - 2 byte: UDP Port
+      - 2 byte: Time-to-Live (TTL)
+      - 2 byte: Remaining Time-to-Live
+    """
+    import socket
+    import struct
+    records = []
+    for i in range(0, len(payload), 10):
+        chunk = payload[i:i + 10]
+        if len(chunk) == 10:
+            ip_b, port, ttl, remaining = struct.unpack("!4sHHH", chunk)
+            records.append({
+                "ip": socket.inet_ntoa(ip_b),
+                "port": port,
+                "ttl": ttl,
+                "remaining_time": remaining,
+            })
+    return records
+
+
+async def read_bdt(bbmd_ip: str, bbmd_port: int = 47808, timeout: float = 3.0) -> list[dict[str, Any]]:
+    """
+    Legge la Broadcast Distribution Table (BDT) da un BBMD BACnet/IP
+    inviando un messaggio BVLL Read-Broadcast-Distribution-Table (0x81 0x02 0x00 0x04).
+    """
+    import struct
+    loop = asyncio.get_running_loop()
+    transport: Optional[asyncio.DatagramTransport] = None
+    try:
+        transport_raw, protocol = await loop.create_datagram_endpoint(
+            lambda: _BVLLResponseProtocol(),
+            local_addr=("0.0.0.0", 0)
+        )
+        transport = transport_raw  # type: ignore[assignment]
+        # Pacchetto BVLL Read-BDT: Type=0x81, Func=0x02, Len=0x0004
+        req = bytes([0x81, 0x02, 0x00, 0x04])
+        transport.sendto(req, (bbmd_ip, bbmd_port))
+        data, _ = await asyncio.wait_for(protocol.fut, timeout=timeout)
+        if len(data) >= 4 and data[0] == 0x81:
+            func = data[1]
+            length = struct.unpack("!H", data[2:4])[0]
+            if func == 0x03:  # Read-BDT-Ack
+                payload = data[4:length]
+                return decode_bdt_payload(payload)
+            elif func == 0x00:  # BVLL-Result
+                res_code = struct.unpack("!H", data[4:6])[0] if len(data) >= 6 else -1
+                logger.warning("BBMD %s:%d ha risposto con BVLL-Result NAK: 0x%04X", bbmd_ip, bbmd_port, res_code)
+        return []
+    except asyncio.TimeoutError:
+        logger.debug("Timeout nella lettura BDT da BBMD %s:%d", bbmd_ip, bbmd_port)
+        return []
+    except Exception as exc:
+        logger.warning("Errore interrogazione BDT da %s:%d: %s", bbmd_ip, bbmd_port, exc)
+        return []
+    finally:
+        if transport and not transport.is_closing():
+            transport.close()
+
+
+async def read_fdt(bbmd_ip: str, bbmd_port: int = 47808, timeout: float = 3.0) -> list[dict[str, Any]]:
+    """
+    Legge la Foreign Device Table (FDT) da un BBMD BACnet/IP
+    inviando un messaggio BVLL Read-Foreign-Device-Table (0x81 0x06 0x00 0x04).
+    """
+    import struct
+    loop = asyncio.get_running_loop()
+    transport: Optional[asyncio.DatagramTransport] = None
+    try:
+        transport_raw, protocol = await loop.create_datagram_endpoint(
+            lambda: _BVLLResponseProtocol(),
+            local_addr=("0.0.0.0", 0)
+        )
+        transport = transport_raw  # type: ignore[assignment]
+        # Pacchetto BVLL Read-FDT: Type=0x81, Func=0x06, Len=0x0004
+        req = bytes([0x81, 0x06, 0x00, 0x04])
+        transport.sendto(req, (bbmd_ip, bbmd_port))
+        data, _ = await asyncio.wait_for(protocol.fut, timeout=timeout)
+        if len(data) >= 4 and data[0] == 0x81:
+            func = data[1]
+            length = struct.unpack("!H", data[2:4])[0]
+            if func == 0x07:  # Read-FDT-Ack
+                payload = data[4:length]
+                return decode_fdt_payload(payload)
+            elif func == 0x00:  # BVLL-Result
+                res_code = struct.unpack("!H", data[4:6])[0] if len(data) >= 6 else -1
+                logger.warning("BBMD %s:%d ha risposto con BVLL-Result NAK: 0x%04X", bbmd_ip, bbmd_port, res_code)
+        return []
+    except asyncio.TimeoutError:
+        logger.debug("Timeout nella lettura FDT da BBMD %s:%d", bbmd_ip, bbmd_port)
+        return []
+    except Exception as exc:
+        logger.warning("Errore interrogazione FDT da %s:%d: %s", bbmd_ip, bbmd_port, exc)
+        return []
+    finally:
+        if transport and not transport.is_closing():
+            transport.close()
+
+
+async def get_bbmd_tables(bbmd_ip: str, bbmd_port: int = 47808, timeout: float = 3.0) -> dict[str, Any]:
+    """
+    Interroga un router BBMD estraendo sia la tabella BDT che la tabella FDT in parallelo.
+    """
+    bdt_res, fdt_res = await asyncio.gather(
+        read_bdt(bbmd_ip, bbmd_port, timeout=timeout),
+        read_fdt(bbmd_ip, bbmd_port, timeout=timeout),
+        return_exceptions=True,
+    )
+    bdt = bdt_res if isinstance(bdt_res, list) else []
+    fdt = fdt_res if isinstance(fdt_res, list) else []
+    err = None
+    if isinstance(bdt_res, Exception):
+        err = f"BDT: {bdt_res}"
+    elif isinstance(fdt_res, Exception):
+        err = f"FDT: {fdt_res}"
+
+    return {
+        "bbmd_ip": bbmd_ip,
+        "bbmd_port": bbmd_port,
+        "bdt": bdt,
+        "fdt": fdt,
+        "error": err,
+    }
+

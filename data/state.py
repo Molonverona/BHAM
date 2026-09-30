@@ -438,19 +438,48 @@ class AppState:
                 })
                 links.append({"source": "node:bus:modbus_tcp", "target": nid, "protocol": "modbus_tcp"})
 
-            # BACnet/IP Devices
+            # BACnet/IP Devices & BBMD Routers
+            bbmd_router_nodes: set[str] = set()
             for dev in bacnet_ip_devs:
                 nid = f"node:dev:bacnet:ip:{dev.device_id}"
                 sub_parts = [p for p in [dev.vendor_name, dev.model_name] if p]
                 sub = " - ".join(sub_parts) if sub_parts else dev.address
+
+                # Riconoscimento attraversamento router BBMD
+                is_routed = bool(getattr(dev, "bbmd_routed", False) or "bbmd_routed" in dev.tags)
+                if is_routed:
+                    router_key = getattr(dev, "routed_via", None) or "Router"
+                    clean_r_id = router_key.replace(".", "_").replace(":", "_")
+                    router_node_id = f"node:router:bbmd:{clean_r_id}"
+
+                    if router_node_id not in bbmd_router_nodes:
+                        bbmd_router_nodes.add(router_node_id)
+                        nodes.append({
+                            "id": router_node_id,
+                            "label": f"BBMD ({router_key})",
+                            "sublabel": "BACnet Broadcast Management Device",
+                            "category": "router",
+                            "protocol": "bacnet_ip",
+                            "status": "active",
+                            "parent_id": "node:bus:bacnet_ip",
+                            "metrics": {"bbmd_endpoint": router_key},
+                        })
+                        links.append({"source": "node:bus:bacnet_ip", "target": router_node_id, "protocol": "bacnet_ip"})
+
+                    parent_id = router_node_id
+                    link_source = router_node_id
+                else:
+                    parent_id = "node:bus:bacnet_ip"
+                    link_source = "node:bus:bacnet_ip"
+
                 nodes.append({
                     "id": nid,
                     "label": f"BACnet #{dev.device_id}",
-                    "sublabel": sub,
+                    "sublabel": sub + (" [BBMD]" if is_routed else ""),
                     "category": "device",
                     "protocol": "bacnet_ip",
                     "status": "active",
-                    "parent_id": "node:bus:bacnet_ip",
+                    "parent_id": parent_id,
                     "metrics": {
                         "device_id": dev.device_id,
                         "address": dev.address,
@@ -458,10 +487,13 @@ class AppState:
                         "model": dev.model_name,
                         "firmware": dev.firmware_revision,
                         "objects_count": len(dev.object_list),
+                        "bbmd_routed": is_routed,
+                        "routed_via": getattr(dev, "routed_via", None),
                     },
                     "data": dev.model_dump(mode="json"),
                 })
-                links.append({"source": "node:bus:bacnet_ip", "target": nid, "protocol": "bacnet_ip"})
+                links.append({"source": link_source, "target": nid, "protocol": "bacnet_ip"})
+
 
             # KNXnet/IP Devices
             for key, dev in self.knx_devices.items():
