@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.8.1)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.8.5)
 
 ---
 

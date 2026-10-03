@@ -968,9 +968,10 @@ class TestBACnetBBMD(unittest.TestCase):
 class TestOpenAPISpecAndSchemas(unittest.TestCase):
     def test_openapi_generation(self):
         from main import app
+        from core.config import settings
         schema = app.openapi()
         self.assertEqual(schema["info"]["title"], "BHAM – BACS Help Auto Mapper")
-        self.assertEqual(schema["info"]["version"], "0.8.0")
+        self.assertEqual(schema["info"]["version"], settings.app_version)
         self.assertIn("/api/v1/health", schema["paths"])
         self.assertIn("/api/v1/scan/modbus/rtu", schema["paths"])
         self.assertIn("/api/v1/hardware/self-test", schema["paths"])

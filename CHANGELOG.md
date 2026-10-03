@@ -3,7 +3,7 @@
 Formato basato su [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versioni [SemVer](https://semver.org/lang/it/).
 Le note della sezione corrispondente alla versione vengono pubblicate automaticamente nella GitHub Release.
 
-## [0.8.0] – 2026-10-03
+## [0.8.5] – 2026-10-03
 
 ### Aggiunto
 - **Collaudo Hardware Reale USB↔RS485 (Industrial Field-Ready)**:
