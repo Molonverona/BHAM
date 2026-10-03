@@ -1,0 +1,21 @@
+{
+  "id": "gavazzi_em111",
+  "name": "Carlo Gavazzi EM111 DIN",
+  "category": "multimeter",
+  "manufacturer": "Carlo Gavazzi",
+  "model": "EM111 DIN",
+  "description": "Contatore monofase compatto 1 modulo DIN 45A Modbus RTU",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Voltage", "type": "input", "format": "int32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione efficace di rete" },
+    { "address": 2, "name": "Current", "type": "input", "format": "int32", "unit": "A", "scale": 0.001, "access": "ro", "description": "Corrente assorbita" },
+    { "address": 4, "name": "Active_Power", "type": "input", "format": "int32", "unit": "W", "scale": 0.1, "access": "ro", "description": "Potenza attiva istantanea" },
+    { "address": 6, "name": "Apparent_Power", "type": "input", "format": "int32", "unit": "VA", "scale": 0.1, "access": "ro", "description": "Potenza apparente" },
+    { "address": 8, "name": "Reactive_Power", "type": "input", "format": "int32", "unit": "var", "scale": 0.1, "access": "ro", "description": "Potenza reattiva" },
+    { "address": 10, "name": "Power_Factor", "type": "input", "format": "int16", "unit": "", "scale": 0.001, "access": "ro", "description": "Fattore di potenza cosphi" },
+    { "address": 11, "name": "Frequency", "type": "input", "format": "int16", "unit": "Hz", "scale": 0.1, "access": "ro", "description": "Frequenza di linea" },
+    { "address": 16, "name": "Total_Active_Energy", "type": "input", "format": "int32", "unit": "kWh", "scale": 0.1, "access": "ro", "description": "Energia attiva totale importata" }
+  ]
+}

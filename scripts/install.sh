@@ -45,7 +45,7 @@ RELEASE_JSON=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" ||
 TAG_NAME=$(echo "$RELEASE_JSON" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$TAG_NAME" ]; then
-  TAG_NAME="v0.3.0"
+  TAG_NAME="v0.8.0"
   echo "⚠️  Impossibile determinare ultima release via API. Utilizzo fallback versione $TAG_NAME"
 else
   echo "✅ Ultima versione rilevata: $TAG_NAME"

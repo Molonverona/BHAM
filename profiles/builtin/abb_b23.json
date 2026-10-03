@@ -1,0 +1,25 @@
+{
+  "id": "abb_b23",
+  "name": "ABB B23 Steel / Bronze / Silver",
+  "category": "multimeter",
+  "manufacturer": "ABB",
+  "model": "B23",
+  "description": "Contatore di energia trifase compatto ABB serie B 65A su guida DIN",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 20480, "name": "Active_Energy_Import", "type": "holding", "format": "uint32", "unit": "kWh", "scale": 0.01, "access": "ro", "description": "Energia attiva totale importata" },
+    { "address": 20482, "name": "Active_Energy_Export", "type": "holding", "format": "uint32", "unit": "kWh", "scale": 0.01, "access": "ro", "description": "Energia attiva esportata" },
+    { "address": 23296, "name": "V_L1_N", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione L1-N" },
+    { "address": 23298, "name": "V_L2_N", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione L2-N" },
+    { "address": 23300, "name": "V_L3_N", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione L3-N" },
+    { "address": 23308, "name": "I_L1", "type": "holding", "format": "uint32", "unit": "A", "scale": 0.01, "access": "ro", "description": "Corrente L1" },
+    { "address": 23310, "name": "I_L2", "type": "holding", "format": "uint32", "unit": "A", "scale": 0.01, "access": "ro", "description": "Corrente L2" },
+    { "address": 23312, "name": "I_L3", "type": "holding", "format": "uint32", "unit": "A", "scale": 0.01, "access": "ro", "description": "Corrente L3" },
+    { "address": 23320, "name": "Active_Power_Total", "type": "holding", "format": "int32", "unit": "kW", "scale": 0.01, "access": "ro", "description": "Potenza attiva totale" },
+    { "address": 23328, "name": "Reactive_Power_Total", "type": "holding", "format": "int32", "unit": "kvar", "scale": 0.01, "access": "ro", "description": "Potenza reattiva totale" },
+    { "address": 23336, "name": "Power_Factor", "type": "holding", "format": "int16", "unit": "", "scale": 0.001, "access": "ro", "description": "Fattore di potenza totale" },
+    { "address": 23338, "name": "Frequency", "type": "holding", "format": "uint16", "unit": "Hz", "scale": 0.01, "access": "ro", "description": "Frequenza di rete" }
+  ]
+}

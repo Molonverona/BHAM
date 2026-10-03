@@ -1,0 +1,23 @@
+{
+  "id": "carel_pco",
+  "name": "Carel pCO5 / c.pCO Controller",
+  "category": "actuator_hvac",
+  "manufacturer": "Carel Industries",
+  "model": "pCO5 / c.pCO",
+  "description": "Controllore elettronico programmabile per gruppi frigoriferi, pompe di calore e UTA",
+  "default_baudrate": 19200,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 1, "name": "Chiller_On_Off_Status", "type": "coil", "format": "bool", "unit": "", "scale": 1.0, "access": "rw", "description": "Abilitazione remota On/Off chiller o unità di trattamento" },
+    { "address": 2, "name": "General_Alarm_Active", "type": "discrete", "format": "bool", "unit": "", "scale": 1.0, "access": "ro", "description": "Stato allarme cumulativo generale" },
+    { "address": 1, "name": "Supply_Water_Temp", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura acqua mandata evaporatore" },
+    { "address": 2, "name": "Return_Water_Temp", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura acqua ingresso evaporatore" },
+    { "address": 3, "name": "Outdoor_Ambient_Temp", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura aria esterna condensatore" },
+    { "address": 10, "name": "Cooling_Setpoint", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "rw", "description": "Setpoint temperatura acqua refrigerata desiderata" },
+    { "address": 15, "name": "Cooling_Capacity_Demand", "type": "holding", "format": "uint16", "unit": "%", "scale": 1.0, "access": "ro", "description": "Richiesta termica / capacità erogata compressori (0..100%)" },
+    { "address": 20, "name": "Evaporation_Pressure", "type": "holding", "format": "uint16", "unit": "bar", "scale": 0.1, "access": "ro", "description": "Pressione di evaporazione circuito 1" },
+    { "address": 21, "name": "Condensation_Pressure", "type": "holding", "format": "uint16", "unit": "bar", "scale": 0.1, "access": "ro", "description": "Pressione di condensazione circuito 1" },
+    { "address": 50, "name": "Compressor_1_Run_Hours", "type": "holding", "format": "uint32", "unit": "h", "scale": 1.0, "access": "ro", "description": "Contaore funzionamento compressore 1" }
+  ]
+}

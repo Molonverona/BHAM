@@ -133,7 +133,7 @@ function setWsStatus(connected, latency = 12) {
 function handleEvent(msg) {
   switch (msg.event) {
     case "log":
-      log(msg.message);
+      log(msg.message, msg.level || "INFO", msg.logger || "");
       break;
     case "snapshot":
       applySnapshot(msg.data);
@@ -162,6 +162,17 @@ function handleEvent(msg) {
     case "serial_bus_health":
       if (msg.health) handleBusHealth(msg.health);
       break;
+    case "hardware_disconnect":
+      showToast(window.t ? window.t("hw_disconnect_alert") : `Disconnessione hardware rilevata su ${msg.port || 'porta seriale'}`, "error");
+      log(`[WARN] [SERIAL] Disconnessione hardware su ${msg.port || 'porta seriale'}: ${msg.error || 'Dispositivo rimosso'}`, "WARNING");
+      break;
+    case "hardware_reconnect":
+      showToast(window.t ? window.t("hw_reconnect_alert") : `Hardware riconnesso con successo su ${msg.port || 'porta seriale'}`, "success");
+      log(`[OK] [SERIAL] Hardware riconnesso e riaperto su ${msg.port || 'porta seriale'}`, "INFO");
+      break;
+    case "demo_status_changed":
+      updateDemoModeUI(msg.active !== undefined ? msg.active : msg.enabled);
+      break;
     case "state_cleared":
       clearAllTables();
       break;
@@ -172,9 +183,10 @@ function handleEvent(msg) {
 
 async function loadInitialState() {
   try {
-    const [cfgRes, stateRes] = await Promise.all([
-      fetch(`${API}/setup/config`).then(r => r.json()),
-      fetch(`${API}/state`).then(r => r.json()),
+    const [cfgRes, stateRes, demoRes] = await Promise.all([
+      fetch(`${API}/setup/config`).then(r => r.json()).catch(() => null),
+      fetch(`${API}/state`).then(r => r.json()).catch(() => null),
+      fetch(`${API}/demo/status`).then(r => r.json()).catch(() => null),
     ]);
 
     if (!cfgRes?.configured) {
@@ -188,9 +200,74 @@ async function loadInitialState() {
       applySnapshot(stateRes);
     }
 
+    if (demoRes && demoRes.active !== undefined) {
+      updateDemoModeUI(demoRes.active);
+    }
+
     refreshMapsStatus();
   } catch (e) {
     console.error("Initial load error:", e);
+  }
+}
+
+// ── Toast Notifications ───────────────────────────────────────────────────────
+
+function showToast(msg, type = "info", duration = 4000) {
+  const container = document.getElementById("bham-toast-container");
+  if (!container) return;
+  const toast = document.createElement("div");
+  toast.className = `bham-toast bham-toast-${type}`;
+  let icon = "ℹ️";
+  if (type === "success") icon = "✅";
+  else if (type === "warn" || type === "warning") icon = "⚠️";
+  else if (type === "error") icon = "❌";
+  toast.innerHTML = `<span>${icon}</span><span style="flex:1">${escapeHtml(msg)}</span><button class="bham-toast-close" style="background:none;border:none;color:inherit;cursor:pointer;opacity:0.7;padding:0 4px">✕</button>`;
+  const closeBtn = toast.querySelector(".bham-toast-close");
+  if (closeBtn) closeBtn.onclick = () => toast.remove();
+  container.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity 0.25s ease";
+      setTimeout(() => toast.remove(), 250);
+    }
+  }, duration);
+}
+
+// ── Virtual Plant Simulator (Demo Mode) UI Controller ─────────────────────────
+
+function updateDemoModeUI(active) {
+  const btn = document.getElementById("btn-demo-mode");
+  const txt = document.getElementById("demo-mode-text");
+  if (!btn) return;
+  if (active) {
+    btn.classList.add("active");
+    if (txt) txt.textContent = window.t ? window.t("demo_mode_on") : "DEMO: ON";
+  } else {
+    btn.classList.remove("active");
+    if (txt) txt.textContent = window.t ? window.t("demo_mode_off") : "DEMO: OFF";
+  }
+}
+
+async function toggleDemoMode() {
+  const btn = document.getElementById("btn-demo-mode");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await postAPI("/demo/toggle", {});
+    if (res) {
+      updateDemoModeUI(res.active);
+      const toastMsg = res.active 
+        ? (window.t ? window.t("demo_mode_enabled_toast") : "Modalità Demo Attivata: caricati dispositivi virtuali BACS.")
+        : (window.t ? window.t("demo_mode_disabled_toast") : "Modalità Demo Disattivata.");
+      showToast(toastMsg, res.active ? "success" : "info");
+      // Sincronizza lo snapshot con i dispositivi attuali
+      const stateRes = await fetch(`${API}/state`).then(r => r.json()).catch(() => null);
+      if (stateRes) applySnapshot(stateRes);
+    }
+  } catch (err) {
+    showToast("Errore cambio modalità demo: " + err.message, "error");
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -721,12 +798,23 @@ function onSearchInput(query) {
 
 // ── Syntax-Highlighted Live Log Console ───────────────────────────────────────
 
-function log(rawMsg) {
+// ── Syntax-Highlighted Live Log Console ───────────────────────────────────────
+
+function log(rawMsg, level = "INFO", logger = "") {
   const el = document.getElementById("log-console");
   if (!el) return;
 
-  const clean = rawMsg.replace(/\x1b\[[0-9;]*m/g, "");
+  const rawStr = (typeof rawMsg === "string" ? rawMsg : JSON.stringify(rawMsg)) || "";
+  const clean = rawStr.replace(/\x1b\[[0-9;]*m/g, "");
   const ts = new Date().toTimeString().substring(0, 8);
+
+  // Infer level if default INFO
+  let lvl = (level || "INFO").toUpperCase();
+  if (lvl === "INFO") {
+    if (clean.includes("[WARN]")) lvl = "WARNING";
+    else if (clean.includes("[ERROR]") || clean.includes("CRITICAL")) lvl = "ERROR";
+    else if (clean.includes("[DEBUG]")) lvl = "DEBUG";
+  }
 
   // Syntax highlighting for technical bracket tags
   let lineHtml = `<span class="log-ts">[${ts}]</span> ` +
@@ -747,7 +835,25 @@ function log(rawMsg) {
       .replace(/\[HEALTH\]/g, `<span class="log-health">[HEALTH]</span>`);
 
   const row = document.createElement("div");
+  row.className = `log-row log-lvl-${lvl.toLowerCase()}`;
+  row.setAttribute("data-level", lvl);
+  row.setAttribute("data-text", clean.toLowerCase());
   row.innerHTML = lineHtml;
+
+  // Filter check
+  const curLevel = document.getElementById("log-level-filter")?.value || "ALL";
+  const curSearch = (document.getElementById("log-search-filter")?.value || "").toLowerCase().trim();
+  const lvlPriority = { DEBUG: 10, INFO: 20, WARNING: 30, WARN: 30, ERROR: 40, CRITICAL: 50 };
+  const minPriority = curLevel === "ALL" ? 0 : (lvlPriority[curLevel] || 0);
+  const rowPriority = lvlPriority[lvl] || 20;
+
+  const levelMatch = rowPriority >= minPriority;
+  const searchMatch = !curSearch || clean.toLowerCase().includes(curSearch);
+
+  if (!levelMatch || !searchMatch) {
+    row.style.display = "none";
+  }
+
   el.appendChild(row);
 
   const maxBuffer = parseInt(document.getElementById("cfg-console-buffer")?.value) || 600;
@@ -755,6 +861,33 @@ function log(rawMsg) {
     el.removeChild(el.firstChild);
   }
 
+  if (row.style.display !== "none") {
+    const scrollCheck = document.getElementById("log-autoscroll");
+    if (!scrollCheck || scrollCheck.checked) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+}
+
+function filterConsoleLogs() {
+  const el = document.getElementById("log-console");
+  if (!el) return;
+  const curLevel = document.getElementById("log-level-filter")?.value || "ALL";
+  const curSearch = (document.getElementById("log-search-filter")?.value || "").toLowerCase().trim();
+  const lvlPriority = { DEBUG: 10, INFO: 20, WARNING: 30, WARN: 30, ERROR: 40, CRITICAL: 50 };
+  const minPriority = curLevel === "ALL" ? 0 : (lvlPriority[curLevel] || 0);
+
+  const rows = el.children;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const lvl = row.getAttribute("data-level") || "INFO";
+    const text = row.getAttribute("data-text") || "";
+    const rowPriority = lvlPriority[lvl] || 20;
+
+    const levelMatch = rowPriority >= minPriority;
+    const searchMatch = !curSearch || text.includes(curSearch);
+    row.style.display = (levelMatch && searchMatch) ? "" : "none";
+  }
   const scrollCheck = document.getElementById("log-autoscroll");
   if (!scrollCheck || scrollCheck.checked) {
     el.scrollTop = el.scrollHeight;
@@ -1495,19 +1628,31 @@ async function inspectModbusSlave(slaveId) {
 function switchSlaveSubTab(tab) {
   const pMap = document.getElementById("panel-slave-mapped");
   const pSmart = document.getElementById("panel-slave-smart");
+  const pQuick = document.getElementById("panel-slave-quick");
   const bMap = document.getElementById("btn-tab-slave-mapped");
   const bSmart = document.getElementById("btn-tab-slave-smart");
+  const bQuick = document.getElementById("btn-tab-slave-quick");
+  const bRunSmart = document.getElementById("btn-run-smart-scan");
+
+  bMap?.classList.remove("active");
+  bSmart?.classList.remove("active");
+  bQuick?.classList.remove("active");
+  pMap?.classList.add("hidden");
+  pSmart?.classList.add("hidden");
+  pQuick?.classList.add("hidden");
 
   if (tab === "smart") {
-    bMap?.classList.remove("active");
     bSmart?.classList.add("active");
-    pMap?.classList.add("hidden");
     pSmart?.classList.remove("hidden");
+    if (bRunSmart) bRunSmart.style.display = "";
+  } else if (tab === "quick") {
+    bQuick?.classList.add("active");
+    pQuick?.classList.remove("hidden");
+    if (bRunSmart) bRunSmart.style.display = "none";
   } else {
-    bSmart?.classList.remove("active");
     bMap?.classList.add("active");
-    pSmart?.classList.add("hidden");
     pMap?.classList.remove("hidden");
+    if (bRunSmart) bRunSmart.style.display = "";
   }
 }
 
@@ -1575,6 +1720,183 @@ function renderSmartRegisters(regList) {
 function closeSlaveModal() {
   currentInspectedSlaveId = null;
   document.getElementById("slave-modal")?.classList.add("hidden");
+  const resCard = document.getElementById("quick-cmd-result");
+  if (resCard) resCard.style.display = "none";
+}
+
+function handleQuickFCOptionChange() {
+  const fc = parseInt(document.getElementById("quick-fc-select")?.value || "3");
+  const countWrap = document.getElementById("quick-count-wrap");
+  const valWrap = document.getElementById("quick-val-wrap");
+  const typeWrap = document.getElementById("quick-type-wrap");
+
+  if ([1, 2, 3, 4].includes(fc)) {
+    if (countWrap) countWrap.style.display = "";
+    if (valWrap) valWrap.style.display = "none";
+    if (typeWrap) typeWrap.style.display = "none";
+  } else if ([5, 6].includes(fc)) {
+    if (countWrap) countWrap.style.display = "none";
+    if (valWrap) valWrap.style.display = "";
+    if (typeWrap) typeWrap.style.display = fc === 6 ? "" : "none";
+  } else if ([15, 16].includes(fc)) {
+    if (countWrap) countWrap.style.display = "";
+    if (valWrap) valWrap.style.display = "";
+    if (typeWrap) typeWrap.style.display = fc === 16 ? "" : "none";
+  }
+}
+
+function parseModbusValuesInput(rawStr, dataType, fc) {
+  if (!rawStr) return [];
+  const parts = rawStr.split(/[\s,;]+/).filter(x => x !== "");
+  if (fc === 5 || fc === 15 || dataType === "bool") {
+    return parts.map(p => {
+      const low = p.toLowerCase();
+      return low === "1" || low === "true" || low === "on" || low === "active";
+    });
+  }
+  if (dataType === "float32" || dataType === "float32_swapped") {
+    return parts.map(p => parseFloat(p) || 0.0);
+  }
+  return parts.map(p => parseInt(p, 10) || 0);
+}
+
+function renderModbusResultGrid(res, targetGridEl) {
+  if (!targetGridEl) return;
+  targetGridEl.innerHTML = "";
+  if (!res || res.status !== "ok") {
+    targetGridEl.innerHTML = `<div style="grid-column:1/-1;color:#ef4444;font-size:11.5px;padding:4px 0">❌ Errore: ${escapeHtml(res?.error || 'Nessuna risposta dal dispositivo')}</div>`;
+    return;
+  }
+
+  // If write response
+  if (res.written_values !== undefined || res.registers_written !== undefined) {
+    const written = res.written_values ?? res.registers_written;
+    targetGridEl.innerHTML = `
+      <div class="bham-result-item" style="grid-column:1/-1">
+        <span class="bham-result-item-lbl">SCRITTURA COMPLETATA CON SUCCESSO</span>
+        <span class="bham-result-item-val mono" style="color:var(--bham-modbus)">Valori scritti: ${escapeHtml(JSON.stringify(written))}</span>
+      </div>
+    `;
+    return;
+  }
+
+  // If read response
+  let html = "";
+  if (res.coils && res.coils.length) {
+    res.coils.forEach((c, idx) => {
+      html += `
+        <div class="bham-result-item">
+          <span class="bham-result-item-lbl">COIL +${idx}</span>
+          <span class="bham-result-item-val mono" style="color:${c ? '#10b981' : '#64748b'}">${c ? 'ON (1)' : 'OFF (0)'}</span>
+        </div>
+      `;
+    });
+  } else if (res.registers && res.registers.length) {
+    res.registers.forEach((reg, idx) => {
+      const hex = res.hex_values && res.hex_values[idx] ? res.hex_values[idx] : `0x${reg.toString(16).padStart(4, '0').toUpperCase()}`;
+      const int16 = res.int16_values && res.int16_values[idx] !== undefined ? res.int16_values[idx] : (reg > 32767 ? reg - 65536 : reg);
+      html += `
+        <div class="bham-result-item">
+          <span class="bham-result-item-lbl">REG +${idx} (UINT16)</span>
+          <span class="bham-result-item-val mono">${reg}</span>
+          <div style="font-size:9.5px;color:var(--bham-text-dim);margin-top:2px">${hex} | Int16: ${int16}</div>
+        </div>
+      `;
+    });
+    if (res.float32_be && res.float32_be.length) {
+      res.float32_be.forEach((f, idx) => {
+        const le = res.float32_le ? res.float32_le[idx] : null;
+        html += `
+          <div class="bham-result-item" style="border-left:2px solid #0284c7">
+            <span class="bham-result-item-lbl">FLOAT32 BE (REG +${idx*2}..${idx*2+1})</span>
+            <span class="bham-result-item-val mono" style="color:#0284c7">${f !== null ? f.toFixed(4) : 'NaN'}</span>
+            ${le !== null ? `<div style="font-size:9.5px;color:var(--bham-text-dim);margin-top:2px">Word-Swap (LE): ${le.toFixed(4)}</div>` : ''}
+          </div>
+        `;
+      });
+    }
+  }
+  targetGridEl.innerHTML = html || `<div style="grid-column:1/-1;font-size:11px;color:var(--bham-text-dim)">Nessun dato restituito</div>`;
+}
+
+async function executeSlaveQuickCommand() {
+  if (currentInspectedSlaveId == null) return;
+  const d = store.modbus.find(x => x.slave_id === currentInspectedSlaveId);
+  const proto = (d && d.protocol === "modbus_tcp") ? "tcp" : "rtu";
+  const port = store.config?.serial_port || "/dev/ttyUSB0";
+  const ip = d?.ip;
+  const baudrate = store.config?.serial_baudrate || 9600;
+  const parity = store.config?.serial_parity || "N";
+
+  const fc = parseInt(document.getElementById("quick-fc-select")?.value || "3");
+  const addr = parseInt(document.getElementById("quick-addr-input")?.value || "0") || 0;
+  const count = parseInt(document.getElementById("quick-count-input")?.value || "1") || 1;
+  const rawVal = document.getElementById("quick-val-input")?.value || "";
+  const dataType = document.getElementById("quick-type-select")?.value || "uint16";
+
+  const btn = document.getElementById("btn-quick-execute");
+  const resCard = document.getElementById("quick-cmd-result");
+  const resElapsed = document.getElementById("quick-res-elapsed");
+  const resGrid = document.getElementById("quick-res-grid");
+
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Esecuzione..."; }
+  if (resCard) resCard.style.display = "block";
+  if (resGrid) resGrid.innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--bham-text-dim)">Invio frame di comando...</div>`;
+
+  try {
+    if ([1, 2, 3, 4].includes(fc)) {
+      const res = await postAPI("/tools/modbus/read", {
+        protocol: proto,
+        port: port,
+        baudrate: baudrate,
+        parity: parity,
+        ip: ip,
+        slave_id: currentInspectedSlaveId,
+        function_code: fc,
+        address: addr,
+        count: count
+      });
+      if (resElapsed) resElapsed.textContent = `${res?.elapsed_ms ?? 0} ms`;
+      renderModbusResultGrid(res, resGrid);
+      if (res && res.status === "ok") {
+        log(`[MODBUS] [OK] Quick Read FC0${fc} Slave #${currentInspectedSlaveId} Addr ${addr} Count ${count} (${res.elapsed_ms}ms)`);
+      } else {
+        log(`[MODBUS] [WARN] Quick Read FC0${fc} fallito: ${res?.error || 'Nessuna risposta'}`);
+      }
+    } else {
+      const vals = parseModbusValuesInput(rawVal, dataType, fc);
+      if (!vals.length) {
+        showToast("Specificare un valore valido da forzare.", "warn");
+        if (btn) { btn.disabled = false; btn.textContent = "⚡ Esegui"; }
+        return;
+      }
+      const res = await postAPI("/tools/modbus/write", {
+        protocol: proto,
+        port: port,
+        baudrate: baudrate,
+        parity: parity,
+        ip: ip,
+        slave_id: currentInspectedSlaveId,
+        function_code: fc,
+        address: addr,
+        values: vals,
+        data_type: dataType
+      });
+      if (resElapsed) resElapsed.textContent = `${res?.elapsed_ms ?? 0} ms`;
+      renderModbusResultGrid(res, resGrid);
+      if (res && res.status === "ok") {
+        showToast(`Scrittura Modbus completata: Slave #${currentInspectedSlaveId} Addr ${addr}`, "success");
+        log(`[MODBUS] [OK] Quick Write FC${fc} Slave #${currentInspectedSlaveId} Addr ${addr} Valori=${JSON.stringify(vals)} (${res.elapsed_ms}ms)`);
+      } else {
+        showToast(`Errore scrittura Modbus: ${res?.error || 'Errore'}`, "error");
+        log(`[MODBUS] [WARN] Quick Write FC${fc} fallito: ${res?.error || 'Errore'}`);
+      }
+    }
+  } catch (err) {
+    showToast(`Errore esecuzione comando: ${err.message}`, "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "⚡ Esegui"; }
+  }
 }
 
 // ── BACnet Device Object Explorer Modal ───────────────────────────────────────
@@ -1666,7 +1988,7 @@ function renderBACnetObjectsTable(objList) {
   if (!tbody) return;
 
   if (!objList.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:14px">Nessun oggetto trovato o corrispondente al filtro.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:14px">Nessun oggetto trovato o corrispondente al filtro.</td></tr>`;
     return;
   }
 
@@ -1677,13 +1999,25 @@ function renderBACnetObjectsTable(objList) {
     else if (t.includes("binary")) typeClass += " proto-tcp";
     else typeClass += " proto-knx";
 
+    const idStr = escapeHtml(obj.identifier || "");
+    const typeStr = escapeHtml(obj.type || "");
+    const inst = obj.instance !== undefined ? obj.instance : 0;
+    const nameStr = escapeHtml(obj.name || "");
+    const valStr = escapeHtml(String(obj.present_value ?? "—"));
+    const unitsStr = escapeHtml(obj.units || "—");
+
     return `
       <tr>
-        <td class="cell-mono color-bacnet" style="font-weight:700">${obj.identifier}</td>
-        <td><span class="${typeClass}" style="font-size:10px">${obj.type}</span></td>
-        <td class="cell-text-main" style="font-weight:600">${obj.name}</td>
-        <td class="cell-mono cell-latency" style="font-weight:600">${obj.present_value}</td>
-        <td class="cell-mono cell-text-muted">${obj.units || '—'}</td>
+        <td class="cell-mono color-bacnet" style="font-weight:700">${idStr}</td>
+        <td><span class="${typeClass}" style="font-size:10px">${typeStr}</span></td>
+        <td class="cell-text-main" style="font-weight:600">${nameStr}</td>
+        <td class="cell-mono cell-latency" style="font-weight:600">${valStr}</td>
+        <td class="cell-mono cell-text-muted">${unitsStr}</td>
+        <td style="text-align:center">
+          <button class="bham-action-btn-sm" style="font-size:10px;padding:2px 7px" onclick="openBACnetOverrideModal('${idStr}', '${typeStr}', ${inst}, '${nameStr}', '${valStr}')" title="Forza o rilascia valore">
+            ⚡ Override
+          </button>
+        </td>
       </tr>
     `;
   }).join("");
@@ -1705,6 +2039,360 @@ function filterBACnetObjects(query) {
 function closeBACnetModal() {
   currentBACnetDeviceId = null;
   document.getElementById("bacnet-modal")?.classList.add("hidden");
+}
+
+// ── BACnet Point Commander (Override & Relinquish) ────────────────────────────
+
+let currentBACnetOverrideTarget = null;
+
+function openBACnetOverrideModal(identifier, objType, instance, name, currentVal) {
+  let type = objType;
+  let inst = instance;
+  if (!type && identifier.includes(":")) {
+    const parts = identifier.split(":");
+    type = parts[0];
+    inst = parseInt(parts[1]) || 0;
+  }
+  currentBACnetOverrideTarget = {
+    deviceId: currentBACnetDeviceId,
+    identifier,
+    type,
+    instance: inst,
+    name,
+    currentVal
+  };
+  const targetLbl = document.getElementById("ov-target-label");
+  const curValEl = document.getElementById("ov-current-val");
+  const inputEl = document.getElementById("ov-new-value-input");
+  const prioEl = document.getElementById("ov-priority-select");
+  const statusEl = document.getElementById("ov-status-msg");
+
+  if (targetLbl) targetLbl.textContent = `${identifier} — ${name || 'Oggetto'}`;
+  if (curValEl) curValEl.textContent = `Valore attuale: ${currentVal !== undefined ? currentVal : '—'}`;
+  if (inputEl) inputEl.value = (currentVal !== undefined && currentVal !== '—') ? currentVal : '';
+  if (prioEl) prioEl.value = "8";
+  if (statusEl) { statusEl.style.display = "none"; statusEl.innerHTML = ""; }
+
+  const modal = document.getElementById("bacnet-override-modal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeBACnetOverrideModal() {
+  const modal = document.getElementById("bacnet-override-modal");
+  if (modal) modal.classList.add("hidden");
+  currentBACnetOverrideTarget = null;
+}
+
+async function executeBACnetOverride() {
+  if (!currentBACnetOverrideTarget) return;
+  const inputEl = document.getElementById("ov-new-value-input");
+  const prioEl = document.getElementById("ov-priority-select");
+  const statusEl = document.getElementById("ov-status-msg");
+  const rawVal = inputEl ? inputEl.value.trim() : "";
+  const priority = parseInt(prioEl ? prioEl.value : "8") || 8;
+
+  if (rawVal === "") {
+    showToast("Specificare un valore da forzare.", "warn");
+    return;
+  }
+
+  let parsedVal = rawVal;
+  if (!isNaN(Number(rawVal))) {
+    parsedVal = Number(rawVal);
+  } else if (rawVal.toLowerCase() === "true" || rawVal.toLowerCase() === "active") {
+    parsedVal = true;
+  } else if (rawVal.toLowerCase() === "false" || rawVal.toLowerCase() === "inactive") {
+    parsedVal = false;
+  }
+
+  const payload = {
+    device_id: currentBACnetOverrideTarget.deviceId,
+    object_type: currentBACnetOverrideTarget.type,
+    instance: currentBACnetOverrideTarget.instance,
+    value: parsedVal,
+    priority: priority,
+    relinquish: false
+  };
+
+  try {
+    const res = await postAPI("/tools/bacnet/write", payload);
+    if (res && res.status === "ok") {
+      showToast(`Valore forzato con successo: ${currentBACnetOverrideTarget.identifier} = ${res.written_value} (Prio ${res.priority})`, "success");
+      log(`[BACNET] [OK] Override impostato su Dev ${res.device_id} ${res.object_type}:${res.instance} = ${res.written_value} [Prio ${res.priority}] (${res.elapsed_ms}ms)`);
+      closeBACnetOverrideModal();
+      await refreshBACnetObjects();
+    } else {
+      const err = res?.error || "Errore sconosciuto";
+      if (statusEl) {
+        statusEl.className = "bham-toast bham-toast-error";
+        statusEl.style.display = "block";
+        statusEl.textContent = `Errore forzatura: ${err}`;
+      }
+      showToast(`Errore forzatura BACnet: ${err}`, "error");
+    }
+  } catch (e) {
+    showToast(`Errore override: ${e.message}`, "error");
+  }
+}
+
+async function executeBACnetRelinquish() {
+  if (!currentBACnetOverrideTarget) return;
+  const prioEl = document.getElementById("ov-priority-select");
+  const statusEl = document.getElementById("ov-status-msg");
+  const priority = parseInt(prioEl ? prioEl.value : "8") || 8;
+
+  const payload = {
+    device_id: currentBACnetOverrideTarget.deviceId,
+    object_type: currentBACnetOverrideTarget.type,
+    instance: currentBACnetOverrideTarget.instance,
+    priority: priority
+  };
+
+  try {
+    const res = await postAPI("/tools/bacnet/relinquish", payload);
+    if (res && res.status === "ok") {
+      showToast(`Forzatura rilasciata su ${currentBACnetOverrideTarget.identifier} (Prio ${res.priority})`, "success");
+      log(`[BACNET] [OK] Relinquish eseguito su Dev ${res.device_id} ${res.object_type}:${res.instance} [Prio ${res.priority}] (${res.elapsed_ms}ms)`);
+      closeBACnetOverrideModal();
+      await refreshBACnetObjects();
+    } else {
+      const err = res?.error || "Errore sconosciuto";
+      if (statusEl) {
+        statusEl.className = "bham-toast bham-toast-error";
+        statusEl.style.display = "block";
+        statusEl.textContent = `Errore rilascio: ${err}`;
+      }
+      showToast(`Errore rilascio: ${err}`, "error");
+    }
+  } catch (e) {
+    showToast(`Errore rilascio: ${e.message}`, "error");
+  }
+}
+
+// ── Unified Field Tools ("Banco Prova & Override") Modal ──────────────────────
+
+function openToolsModal(tab = "modbus") {
+  const modal = document.getElementById("tools-modal");
+  if (!modal) return;
+  const portInput = document.getElementById("tool-modbus-port");
+  if (portInput && store.config?.serial_port) {
+    portInput.value = store.config.serial_port;
+  }
+  switchToolTab(tab);
+  modal.classList.remove("hidden");
+}
+
+function closeToolsModal() {
+  document.getElementById("tools-modal")?.classList.add("hidden");
+}
+
+function switchToolTab(tab) {
+  const btnMb = document.getElementById("btn-tool-tab-modbus");
+  const btnBn = document.getElementById("btn-tool-tab-bacnet");
+  const panMb = document.getElementById("panel-tool-modbus");
+  const panBn = document.getElementById("panel-tool-bacnet");
+
+  if (tab === "bacnet") {
+    btnMb?.classList.remove("active");
+    btnBn?.classList.add("active");
+    panMb?.classList.add("hidden");
+    panBn?.classList.remove("hidden");
+  } else {
+    btnBn?.classList.remove("active");
+    btnMb?.classList.add("active");
+    panBn?.classList.add("hidden");
+    panMb?.classList.remove("hidden");
+  }
+}
+
+function handleToolModbusProtoChange() {
+  const proto = document.getElementById("tool-modbus-proto")?.value || "rtu";
+  const portWrap = document.getElementById("tool-modbus-port-wrap");
+  const ipWrap = document.getElementById("tool-modbus-ip-wrap");
+  if (proto === "tcp") {
+    if (portWrap) portWrap.style.display = "none";
+    if (ipWrap) ipWrap.style.display = "";
+  } else {
+    if (portWrap) portWrap.style.display = "";
+    if (ipWrap) ipWrap.style.display = "none";
+  }
+}
+
+function handleToolModbusFCOptionChange() {
+  const fc = parseInt(document.getElementById("tool-modbus-fc")?.value || "3");
+  const countWrap = document.getElementById("tool-modbus-count-wrap");
+  const valWrap = document.getElementById("tool-modbus-val-wrap");
+  const typeWrap = document.getElementById("tool-modbus-type-wrap");
+
+  if ([1, 2, 3, 4].includes(fc)) {
+    if (countWrap) countWrap.style.display = "";
+    if (valWrap) valWrap.style.display = "none";
+    if (typeWrap) typeWrap.style.display = "none";
+  } else if ([5, 6].includes(fc)) {
+    if (countWrap) countWrap.style.display = "none";
+    if (valWrap) valWrap.style.display = "";
+    if (typeWrap) typeWrap.style.display = fc === 6 ? "" : "none";
+  } else if ([15, 16].includes(fc)) {
+    if (countWrap) countWrap.style.display = "";
+    if (valWrap) valWrap.style.display = "";
+    if (typeWrap) typeWrap.style.display = fc === 16 ? "" : "none";
+  }
+}
+
+async function executeToolModbusCommand() {
+  const proto = document.getElementById("tool-modbus-proto")?.value || "rtu";
+  const port = document.getElementById("tool-modbus-port")?.value || "/dev/ttyUSB0";
+  const ip = document.getElementById("tool-modbus-ip")?.value || "";
+  const slaveId = parseInt(document.getElementById("tool-modbus-slave")?.value || "1") || 1;
+  const fc = parseInt(document.getElementById("tool-modbus-fc")?.value || "3");
+  const addr = parseInt(document.getElementById("tool-modbus-addr")?.value || "0") || 0;
+  const count = parseInt(document.getElementById("tool-modbus-count")?.value || "1") || 1;
+  const rawVal = document.getElementById("tool-modbus-val")?.value || "";
+  const dataType = document.getElementById("tool-modbus-datatype")?.value || "uint16";
+
+  const resCard = document.getElementById("tool-modbus-result");
+  const resElapsed = document.getElementById("tool-modbus-elapsed");
+  const resGrid = document.getElementById("tool-modbus-res-grid");
+
+  if (resCard) resCard.style.display = "block";
+  if (resGrid) resGrid.innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--bham-text-dim)">Invio comando Modbus in corso...</div>`;
+
+  try {
+    if ([1, 2, 3, 4].includes(fc)) {
+      const res = await postAPI("/tools/modbus/read", {
+        protocol: proto,
+        port: port,
+        baudrate: store.config?.serial_baudrate || 9600,
+        parity: store.config?.serial_parity || "N",
+        ip: ip || undefined,
+        slave_id: slaveId,
+        function_code: fc,
+        address: addr,
+        count: count
+      });
+      if (resElapsed) resElapsed.textContent = `${res?.elapsed_ms ?? 0} ms`;
+      renderModbusResultGrid(res, resGrid);
+      if (res && res.status === "ok") {
+        log(`[MODBUS] [OK] Field Tool: Read FC0${fc} Slave #${slaveId} Addr ${addr} Count ${count} (${res.elapsed_ms}ms)`);
+      } else {
+        log(`[MODBUS] [WARN] Field Tool: Read fallito: ${res?.error || 'Nessuna risposta'}`);
+      }
+    } else {
+      const vals = parseModbusValuesInput(rawVal, dataType, fc);
+      if (!vals.length) {
+        showToast("Specificare un valore valido da forzare.", "warn");
+        return;
+      }
+      const res = await postAPI("/tools/modbus/write", {
+        protocol: proto,
+        port: port,
+        baudrate: store.config?.serial_baudrate || 9600,
+        parity: store.config?.serial_parity || "N",
+        ip: ip || undefined,
+        slave_id: slaveId,
+        function_code: fc,
+        address: addr,
+        values: vals,
+        data_type: dataType
+      });
+      if (resElapsed) resElapsed.textContent = `${res?.elapsed_ms ?? 0} ms`;
+      renderModbusResultGrid(res, resGrid);
+      if (res && res.status === "ok") {
+        showToast(`Comando Modbus eseguito con successo su Slave #${slaveId} Addr ${addr}`, "success");
+        log(`[MODBUS] [OK] Field Tool: Write FC${fc} Slave #${slaveId} Addr ${addr} Valori=${JSON.stringify(vals)} (${res.elapsed_ms}ms)`);
+      } else {
+        showToast(`Errore Modbus: ${res?.error || 'Errore'}`, "error");
+        log(`[MODBUS] [WARN] Field Tool: Write fallito: ${res?.error || 'Errore'}`);
+      }
+    }
+  } catch (e) {
+    showToast(`Errore esecuzione: ${e.message}`, "error");
+  }
+}
+
+async function executeToolBACnetOverride() {
+  const devId = parseInt(document.getElementById("tool-bacnet-devid")?.value || "1001") || 1001;
+  const objType = document.getElementById("tool-bacnet-objtype")?.value || "analogOutput";
+  const instance = parseInt(document.getElementById("tool-bacnet-instance")?.value || "1") || 0;
+  const rawVal = document.getElementById("tool-bacnet-val")?.value || "";
+  const priority = parseInt(document.getElementById("tool-bacnet-priority")?.value || "8") || 8;
+
+  const resCard = document.getElementById("tool-bacnet-result");
+  const resElapsed = document.getElementById("tool-bacnet-elapsed");
+  const resMsg = document.getElementById("tool-bacnet-res-msg");
+
+  if (rawVal === "") {
+    showToast("Specificare un valore da forzare.", "warn");
+    return;
+  }
+
+  let parsedVal = rawVal;
+  if (!isNaN(Number(rawVal))) {
+    parsedVal = Number(rawVal);
+  } else if (rawVal.toLowerCase() === "true" || rawVal.toLowerCase() === "active") {
+    parsedVal = true;
+  } else if (rawVal.toLowerCase() === "false" || rawVal.toLowerCase() === "inactive") {
+    parsedVal = false;
+  }
+
+  if (resCard) resCard.style.display = "block";
+  if (resMsg) resMsg.textContent = "Invio override BACnet in corso...";
+
+  try {
+    const res = await postAPI("/tools/bacnet/write", {
+      device_id: devId,
+      object_type: objType,
+      instance: instance,
+      value: parsedVal,
+      priority: priority,
+      relinquish: false
+    });
+    if (resElapsed) resElapsed.textContent = `${res?.elapsed_ms ?? 0} ms`;
+    if (res && res.status === "ok") {
+      if (resMsg) resMsg.innerHTML = `<span style="color:#10b981;font-weight:600">✅ Override riuscito:</span> Device #${res.device_id} ${res.object_type}:${res.instance} impostato a <strong class="mono">${res.written_value}</strong> a Priorità ${res.priority}.`;
+      showToast(`Override BACnet riuscito: Dev #${devId} ${objType}:${instance} = ${res.written_value}`, "success");
+      log(`[BACNET] [OK] Field Tool: Override su Dev #${devId} ${objType}:${instance} = ${res.written_value} (Prio ${res.priority}) in ${res.elapsed_ms}ms`);
+    } else {
+      if (resMsg) resMsg.innerHTML = `<span style="color:#ef4444;font-weight:600">❌ Errore override:</span> ${escapeHtml(res?.error || 'Nessuna risposta dal dispositivo BACnet')}`;
+      showToast(`Errore override BACnet: ${res?.error}`, "error");
+    }
+  } catch (err) {
+    showToast(`Errore: ${err.message}`, "error");
+  }
+}
+
+async function executeToolBACnetRelinquish() {
+  const devId = parseInt(document.getElementById("tool-bacnet-devid")?.value || "1001") || 1001;
+  const objType = document.getElementById("tool-bacnet-objtype")?.value || "analogOutput";
+  const instance = parseInt(document.getElementById("tool-bacnet-instance")?.value || "1") || 0;
+  const priority = parseInt(document.getElementById("tool-bacnet-priority")?.value || "8") || 8;
+
+  const resCard = document.getElementById("tool-bacnet-result");
+  const resElapsed = document.getElementById("tool-bacnet-elapsed");
+  const resMsg = document.getElementById("tool-bacnet-res-msg");
+
+  if (resCard) resCard.style.display = "block";
+  if (resMsg) resMsg.textContent = "Invio rilascio BACnet (relinquish) in corso...";
+
+  try {
+    const res = await postAPI("/tools/bacnet/relinquish", {
+      device_id: devId,
+      object_type: objType,
+      instance: instance,
+      priority: priority
+    });
+    if (resElapsed) resElapsed.textContent = `${res?.elapsed_ms ?? 0} ms`;
+    if (res && res.status === "ok") {
+      if (resMsg) resMsg.innerHTML = `<span style="color:#10b981;font-weight:600">✅ Rilascio riuscito:</span> Device #${res.device_id} ${res.object_type}:${res.instance} rilasciato a Priorità ${res.priority}.`;
+      showToast(`Rilascio BACnet riuscito: Dev #${devId} ${objType}:${instance} [Prio ${res.priority}]`, "success");
+      log(`[BACNET] [OK] Field Tool: Relinquish su Dev #${devId} ${objType}:${instance} (Prio ${res.priority}) in ${res.elapsed_ms}ms`);
+    } else {
+      if (resMsg) resMsg.innerHTML = `<span style="color:#ef4444;font-weight:600">❌ Errore rilascio:</span> ${escapeHtml(res?.error || 'Nessuna risposta dal dispositivo BACnet')}`;
+      showToast(`Errore rilascio BACnet: ${res?.error}`, "error");
+    }
+  } catch (err) {
+    showToast(`Errore: ${err.message}`, "error");
+  }
 }
 
 // ── Unified Settings Modal (Centro Impostazioni) ───────────────────────────────
@@ -3373,11 +4061,530 @@ function renderBBMDTables(data) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// SAFE MODE INTERLOCK (v0.8.0)
+// ════════════════════════════════════════════════════════════════════════════
+let currentSafeModeStatus = { armed: false };
+let safeModeTimerInterval = null;
+
+async function fetchSafeModeStatus() {
+  try {
+    const res = await fetch("/api/v1/safe-mode/status");
+    if (!res.ok) return;
+    const data = await res.json();
+    currentSafeModeStatus = data;
+    updateSafeModeUI(data);
+  } catch (err) {
+    console.debug("SafeMode status fetch error:", err);
+  }
+}
+
+function updateSafeModeUI(status) {
+  const badgeBtn = document.getElementById("btn-safe-mode");
+  const badgeText = document.getElementById("safe-mode-badge-text");
+  if (!badgeBtn || !badgeText) return;
+
+  if (status.armed) {
+    badgeBtn.classList.remove("bham-safe-mode-locked");
+    badgeBtn.classList.add("bham-safe-mode-armed");
+    const min = Math.ceil(status.remaining_minutes || 0);
+    badgeText.textContent = t("safe_mode_armed_badge", { op: status.operator || "Tech", min: min });
+    badgeBtn.title = `Safe Mode SBLOCCATO per ${status.operator} (${status.job_order}). Clicca per disarmare.`;
+  } else {
+    badgeBtn.classList.remove("bham-safe-mode-armed");
+    badgeBtn.classList.add("bham-safe-mode-locked");
+    badgeText.textContent = t("safe_mode_disarmed_badge");
+    badgeBtn.title = "Safe Mode ATTIVO: le forzature sul campo sono bloccate per sicurezza. Clicca per sbloccare.";
+  }
+}
+
+function openSafeModeModal() {
+  fetchSafeModeStatus().then(() => {
+    const modal = document.getElementById("modal-safe-mode");
+    const armedView = document.getElementById("safe-mode-armed-view");
+    const disarmedView = document.getElementById("safe-mode-disarmed-view");
+
+    if (currentSafeModeStatus.armed) {
+      if (armedView) armedView.classList.remove("hidden");
+      if (disarmedView) disarmedView.classList.add("hidden");
+      const opEl = document.getElementById("sm-active-op");
+      const jobEl = document.getElementById("sm-active-job");
+      const cdEl = document.getElementById("sm-active-countdown");
+      if (opEl) opEl.textContent = currentSafeModeStatus.operator;
+      if (jobEl) jobEl.textContent = currentSafeModeStatus.job_order;
+      if (cdEl) {
+        const m = Math.floor(currentSafeModeStatus.remaining_seconds / 60);
+        const s = currentSafeModeStatus.remaining_seconds % 60;
+        cdEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+    } else {
+      if (armedView) armedView.classList.add("hidden");
+      if (disarmedView) disarmedView.classList.remove("hidden");
+    }
+    if (modal) modal.classList.remove("hidden");
+  });
+}
+
+function closeSafeModeModal() {
+  document.getElementById("modal-safe-mode")?.classList.add("hidden");
+}
+
+async function executeArmSafeMode() {
+  const op = document.getElementById("sm-input-operator")?.value.trim();
+  const job = document.getElementById("sm-input-job")?.value.trim();
+  const dur = parseInt(document.getElementById("sm-select-duration")?.value || "30", 10);
+
+  if (!op || !job) {
+    showToast("Inserire Nome Operatore e Commessa per sbloccare Safe Mode.", "warning");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/v1/safe-mode/arm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ operator: op, job_order: job, duration_minutes: dur }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Errore durante l'arm");
+    }
+    const data = await res.json();
+    currentSafeModeStatus = data;
+    updateSafeModeUI(data);
+    closeSafeModeModal();
+    showToast(t("toast_safe_mode_armed", { min: dur }), "success");
+  } catch (err) {
+    showToast(`Errore Safe Mode: ${err.message}`, "error");
+  }
+}
+
+async function executeDisarmSafeMode() {
+  try {
+    const res = await fetch("/api/v1/safe-mode/disarm", { method: "POST" });
+    const data = await res.json();
+    currentSafeModeStatus = data;
+    updateSafeModeUI(data);
+    closeSafeModeModal();
+    showToast(t("toast_safe_mode_disarmed"), "info");
+  } catch (err) {
+    showToast(`Errore Disarm Safe Mode: ${err.message}`, "error");
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// REGISTRO MANOVRE / AUDIT JOURNAL (v0.8.0)
+// ════════════════════════════════════════════════════════════════════════════
+function openAuditModal() {
+  document.getElementById("modal-audit")?.classList.remove("hidden");
+  refreshAuditJournal();
+}
+
+function closeAuditModal() {
+  document.getElementById("modal-audit")?.classList.add("hidden");
+}
+
+async function refreshAuditJournal() {
+  const badgeEl = document.getElementById("audit-integrity-badge");
+  const tbody = document.getElementById("audit-table-body");
+  if (badgeEl) badgeEl.innerHTML = `<span class="mono text-dim">Verifica integrità SHA-256 in corso...</span>`;
+
+  try {
+    // 1. Verify integrity
+    const integRes = await fetch("/api/v1/audit/verify");
+    const integ = await integRes.json();
+    if (badgeEl) {
+      if (integ.valid) {
+        badgeEl.innerHTML = `<span style="color:#10b981">${t("audit_integrity_valid")}</span> <span class="mono text-dim" style="font-size:10.5px">(${integ.total_entries} manovre firmate, hash: ${escapeHtml((integ.last_hash || '').slice(0, 10))}...)</span>`;
+      } else {
+        badgeEl.innerHTML = `<span style="color:#ef4444">${t("audit_integrity_invalid")}</span> <span class="mono" style="font-size:10.5px">(${integ.errors.join(', ')})</span>`;
+      }
+    }
+
+    // 2. Load recent entries
+    const jRes = await fetch("/api/v1/audit/journal?limit=100");
+    const entries = await jRes.json();
+    if (!tbody) return;
+
+    if (!entries || entries.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-dim" style="padding:16px">Nessuna manovra registrata sul bus.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = entries.map(e => {
+      const statusColor = e.status === "success" ? "#10b981" : (e.status === "interrupted" ? "#f59e0b" : "#ef4444");
+      const targetStr = e.target ? (e.target.slave_id !== undefined ? `Slave #${e.target.slave_id} (R${e.target.address})` : (e.target.device_id !== undefined ? `Dev #${e.target.device_id} (${e.target.object || ''})` : JSON.stringify(e.target))) : "—";
+      const valReq = e.value_requested !== undefined && e.value_requested !== null ? JSON.stringify(e.value_requested) : "—";
+      const valVer = e.value_verified !== undefined && e.value_verified !== null ? JSON.stringify(e.value_verified) : "—";
+
+      return `
+        <tr>
+          <td class="cell-mono" style="font-weight:700">${escapeHtml(e.entry_id)}</td>
+          <td class="cell-mono text-dim">${escapeHtml(e.timestamp_iso || '')}</td>
+          <td><strong style="color:var(--bham-text-main)">${escapeHtml(e.operator || '')}</strong> <span class="text-dim mono">(${escapeHtml(e.job_order || '')})</span></td>
+          <td><span class="mono" style="font-weight:600">${escapeHtml(e.action || '')}</span> <span class="badge-tag">${escapeHtml(e.phase || '')}</span></td>
+          <td class="cell-mono">${escapeHtml(targetStr)}</td>
+          <td class="cell-mono text-dim">${escapeHtml(valReq)} &rarr; ${escapeHtml(valVer)}</td>
+          <td><span style="color:${statusColor};font-weight:700;text-transform:uppercase">${escapeHtml(e.status || '')}</span></td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    if (badgeEl) badgeEl.innerHTML = `<span style="color:#ef4444">Errore lettura audit: ${escapeHtml(err.message)}</span>`;
+  }
+}
+
+async function exportAuditJournal() {
+  try {
+    const res = await fetch("/api/v1/audit/export");
+    if (!res.ok) throw new Error("Errore durante esportazione audit");
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bham_audit_journal_${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Registro Manovre scaricato con successo!", "success");
+  } catch (err) {
+    showToast(`Errore esportazione: ${err.message}`, "error");
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LIBRERIA PROFILI MODBUS & CUSTOM MANAGER (v0.8.0)
+// ════════════════════════════════════════════════════════════════════════════
+let allCachedProfiles = [];
+let currentInspectedProfile = null;
+let currentProfileCategory = "all";
+
+function openProfilesModal() {
+  document.getElementById("modal-profiles")?.classList.remove("hidden");
+  loadProfilesLibrary("all");
+}
+
+function closeProfilesModal() {
+  document.getElementById("modal-profiles")?.classList.add("hidden");
+}
+
+function filterProfilesCategory(cat) {
+  currentProfileCategory = cat;
+  document.querySelectorAll("[data-prof-cat]").forEach(btn => {
+    if (btn.getAttribute("data-prof-cat") === cat) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
+  renderProfilesGrid();
+}
+
+async function loadProfilesLibrary(category = "all") {
+  const container = document.getElementById("profiles-grid-container");
+  if (container) container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--bham-text-dim)">Caricamento profili...</div>`;
+
+  try {
+    const res = await fetch("/api/v1/profiles");
+    if (!res.ok) throw new Error("Impossibile caricare profili");
+    allCachedProfiles = await res.json();
+    renderProfilesGrid();
+  } catch (err) {
+    if (container) container.innerHTML = `<div style="grid-column:1/-1;color:#ef4444;text-align:center">Errore: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderProfilesGrid() {
+  const container = document.getElementById("profiles-grid-container");
+  if (!container) return;
+
+  let filtered = allCachedProfiles;
+  if (currentProfileCategory !== "all") {
+    filtered = allCachedProfiles.filter(p => (p.category || 'custom').toLowerCase() === currentProfileCategory.toLowerCase());
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--bham-text-dim)">Nessun profilo presente in questa categoria.</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(p => {
+    const catLabel = p.category === "multimeter" ? "Multimetro" : (p.category === "energy_heat" ? "Contabilizzatore" : (p.category === "actuator_hvac" ? "Attuatore & HVAC" : "Personalizzato"));
+    const deleteBtn = !p.is_builtin
+      ? `<button onclick="deleteCustomProfile('${escapeHtml(p.id)}')" class="bham-btn-secondary" style="height:26px;font-size:10.5px;color:#ef4444" title="Elimina profilo">🗑️</button>`
+      : "";
+
+    return `
+      <div style="background:var(--bham-bg-sub);border:1px solid var(--bham-border);border-radius:6px;padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+            <span class="bham-badge-proto proto-modbus" style="font-size:9.5px">${catLabel}</span>
+            <span class="mono text-dim" style="font-size:10.5px">${p.point_count} punti</span>
+          </div>
+          <h4 style="margin:8px 0 4px 0;font-size:13px;font-weight:700;color:var(--bham-text-main)">${escapeHtml(p.name)}</h4>
+          <div style="font-size:11px;color:var(--bham-text-dim);margin-bottom:6px">
+            <strong>${escapeHtml(p.manufacturer || '')}</strong> ${escapeHtml(p.model || '')}
+          </div>
+          <p style="font-size:11px;color:var(--bham-text-muted);margin:0;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+            ${escapeHtml(p.description || '')}
+          </p>
+        </div>
+
+        <div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+          ${deleteBtn}
+          <button onclick="inspectProfile('${escapeHtml(p.id)}')" class="bham-btn-secondary" style="height:26px;font-size:11px">
+            👁️ Ispeziona
+          </button>
+          <button onclick="promptApplyProfile('${escapeHtml(p.id)}')" class="bham-btn-action bham-btn-rtu" style="height:26px;font-size:11px;padding:0 10px">
+            ⚡ Applica
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function inspectProfile(profileId) {
+  try {
+    const res = await fetch(`/api/v1/profiles/${profileId}`);
+    if (!res.ok) throw new Error("Profilo non trovato");
+    const p = await res.json();
+    currentInspectedProfile = p;
+
+    document.getElementById("inspect-profile-name").textContent = p.name;
+    document.getElementById("inspect-profile-desc").textContent = `${p.manufacturer || ''} ${p.model || ''} – ${p.description || ''} (Baud: ${p.default_baudrate}, Parità: ${p.default_parity})`;
+
+    const tbody = document.getElementById("inspect-profile-points-body");
+    if (tbody) {
+      tbody.innerHTML = (p.points || []).map(pt => `
+        <tr>
+          <td class="cell-mono color-modbus" style="font-weight:700">${pt.address}</td>
+          <td><strong style="color:var(--bham-text-main)">${escapeHtml(pt.name)}</strong></td>
+          <td class="mono text-dim">${escapeHtml(pt.type || 'holding')}</td>
+          <td class="mono text-dim">${escapeHtml(pt.format || 'uint16')}</td>
+          <td class="mono" style="font-weight:600">${escapeHtml(pt.unit || '—')}</td>
+          <td class="mono text-dim">${pt.scale}</td>
+          <td><span class="badge-tag">${escapeHtml((pt.access || 'ro').toUpperCase())}</span></td>
+          <td style="color:var(--bham-text-muted)">${escapeHtml(pt.description || '')}</td>
+        </tr>
+      `).join("");
+    }
+
+    document.getElementById("modal-profile-inspect")?.classList.remove("hidden");
+  } catch (err) {
+    showToast(`Errore ispezione profilo: ${err.message}`, "error");
+  }
+}
+
+function closeProfileInspectModal() {
+  document.getElementById("modal-profile-inspect")?.classList.add("hidden");
+}
+
+function promptApplyCurrentProfile() {
+  if (currentInspectedProfile) {
+    promptApplyProfile(currentInspectedProfile.id);
+  }
+}
+
+function promptApplyProfile(profileId) {
+  const p = allCachedProfiles.find(x => x.id === profileId) || currentInspectedProfile;
+  if (!p) return;
+  currentInspectedProfile = p;
+
+  const sub = document.getElementById("apply-profile-sub");
+  if (sub) sub.textContent = `Profilo: ${p.name} (${p.point_count || p.points?.length} registri)`;
+
+  const select = document.getElementById("apply-slave-select");
+  if (select) {
+    select.innerHTML = "";
+    // If active modbus devices in state
+    const devs = Object.values(window.bhamState?.modbus_devices || {});
+    if (devs.length > 0) {
+      devs.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d.slave_id;
+        opt.textContent = `Slave #${d.slave_id} (${d.protocol || 'RTU'}) - ${d.product_name || 'Dispositivo rilevato'}`;
+        select.appendChild(opt);
+      });
+    } else {
+      for (let i = 1; i <= 10; i++) {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `Slave #${i}`;
+        select.appendChild(opt);
+      }
+    }
+  }
+
+  document.getElementById("modal-apply-profile")?.classList.remove("hidden");
+}
+
+function closeApplyProfileModal() {
+  document.getElementById("modal-apply-profile")?.classList.add("hidden");
+}
+
+async function executeApplyProfile() {
+  if (!currentInspectedProfile) return;
+  const sid = parseInt(document.getElementById("apply-slave-select")?.value || "1", 10);
+
+  try {
+    const res = await fetch("/api/v1/profiles/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slave_id: sid, profile_id: currentInspectedProfile.id }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Errore applicazione profilo");
+    }
+    const data = await res.json();
+    closeApplyProfileModal();
+    closeProfileInspectModal();
+    showToast(t("toast_profile_applied", { name: data.profile_name, sid: sid, n: data.mapped_points_count }), "success");
+  } catch (err) {
+    showToast(`Errore applicazione: ${err.message}`, "error");
+  }
+}
+
+async function deleteCustomProfile(profileId) {
+  if (!confirm(`Sei sicuro di voler eliminare il profilo personalizzato '${profileId}'?`)) return;
+
+  try {
+    const res = await fetch(`/api/v1/profiles/custom/${profileId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Errore eliminazione");
+    }
+    showToast("Profilo eliminato con successo", "info");
+    loadProfilesLibrary(currentProfileCategory);
+  } catch (err) {
+    showToast(`Errore eliminazione profilo: ${err.message}`, "error");
+  }
+}
+
+function openNewProfileModal() {
+  const nameInput = document.getElementById("cust-prof-name");
+  const mfgInput = document.getElementById("cust-prof-mfg");
+  const modelInput = document.getElementById("cust-prof-model");
+  const tbody = document.getElementById("cust-points-table-body");
+
+  if (nameInput) nameInput.value = "";
+  if (mfgInput) mfgInput.value = "";
+  if (modelInput) modelInput.value = "";
+  if (tbody) {
+    tbody.innerHTML = "";
+    addCustomPointRow(0, "Setpoint_Temp", "holding", "int16", "°C", 0.1);
+    addCustomPointRow(1, "Actual_Temp", "holding", "int16", "°C", 0.1);
+  }
+
+  document.getElementById("modal-new-profile")?.classList.remove("hidden");
+}
+
+function closeNewProfileModal() {
+  document.getElementById("modal-new-profile")?.classList.add("hidden");
+}
+
+function addCustomPointRow(addr = 0, name = "", type = "holding", format = "uint16", unit = "", scale = 1.0) {
+  const tbody = document.getElementById("cust-points-table-body");
+  if (!tbody) return;
+
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="number" class="bham-input mono cust-pt-addr" value="${addr}" style="height:26px;font-size:11px;padding:2px 4px" /></td>
+    <td><input type="text" class="bham-input cust-pt-name" value="${escapeHtml(name)}" placeholder="Nome punto" style="height:26px;font-size:11px;padding:2px 4px" /></td>
+    <td>
+      <select class="bham-select cust-pt-type" style="height:26px;font-size:10px;padding:0 2px">
+        <option value="holding" ${type === "holding" ? "selected" : ""}>Holding</option>
+        <option value="input" ${type === "input" ? "selected" : ""}>Input</option>
+        <option value="coil" ${type === "coil" ? "selected" : ""}>Coil</option>
+        <option value="discrete" ${type === "discrete" ? "selected" : ""}>Discrete</option>
+      </select>
+    </td>
+    <td>
+      <select class="bham-select cust-pt-format" style="height:26px;font-size:10px;padding:0 2px">
+        <option value="uint16" ${format === "uint16" ? "selected" : ""}>UInt16</option>
+        <option value="int16" ${format === "int16" ? "selected" : ""}>Int16</option>
+        <option value="float32_be" ${format === "float32_be" ? "selected" : ""}>Float32 BE</option>
+        <option value="float32_le" ${format === "float32_le" ? "selected" : ""}>Float32 LE</option>
+        <option value="uint32" ${format === "uint32" ? "selected" : ""}>UInt32</option>
+        <option value="int32" ${format === "int32" ? "selected" : ""}>Int32</option>
+        <option value="bool" ${format === "bool" ? "selected" : ""}>Bool</option>
+      </select>
+    </td>
+    <td><input type="text" class="bham-input mono cust-pt-unit" value="${escapeHtml(unit)}" placeholder="V, A..." style="height:26px;font-size:11px;padding:2px 4px" /></td>
+    <td><input type="number" step="any" class="bham-input mono cust-pt-scale" value="${scale}" style="height:26px;font-size:11px;padding:2px 4px" /></td>
+    <td style="text-align:center"><button onclick="this.closest('tr').remove()" class="bham-btn-secondary" style="height:24px;width:24px;padding:0;color:#ef4444">&times;</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+async function executeSaveCustomProfile() {
+  const name = document.getElementById("cust-prof-name")?.value.trim();
+  const mfg = document.getElementById("cust-prof-mfg")?.value.trim();
+  const model = document.getElementById("cust-prof-model")?.value.trim();
+  const cat = document.getElementById("cust-prof-cat")?.value || "custom";
+
+  if (!name) {
+    showToast("Il nome del dispositivo è obbligatorio.", "warning");
+    return;
+  }
+
+  const rows = document.querySelectorAll("#cust-points-table-body tr");
+  const points = [];
+  rows.forEach(r => {
+    const addr = parseInt(r.querySelector(".cust-pt-addr")?.value || "0", 10);
+    const ptName = r.querySelector(".cust-pt-name")?.value.trim() || `Reg_${addr}`;
+    const ptType = r.querySelector(".cust-pt-type")?.value || "holding";
+    const ptFmt = r.querySelector(".cust-pt-format")?.value || "uint16";
+    const ptUnit = r.querySelector(".cust-pt-unit")?.value.trim() || "";
+    const ptScale = parseFloat(r.querySelector(".cust-pt-scale")?.value || "1.0");
+
+    points.push({
+      address: addr,
+      name: ptName,
+      type: ptType,
+      format: ptFmt,
+      unit: ptUnit,
+      scale: ptScale,
+      access: ptType === "holding" || ptType === "coil" ? "rw" : "ro",
+    });
+  });
+
+  const payload = {
+    name: name,
+    manufacturer: mfg,
+    model: model,
+    category: cat,
+    default_baudrate: 9600,
+    default_parity: "N",
+    default_stopbits: 1,
+    points: points,
+  };
+
+  try {
+    const res = await fetch("/api/v1/profiles/custom", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Errore salvataggio profilo");
+    }
+    closeNewProfileModal();
+    showToast(`Profilo custom '${name}' salvato con successo!`, "success");
+    loadProfilesLibrary(currentProfileCategory);
+  } catch (err) {
+    showToast(`Errore salvataggio: ${err.message}`, "error");
+  }
+}
+
 if (window.I18N) {
   window.I18N.init();
 }
 loadSavedScanParams();
 connectWS();
+
+// Inizializza monitoraggio periodico Safe Mode
+setInterval(fetchSafeModeStatus, 10000);
+fetchSafeModeStatus();
 
 setTimeout(() => {
   const langSel = document.getElementById("setup-lang");

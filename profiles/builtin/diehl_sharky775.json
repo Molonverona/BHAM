@@ -1,0 +1,23 @@
+{
+  "id": "diehl_sharky775",
+  "name": "Diehl Metering Sharky 775 (Hydrometer H&A)",
+  "category": "energy_heat",
+  "manufacturer": "Diehl Metering (Hydrometer)",
+  "model": "Sharky 775",
+  "description": "Contabilizzatore di calore/freddo a ultrasuoni compatto con modulo Modbus RTU",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Thermal_Energy_Heating", "type": "holding", "format": "uint32", "unit": "kWh", "scale": 1.0, "access": "ro", "description": "Energia termica totale riscaldamento" },
+    { "address": 2, "name": "Thermal_Energy_Cooling", "type": "holding", "format": "uint32", "unit": "kWh", "scale": 1.0, "access": "ro", "description": "Energia termica totale raffrescamento" },
+    { "address": 4, "name": "Total_Volume", "type": "holding", "format": "uint32", "unit": "m³", "scale": 0.001, "access": "ro", "description": "Volume totale cumulato" },
+    { "address": 6, "name": "Flow_Rate", "type": "holding", "format": "uint32", "unit": "l/h", "scale": 1.0, "access": "ro", "description": "Portata volumetrica istantanea" },
+    { "address": 8, "name": "Thermal_Power", "type": "holding", "format": "int32", "unit": "kW", "scale": 0.1, "access": "ro", "description": "Potenza termica istantanea calcolata" },
+    { "address": 10, "name": "Flow_Temperature", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura mandata fluido termovettore" },
+    { "address": 11, "name": "Return_Temperature", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura ritorno" },
+    { "address": 12, "name": "Delta_T", "type": "holding", "format": "int16", "unit": "K", "scale": 0.01, "access": "ro", "description": "Differenziale di temperatura T_mandata - T_ritorno" },
+    { "address": 13, "name": "Operating_Days", "type": "holding", "format": "uint16", "unit": "days", "scale": 1.0, "access": "ro", "description": "Giorni di funzionamento del dispositivo" },
+    { "address": 14, "name": "Error_Flags", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "ro", "description": "Segnalazioni di guasto: batteria scarica, flusso inverso, sonda staccata" }
+  ]
+}

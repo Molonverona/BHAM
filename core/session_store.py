@@ -13,14 +13,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-log = logging.getLogger("bham").getChild("session_store")
+from core.paths import get_sessions_dir
 
-SESSIONS_DIR = Path("sessions")
+log = logging.getLogger("bham").getChild("session_store")
 
 
 def _ensure_dir() -> Path:
-    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-    return SESSIONS_DIR
+    d = get_sessions_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def save_session(
@@ -112,7 +113,7 @@ def load_session(filename: str) -> dict[str, Any]:
     safe = Path(filename).name
     if safe != filename:
         raise ValueError(f"Filename non sicuro: {filename!r}")
-    p = SESSIONS_DIR / safe
+    p = _ensure_dir() / safe
     if not p.exists():
         raise FileNotFoundError(f"Sessione non trovata: {filename}")
     with open(p, encoding="utf-8") as fh:
@@ -124,7 +125,7 @@ def delete_session(filename: str) -> None:
     safe = Path(filename).name
     if safe != filename:
         raise ValueError(f"Filename non sicuro: {filename!r}")
-    p = SESSIONS_DIR / safe
+    p = _ensure_dir() / safe
     if not p.exists():
         raise FileNotFoundError(f"Sessione non trovata: {filename}")
     try:

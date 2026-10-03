@@ -1,0 +1,18 @@
+{
+  "id": "emerson_rosemount",
+  "name": "Emerson Rosemount 8712 / 8800",
+  "category": "energy_heat",
+  "manufacturer": "Emerson Micro Motion / Rosemount",
+  "model": "Rosemount 8712/8800",
+  "description": "Misuratore di portata elettromagnetico o a vortice per fluidi industriali e vapore",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 100, "name": "Primary_Variable_Flow", "type": "holding", "format": "float32_be", "unit": "m³/h", "scale": 1.0, "access": "ro", "description": "Portata volumetrica primaria istantanea" },
+    { "address": 102, "name": "Secondary_Variable_Velocity", "type": "holding", "format": "float32_be", "unit": "m/s", "scale": 1.0, "access": "ro", "description": "Velocità lineare del fluido" },
+    { "address": 104, "name": "Totalizer_Net", "type": "holding", "format": "float32_be", "unit": "m³", "scale": 1.0, "access": "ro", "description": "Totalizzatore volumetrico netto" },
+    { "address": 106, "name": "Process_Temperature", "type": "holding", "format": "float32_be", "unit": "°C", "scale": 1.0, "access": "ro", "description": "Temperatura del processo (se sonda integrata)" },
+    { "address": 120, "name": "Device_Status", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "ro", "description": "Stato diagnostico trasmettitore: OK, Warning, Tubo vuoto, Fault" }
+  ]
+}

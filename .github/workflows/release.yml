@@ -12,12 +12,12 @@ on:
         required: true
         default: "patch"
         options:
-          - "patch (es. 0.7.0 -> 0.7.1)"
-          - "minor (es. 0.7.0 -> 0.8.0)"
-          - "major (es. 0.7.0 -> 1.0.0)"
+          - "patch (es. 0.8.0 -> 0.8.1)"
+          - "minor (es. 0.8.0 -> 0.9.0)"
+          - "major (es. 0.8.0 -> 1.0.0)"
           - "custom"
       custom_version:
-        description: "Versione personalizzata (solo se scelto custom, es. 0.7.5)"
+        description: "Versione personalizzata (solo se scelto custom, es. 0.8.5)"
         type: string
         required: false
         default: ""
@@ -105,20 +105,62 @@ jobs:
         run: |
           pyinstaller bham.spec
 
-      - name: Package Windows Binary
+      - name: Package Portable Windows Edition
         shell: pwsh
         run: |
-          Compress-Archive -Path dist\bham.exe, README.md, MANUALE_UTENTE.md -DestinationPath bham-windows-x64.zip
-          $hash = (Get-FileHash -Path bham-windows-x64.zip -Algorithm SHA256).Hash
-          Set-Content -Path bham-windows-x64.zip.sha256 -Value $hash
+          New-Item -ItemType Directory -Path dist-portable
+          Copy-Item dist\bham.exe dist-portable\
+          New-Item -ItemType File -Path dist-portable\portable.flag
+          Copy-Item README.md, MANUALE_UTENTE.md, LICENSE dist-portable\
+          Compress-Archive -Path dist-portable\* -DestinationPath bham-windows-x64-portable.zip
+          $hash = (Get-FileHash -Path bham-windows-x64-portable.zip -Algorithm SHA256).Hash
+          Set-Content -Path bham-windows-x64-portable.zip.sha256 -Value $hash
 
-      - name: Upload Windows Artifact
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+
+      - name: Build Inno Setup Installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\bham.iss
+          Get-ChildItem dist-installer\*.exe | ForEach-Object {
+            Copy-Item $_.FullName .
+            $hash = (Get-FileHash -Path $_.Name -Algorithm SHA256).Hash
+            Set-Content -Path ($_.Name + ".sha256") -Value $hash
+          }
+
+      - name: Submit a Signing Request to SignPath
+        if: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+        uses: SignPath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ secrets.SIGNPATH_PROJECT_SLUG || 'bham' }}
+          signing-policy-slug: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ secrets.SIGNPATH_ARTIFACT_CONFIG_SLUG || 'initial' }}
+          input-artifact-path: bham-windows-x64-portable.zip
+          output-artifact-path: bham-windows-x64-portable-signed.zip
+
+      - name: Apply Signed Portable Zip
+        if: ${{ hashFiles('bham-windows-x64-portable-signed.zip') != '' }}
+        shell: pwsh
+        run: |
+          Move-Item -Force bham-windows-x64-portable-signed.zip bham-windows-x64-portable.zip
+          $hash = (Get-FileHash -Path bham-windows-x64-portable.zip -Algorithm SHA256).Hash
+          Set-Content -Path bham-windows-x64-portable.zip.sha256 -Value $hash
+          Write-Host "✅ Binario firmato con successo da SignPath applicato alla release!"
+
+      - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-binary
           path: |
-            bham-windows-x64.zip
-            bham-windows-x64.zip.sha256
+            bham-windows-x64-portable.zip
+            bham-windows-x64-portable.zip.sha256
+            bham-windows-x64-installer-*.exe
+            bham-windows-x64-installer-*.exe.sha256
 
   build-linux:
     name: Build Standalone Linux x64 (.tar.gz e .deb)
@@ -207,14 +249,16 @@ jobs:
           name: Release ${{ needs.prepare-version.outputs.release_tag }}
           tag_name: ${{ needs.prepare-version.outputs.release_tag }}
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(needs.prepare-version.outputs.release_tag, '-') }}
           body_path: release_notes.md
           generate_release_notes: true
           files: |
             bham-source-*.zip
             bham-source-*.zip.sha256
-            bham-windows-x64.zip
-            bham-windows-x64.zip.sha256
+            bham-windows-x64*.zip
+            bham-windows-x64*.zip.sha256
+            bham-windows-x64-installer-*.exe
+            bham-windows-x64-installer-*.exe.sha256
             bham-linux-x64.tar.gz
             bham-linux-x64.tar.gz.sha256
             bham_*.deb

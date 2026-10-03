@@ -16,8 +16,17 @@ const MANUAL_DATA = {
       { id: "arp", title: "6. ARP Passive Sniffer" },
       { id: "maps", title: "7. Mappe Registri BACS Help" },
       { id: "troubleshoot", title: "8. Troubleshooting da Campo" },
-      { id: "api", title: "9. REST API & Webhooks" },
-      { id: "topology", title: "10. Mappa Topologica & Explorer" }
+      { id: "api", title: "9. REST & WebSocket API" },
+      { id: "topology", title: "10. Mappa Topologica & Explorer" },
+      { id: "diff", title: "11. Session Diff ('Prima vs Dopo')" },
+      { id: "bbmd", title: "12. Attraversamento BBMD & Router BACnet" },
+      { id: "selftest", title: "13. Self-Test Hardware & Accesso LAN" },
+      { id: "field_tools", title: "14. Banco Prova Operativo & Override" },
+      { id: "simulator", title: "15. Simulatore Virtuale & Resilienza" },
+      { id: "profiles", title: "16. Libreria Profili Modbus Industriali" },
+      { id: "safemode", title: "17. Blocco Sicurezza Manovre (Safe Mode)" },
+      { id: "audit", title: "18. Registro Manovre Certificato (WAL)" },
+      { id: "standalone", title: "19. Standalone (Portable/Install) & SignPath" }
     ],
     content: {
       intro: `
@@ -194,25 +203,60 @@ const MANUAL_DATA = {
         <p>Il pulsante rosso <strong>ABORT SCAN</strong> sticky in testata invia un segnale di stop immediato a tutti i worker. Rilascia istantaneamente il descrittore della porta seriale, prevenendo blocchi del driver UART o flood sul bus.</p>
       `,
       api: `
-        <h3>9. Riferimento REST API &amp; Webhooks</h3>
-        <p>Tutte le funzionalità di BHAM sono fruibili tramite API REST standard con documentazione OpenAPI interattiva disponibile su <a href="/docs" target="_blank" style="color:var(--bham-modbus)">/docs</a>.</p>
+        <h3>9. Riferimento REST &amp; WebSocket API</h3>
+        <p>BHAM espone oltre 39 endpoint RESTful con schemi Pydantic v2 e un canale streaming WebSocket per l'automazione industriale e l'integrazione di sistemi BMS terzi.</p>
+        
+        <div class="bham-callout callout-info" style="margin-bottom:14px;">
+          <strong>Documentazione Interattiva &amp; Specifica Completa:</strong><br>
+          • <strong>Swagger UI:</strong> <a href="/docs" target="_blank" style="color:var(--bham-modbus); font-weight:600;">/docs</a> &nbsp;|&nbsp;
+          • <strong>ReDoc:</strong> <a href="/redoc" target="_blank" style="color:var(--bham-modbus); font-weight:600;">/redoc</a> &nbsp;|&nbsp;
+          • <strong>Manuale Tecnico:</strong> Consulta il file <code>API_REFERENCE.md</code> alla radice del progetto per tutti i contratti JSON dettagliati.
+        </div>
 
-        <h4>Esempi di Chiamata Rapida via cURL:</h4>
-        <p><strong>1. Avvio Scansione Modbus RTU:</strong></p>
+        <h4>Tabella Sintetica Endpoint:</h4>
+        <div style="overflow-x:auto; margin-bottom:14px;">
+          <table class="bham-data-table" style="font-size:12px; width:100%;">
+            <thead>
+              <tr><th>Metodo</th><th>Endpoint</th><th>Ambito</th><th>Descrizione</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>GET</code></td><td><code>/api/v1/health</code></td><td>Sistema</td><td>Stato del servizio, versione e client WebSocket attivi</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/state</code></td><td>Stato</td><td>Snapshot completo dei nodi e configurazione attiva</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/topology</code></td><td>Topologia</td><td>Albero gerarchico d'impianto vettoriale</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/hardware/self-test</code></td><td>Hardware</td><td>Collaudo rapido porte seriali, NIC e permessi OS</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/modbus/rtu</code></td><td>Scan</td><td>Avvio sweep Modbus RTU seriale attivo (Phase Zero)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/modbus/tcp</code></td><td>Scan</td><td>Scansione Modbus TCP multi-porta su subnet</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/modbus/smart-scan</code></td><td>Modbus</td><td>Smart Scan euristico registri Holding/Input slave</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/serial/sniff</code></td><td>Sniffer</td><td>Ascolto passivo RS485 Zero-TX e telemetria Bus Health</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/diag/serial/health</code></td><td>Diagnostica</td><td>Metriche fisiche linea RS485 (PER %, FPS, Bus Load %)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/bacnet/ip</code></td><td>Scan</td><td>Who-Is broadcast BACnet/IP e supporto Foreign Device</td></tr>
+              <tr><td><code>GET/POST</code></td><td><code>/api/v1/bacnet/devices/{id}/objects</code></td><td>BACnet</td><td>Esplorazione approfondita gerarchica object-list</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/bacnet/bbmd/tables</code></td><td>BBMD</td><td>Lettura congiunta tabelle BDT ed FDT router BBMD</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/knx/ip</code></td><td>Scan</td><td>Discovery multicast UDP KNXnet/IP</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/arp</code></td><td>Scan</td><td>Sniffer promiscuo Layer-2 ARP</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/abort</code></td><td>Controllo</td><td>Arresto d'emergenza immediato di tutte le scansioni</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/sessions/diff</code></td><td>Intelligence</td><td>Confronto analitico Baseline vs Collaudo corrente</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/report/pdf</code></td><td>Report</td><td>Download verbale di collaudo in PDF vettoriale</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/report/excel</code></td><td>Report</td><td>Download cartella as-built Excel a 8 fogli</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Esempi Rapidi via cURL:</h4>
+        <p><strong>1. Hardware Self-Test:</strong></p>
+        <pre class="bham-code-block">curl -X GET http://localhost:8765/api/v1/hardware/self-test</pre>
+
+        <p><strong>2. Avvio Scansione Modbus RTU:</strong></p>
         <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/scan/modbus/rtu \\
   -H "Content-Type: application/json" \\
   -d '{"port": "/dev/ttyUSB0", "baudrates": [9600, 19200], "id_range": [1, 2, 3, 4, 5]}'</pre>
 
-        <p><strong>2. Interrogazione Dispositivi Rilevati:</strong></p>
-        <pre class="bham-code-block">curl http://localhost:8765/api/v1/devices/modbus
-curl http://localhost:8765/api/v1/devices/bacnet
-curl http://localhost:8765/api/v1/devices/knx</pre>
+        <p><strong>3. Download Verbale Excel As-Built:</strong></p>
+        <pre class="bham-code-block">curl -X GET http://localhost:8765/api/v1/report/excel -o collaudo_as_built.xlsx</pre>
 
-        <p><strong>3. Arresto d'Emergenza (Abort):</strong></p>
-        <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/scan/abort</pre>
-
-        <p><strong>4. Ripristino Sessione Salvata:</strong></p>
-        <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/saved-sessions/20260927_103507_Test_Site.json/restore</pre>
+        <h4>Canale WebSocket Live Telemetry:</h4>
+        <p>Connessione: <code>ws://&lt;host&gt;:8765/api/v1/ws</code><br>
+        Eventi trasmessi dal demone: <code>scan_progress</code>, <code>device_found</code>, <code>bus_health_update</code>, <code>log_record</code>.</p>
       `,
       topology: `
         <h3>10. Mappa Topologica Interattiva &amp; Explorer Avanzati</h3>
@@ -240,6 +284,151 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
           <li><strong>BACnet Object Explorer:</strong> Naviga gerarchicamente tutti gli oggetti del dispositivo (AI, AO, AV, BI, BO, BV, MSI, MSO, Schedules, Trend Logs) con Present Value e Status Flags.</li>
           <li><strong>Ispezione Modbus &amp; Smart Scan:</strong> Esegue il sondaggio euristico dei registri standard con decodifica automatica in numeri interi, decimali float o stringhe.</li>
         </ul>
+      `,
+      diff: `
+        <h3>11. Intelligence &amp; Session Diff ("Prima vs Dopo")</h3>
+        <p>La funzionalità <strong>Session Diff</strong> consente di confrontare determinismo e precisione una sessione di collaudo archiviata (<em>Baseline</em> o stato "Prima") con la sessione di lavoro attiva (<em>Live State</em> o stato "Dopo") o tra due sessioni storiche differenti.</p>
+
+        <h4>Caratteristiche del Motore Differenziale:</h4>
+        <ul>
+          <li><strong>Riconoscimento Multi-Protocollo:</strong> Correlazione su base MAC per host Ethernet, Slave ID per Modbus, Device Instance ID per BACnet e Indirizzo Fisico per KNX.</li>
+          <li><strong>Classificazione delle Variazioni:</strong>
+            <ul>
+              <li><span class="badge" style="background:#22c55e; color:#000;">ADDED</span> Nuovo dispositivo rilevato in campo non presente nella baseline.</li>
+              <li><span class="badge" style="background:#ef4444; color:#fff;">REMOVED</span> Dispositivo presente nella baseline ora spento, disconnesso o guasto.</li>
+              <li><span class="badge" style="background:#eab308; color:#000;">MODIFIED</span> Dispositivo presente ma con parametri variati (IP, baudrate, firmware, latenza).</li>
+              <li><span class="badge" style="background:#64748b; color:#fff;">UNCHANGED</span> Dispositivo stabile e identico.</li>
+            </ul>
+          </li>
+          <li><strong>Visualizzazione Affiancata:</strong> Modale interattivo con vecchi parametri evidenziati in rosso sbarrato e nuovi valori in verde.</li>
+          <li><strong>Esportazione Verbale Diff:</strong> Download immediato in formato standard <code>.csv</code> o <code>.json</code> per allegati di collaudo.</li>
+        </ul>
+      `,
+      bbmd: `
+        <h3>12. Attraversamento BBMD &amp; Router BACnet/IP</h3>
+        <p>Nelle architetture d'automazione complesse distribuite su più VLAN o sottoreti di livello 3, i pacchetti Who-Is broadcast <code>255.255.255.255</code> non possono attraversare i router IP per limitazioni standard di rete.</p>
+
+        <h4>Soluzione BHAM Annex J:</h4>
+        <ul>
+          <li><strong>Foreign Device Registration:</strong> BHAM si registra come <em>Foreign Device</em> presso il router BBMD di riferimento con un intervallo TTL (Time To Live, default 60s), instradando le interrogazioni Who-Is verso tutte le sottoreti collegate.</li>
+          <li><strong>Ispezione Tabelle BDT &amp; FDT:</strong>
+            <ul>
+              <li><strong>Broadcast Distribution Table (BDT):</strong> Elenco dei router BBMD distribuiti nelle diverse sottoreti dell'edificio.</li>
+              <li><strong>Foreign Device Table (FDT):</strong> Elenco degli apparati registrati con indirizzo IP, porta UDP, TTL concesso e countdown dei secondi rimanenti.</li>
+            </ul>
+          </li>
+          <li><strong>Integrazione Grafica:</strong> I dispositivi scoperti attraverso un router vengono contrassegnati con il badge <code>BBMD</code> e collocati graficamente sotto il router corrispondente nella Mappa Topologica.</li>
+        </ul>
+      `,
+      selftest: `
+        <h3>13. Hardware Self-Test &amp; Accesso Remoto LAN</h3>
+        <p>BHAM include strumenti avanzati di autodiagnostica hardware e supporto nativo per l'utilizzo da remoto sul campo.</p>
+
+        <h4>⚡ Hardware Self-Test:</h4>
+        <p>Accessibile dal Centro Impostazioni (<em>Adattatori &amp; Porte &gt; ⚡ Esegui Self-Test</em>) o via API <code>GET /api/v1/hardware/self-test</code>:</p>
+        <ul>
+          <li><strong>Porta Seriale RS485:</strong> Test reale di apertura, impostazione baudrate e chiusura socket seriale con calcolo della latenza in millisecondi.</li>
+          <li><strong>Schede di Rete:</strong> Verifica instradamento verso il gateway predefinito e capacità di binding broadcast.</li>
+          <li><strong>Permessi del Sistema Operativo:</strong> Verifica appartenenza al gruppo <code>dialout</code> (Linux), privilegi di Amministratore (Windows) e capacità di cattura pacchetti grezzi (<code>cap_net_raw</code> su Linux o Npcap su Windows).</li>
+        </ul>
+
+        <h4>🌐 Accesso Remoto da Tablet o PC (Rete LAN):</h4>
+        <p>Quando BHAM viene avviato su un Raspberry Pi o mini-PC installato all'interno di un quadro elettrico:</p>
+        <ul>
+          <li>Il server si mette in ascolto su <code>0.0.0.0:8765</code> rendendo l'interfaccia accessibile da qualunque dispositivo sulla stessa rete locale.</li>
+          <li>Gli indirizzi IP della LAN per l'accesso remoto vengono mostrati chiaramente nel Centro Impostazioni e nel log di avvio della console (es. <code>http://192.168.1.50:8765</code>).</li>
+        </ul>
+      `,
+      field_tools: `
+        <h3>14. Banco Prova Operativo di Campo ("Field Tools") &amp; Override</h3>
+        <p>La suite <strong>Field Tools</strong> consente ai tecnici di collaudo di comandare attuatori, pompe e valvole o forzare letture puntuali direttamente da BHAM sia su bus reale che su impianto virtuale.</p>
+        
+        <h4>⚡ Modbus Quick Commander:</h4>
+        <ul>
+          <li><strong>Funzioni di Lettura:</strong> FC01 (Coils), FC02 (Discrete Inputs), FC03 (Holding Registers), FC04 (Input Registers).</li>
+          <li><strong>Funzioni di Scrittura:</strong> FC05 (Single Coil), FC06 (Single Register), FC15 (Multiple Coils), FC16 (Multiple Registers).</li>
+          <li><strong>Formati di Dato:</strong> UInt16, Int16 (signed), Float32 Big-Endian (MSW:LSW), Float32 Little-Endian (LSW:MSW), Hex grezzo, Booleani.</li>
+          <li><strong>Accesso:</strong> Pulsante <em>⚡ Strumenti di Campo</em> in testata o tab <em>⚡ Comando Rapido</em> nell'ispezione slave Modbus.</li>
+        </ul>
+
+        <h4>⚡ BACnet Point Commander &amp; Priority Array:</h4>
+        <ul>
+          <li><strong>Override Manuale:</strong> Comando su oggetti <code>analogOutput</code>, <code>analogValue</code>, <code>binaryOutput</code>, <code>binaryValue</code> al livello di priorità selezionato (default <strong>Priorità 8 – Manual Operator</strong>).</li>
+          <li><strong>Comando di Relinquish:</strong> Rilascio istantaneo della priorità (impostando valore nullo), consentendo alla logica automatica di riprendere il controllo.</li>
+          <li><strong>Accesso:</strong> Pulsante <em>⚡ Override</em> accanto a ogni oggetto nell'Object Explorer BACnet.</li>
+        </ul>
+      `,
+      simulator: `
+        <h3>15. Simulatore Virtuale d'Impianto ("Demo Mode") &amp; Resilienza</h3>
+        <p>BHAM include un motore di simulazione virtuale completo per verifiche offline, collaudi preliminari e dimostrazioni senza hardware reale.</p>
+
+        <h4>🌱 Virtual Plant Engine (Demo Mode):</h4>
+        <ul>
+          <li><strong>Attivazione Rapida:</strong> Switch <em>DEMO MODE</em> in testata, flag CLI <code>--demo</code>, variabile <code>BHAM_DEMO=1</code> o endpoint REST <code>/api/v1/demo/toggle</code>.</li>
+          <li><strong>Dispositivi Simulati:</strong> Chiller Climaveneta Modbus RTU, Pompa inverter Grundfos Modbus RTU, Power Meter Schneider PM5350 Modbus TCP, UTA 01 BACnet/IP con 12 oggetti, VAV Zone North BACnet/IP con 4 oggetti, Gateway e sensori KNX, nodi ARP di rete.</li>
+          <li><strong>Telemetria Dinamica:</strong> Oscillazione in tempo reale di temperature, portate, frequenze e potenze con broadcast WebSocket.</li>
+        </ul>
+
+        <h4>🛡️ Resilienza Hardware &amp; Hot-Plug Auto-Recovery:</h4>
+        <ul>
+          <li><strong>Tolleranza alle Disconnessioni:</strong> Intercettazione trasparente di disconnessioni accidentali del convertitore USB↔RS485 senza crash del demone o perdita della sessione.</li>
+          <li><strong>Auto-Recovery:</strong> Riconnessione automatica non appena la porta viene ripristinata e notifiche toast non bloccanti a video.</li>
+          <li><strong>Console Log Potenziata:</strong> Filtraggio immediato per gravità (<code>ALL</code>, <code>DEBUG</code>, <code>INFO</code>, <code>WARN</code>, <code>ERROR</code>) e barra di ricerca rapida.</li>
+        </ul>
+      `,
+      profiles: `
+        <h3>16. Libreria Profili Modbus Industriali &amp; Custom Manager</h3>
+        <p>BHAM include una ricca libreria integrata di profili Modbus predefiniti per eliminare la consultazione di manuali cartacei durante il collaudo in campo.</p>
+
+        <h4>📚 Profili Industriali Inclusi:</h4>
+        <ul>
+          <li><strong>Multimetri:</strong> ABB B23, Carlo Gavazzi EM24 ed EM111, IME Nemo 96, Schneider Acti9 iEM3150 e PM5350, Siemens SENTRON PAC3200.</li>
+          <li><strong>Contabilizzatori ed Energia:</strong> Belimo Energy Valve (EV), Isoil ISOMAG, Diehl/Hydrometer Sharky 775, Emerson Rosemount 8712.</li>
+          <li><strong>Attuatori &amp; Regolatori HVAC:</strong> Belimo Servocomandi Modbus, Trox VAV Compact, iSMA-B-4I4O Modulo I/O, Riello Caldaia Condexa Pro, Carel pCO Controllore.</li>
+        </ul>
+
+        <h4>🛠️ Gestione Profili Custom:</h4>
+        <ul>
+          <li><strong>Creazione &amp; Modifica:</strong> Definizione rapida di costruttore, modello, registri con indirizzo, formato (UInt16, Float32, ecc.), scala e unità ingegneristiche.</li>
+          <li><strong>Import / Export JSON:</strong> Salvataggio e condivisione dei profili personalizzati in formato JSON standard.</li>
+          <li><strong>⚡ Applica a Slave:</strong> Assegnazione istantanea del profilo allo Slave ID selezionato con iniezione automatica nella Mappa Registri attiva.</li>
+        </ul>
+      `,
+      safemode: `
+        <h3>17. Blocco Sicurezza Manovre (Safe Mode Interlock)</h3>
+        <p>Sistema di protezione attiva per impedire manovre e forzature accidentali su apparecchiature critiche di centrale e regolatori d'impianto.</p>
+
+        <h4>🔒 Protezione Interbloccata:</h4>
+        <ul>
+          <li><strong>Blocco Predefinito:</strong> All'avvio tutte le manovre di scrittura (Modbus FC05/FC06/FC15/FC16 e BACnet Point Override) sono inibite con errore <code>403 Forbidden</code>.</li>
+          <li><strong>Procedura di Sblocco ("Arm"):</strong> Richiede l'indicazione di Nome Tecnico/Operatore, Commessa/Ordine di lavoro e durata della finestra temporale (15, 30, 60 o 120 minuti).</li>
+          <li><strong>Disarmo Automatico:</strong> Alla scadenza del timer o cliccando su <em>🔒 Blocca Immediatamente</em>, il sistema ripristina la protezione senza canali aperti.</li>
+          <li><strong>Badge Visivo:</strong> Segnalazione verde protetta o rossa pulsante con operatore e conto alla rovescia in testata.</li>
+        </ul>
+      `,
+      audit: `
+        <h3>18. Registro Manovre Certificato (Crash-Proof WAL)</h3>
+        <p>Tracciabilità forense indelebile di tutte le operazioni di collaudo con tecnologia Write-Ahead Log (WAL) e sigillo crittografico SHA-256.</p>
+
+        <h4>🛡️ Caratteristiche del Registro:</h4>
+        <ul>
+          <li><strong>Registrazione Preventiva (Write-Ahead):</strong> Ogni intento di scrittura viene registrato su disco con <code>os.fsync</code> prima di trasmettere i dati sul cavo fisico.</li>
+          <li><strong>Catena Crittografica SHA-256:</strong> Ogni voce include l'hash della riga precedente (<code>prev_hash</code>) calcolando una catena blockchain-style resistente a manomissioni.</li>
+          <li><strong>Recupero Crash Automatico:</strong> Al riavvio dopo blackout o cadute di alimentazione, gli intenti rimasti orfani vengono individuati e contrassegnati automaticamente.</li>
+          <li><strong>Verifica Integrità &amp; Export:</strong> Scansione riga per riga del giornale con rilevamento violazioni ed esportazione del verbale in JSON firmabile.</li>
+        </ul>
+      `,
+      standalone: `
+        <h3>19. Standalone (Portable/Install) &amp; Firma Digitale SignPath</h3>
+        <p>BHAM supporta una distribuzione ibrida adatta sia all'esecuzione portatile da pendrive USB che all'installazione centralizzata su laptop aziendali.</p>
+
+        <h4>📦 Modalità Operative (<code>core/paths.py</code>):</h4>
+        <ul>
+          <li><strong>Versione Portatile (Portable):</strong> Riconosce la presenza del file <code>portable.flag</code> e memorizza sessioni, log e profili direttamente nella cartella dell'eseguibile.</li>
+          <li><strong>Versione Installata (Installed):</strong> Utilizza percorsi standard del sistema operativo (<code>%LOCALAPPDATA%\\BHAM</code> su Windows e <code>~/.local/share/bham</code> su Linux) per esecuzione sicura in sola lettura.</li>
+          <li><strong>Firma Digitale Windows (SignPath):</strong> Integrazione CI/CD con <code>SignPath/github-action-submit-signing-request@v2</code> per la firma autenticata dei binari Windows.</li>
+          <li><strong>Firma Digitale Autonoma Linux (GPG):</strong> Script <code>./scripts/sign_linux.sh</code> per la firma autonoma locale di <code>.deb</code>, <code>.tar.gz</code> e <code>SHA256SUMS.asc</code> con la propria chiave GPG.</li>
+        </ul>
       `
     }
   },
@@ -254,8 +443,17 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
       { id: "arp", title: "6. ARP Passive Sniffer" },
       { id: "maps", title: "7. BACS Help Point Maps" },
       { id: "troubleshoot", title: "8. Field Troubleshooting" },
-      { id: "api", title: "9. REST API & Webhooks" },
-      { id: "topology", title: "10. Topological Map & Explorer" }
+      { id: "api", title: "9. REST & WebSocket API" },
+      { id: "topology", title: "10. Topological Map & Explorer" },
+      { id: "diff", title: "11. Session Diff ('Before vs After')" },
+      { id: "bbmd", title: "12. BBMD Traversal & BACnet Routers" },
+      { id: "selftest", title: "13. Hardware Self-Test & Remote LAN" },
+      { id: "field_tools", title: "14. Field Operational Tools & Override" },
+      { id: "simulator", title: "15. Virtual Plant Simulator & Resilience" },
+      { id: "profiles", title: "16. Industrial Modbus Profiles Library" },
+      { id: "safemode", title: "17. Safe Mode Interlock" },
+      { id: "audit", title: "18. Crash-Proof Audit Journal (WAL)" },
+      { id: "standalone", title: "19. Standalone Packaging & SignPath" }
     ],
     content: {
       intro: `
@@ -432,22 +630,60 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
         <p>The high-contrast red <strong>ABORT SCAN</strong> button halts all active threads immediately and releases serial port file handles.</p>
       `,
       api: `
-        <h3>9. REST API &amp; Webhooks Reference</h3>
-        <p>All functionality can be automated via REST endpoints. Interactive Swagger documentation is available at <a href="/docs" target="_blank" style="color:var(--bham-modbus)">/docs</a>.</p>
+        <h3>9. REST &amp; WebSocket API Reference</h3>
+        <p>BHAM provides 39+ RESTful endpoints with typed Pydantic v2 contracts and a live WebSocket streaming channel for commissioning automation and third-party BMS integration.</p>
 
-        <h4>cURL Quick Recipes:</h4>
-        <p><strong>1. Start Modbus RTU Scan:</strong></p>
+        <div class="bham-callout callout-info" style="margin-bottom:14px;">
+          <strong>Interactive Documentation &amp; Technical Reference:</strong><br>
+          • <strong>Swagger UI:</strong> <a href="/docs" target="_blank" style="color:var(--bham-modbus); font-weight:600;">/docs</a> &nbsp;|&nbsp;
+          • <strong>ReDoc:</strong> <a href="/redoc" target="_blank" style="color:var(--bham-modbus); font-weight:600;">/redoc</a> &nbsp;|&nbsp;
+          • <strong>Technical Guide:</strong> Consult <code>API_REFERENCE.md</code> in the repository root for comprehensive payload contracts.
+        </div>
+
+        <h4>Endpoints Summary Table:</h4>
+        <div style="overflow-x:auto; margin-bottom:14px;">
+          <table class="bham-data-table" style="font-size:12px; width:100%;">
+            <thead>
+              <tr><th>Method</th><th>Endpoint</th><th>Domain</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>GET</code></td><td><code>/api/v1/health</code></td><td>System</td><td>Daemon operational status, version, and active WS clients</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/state</code></td><td>State</td><td>Complete snapshot of active discovered devices and config</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/topology</code></td><td>Topology</td><td>Hierarchical plant topology vector graph</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/hardware/self-test</code></td><td>Hardware</td><td>Automated check of serial ports, NICs, and OS permissions</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/modbus/rtu</code></td><td>Scan</td><td>Start active Modbus RTU serial sweep (Phase Zero)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/modbus/tcp</code></td><td>Scan</td><td>Multi-port Modbus TCP scanning across host subnets</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/modbus/smart-scan</code></td><td>Modbus</td><td>Predictive smart register scan for holding/input registers</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/serial/sniff</code></td><td>Sniffer</td><td>Passive Zero-TX RS485 listening and Bus Health telemetry</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/diag/serial/health</code></td><td>Diagnostics</td><td>Physical layer metrics (PER %, FPS, Bus Load %)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/bacnet/ip</code></td><td>Scan</td><td>BACnet/IP Who-Is broadcast and Foreign Device registration</td></tr>
+              <tr><td><code>GET/POST</code></td><td><code>/api/v1/bacnet/devices/{id}/objects</code></td><td>BACnet</td><td>Deep hierarchical object-list exploration</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/bacnet/bbmd/tables</code></td><td>BBMD</td><td>Joint inspection of BBMD BDT and FDT tables</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/knx/ip</code></td><td>Scan</td><td>KNXnet/IP multicast UDP discovery</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/arp</code></td><td>Scan</td><td>Layer-2 promiscuous ARP sniffer</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/abort</code></td><td>Control</td><td>Emergency halt for all active scans and sniffers</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/sessions/diff</code></td><td>Intelligence</td><td>Deterministic Baseline vs Live Session comparison</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/report/pdf</code></td><td>Report</td><td>Download vector PDF commissioning report</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/report/excel</code></td><td>Report</td><td>Download 8-sheet as-built Excel workbook</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>cURL Integration Recipes:</h4>
+        <p><strong>1. Hardware Self-Test:</strong></p>
+        <pre class="bham-code-block">curl -X GET http://localhost:8765/api/v1/hardware/self-test</pre>
+
+        <p><strong>2. Trigger Modbus RTU Scan:</strong></p>
         <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/scan/modbus/rtu \\
   -H "Content-Type: application/json" \\
-  -d '{"port": "/dev/ttyUSB0", "baudrates": [9600, 19200], "id_range": [1, 2, 3]}'</pre>
+  -d '{"port": "/dev/ttyUSB0", "baudrates": [9600, 19200], "id_range": [1, 2, 3, 4, 5]}'</pre>
 
-        <p><strong>2. Query Discovered Inventory:</strong></p>
-        <pre class="bham-code-block">curl http://localhost:8765/api/v1/devices/modbus
-curl http://localhost:8765/api/v1/devices/bacnet
-curl http://localhost:8765/api/v1/devices/knx</pre>
+        <p><strong>3. Export As-Built Excel:</strong></p>
+        <pre class="bham-code-block">curl -X GET http://localhost:8765/api/v1/report/excel -o as_built_report.xlsx</pre>
 
-        <p><strong>3. Emergency Abort:</strong></p>
-        <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/scan/abort</pre>
+        <h4>Live WebSocket Telemetry:</h4>
+        <p>Connect to: <code>ws://&lt;host&gt;:8765/api/v1/ws</code><br>
+        Events emitted: <code>scan_progress</code>, <code>device_found</code>, <code>bus_health_update</code>, <code>log_record</code>.</p>
       `,
       topology: `
         <h3>10. Interactive Topological Map &amp; Advanced Explorers</h3>
@@ -475,6 +711,151 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
           <li><strong>BACnet Object Explorer:</strong> Hierarchically navigate all instantiated objects (AI, AO, AV, BI, BO, BV, MSI, MSO, Schedules, Trend Logs) with Present Value and Status Flags.</li>
           <li><strong>Modbus Smart Register Scan:</strong> Heuristic discovery of standard holding, input, and coil registers with automatic integer, float, and hex decoding.</li>
         </ul>
+      `,
+      diff: `
+        <h3>11. Intelligence &amp; Session Diff ("Before vs After")</h3>
+        <p>The <strong>Session Diff</strong> engine compares a stored baseline session ("Before") against the active live session ("After") or between any two saved sessions.</p>
+
+        <h4>Key Capabilities:</h4>
+        <ul>
+          <li><strong>Multi-Protocol Identity:</strong> MAC-based tracking for Ethernet devices, Modbus Slave IDs, BACnet Device Instances, and KNX Physical Addresses.</li>
+          <li><strong>Variation Statuses:</strong>
+            <ul>
+              <li><span class="badge" style="background:#22c55e; color:#000;">ADDED</span> New hardware discovered on site not present in the baseline.</li>
+              <li><span class="badge" style="background:#ef4444; color:#fff;">REMOVED</span> Baseline device now unreachable or disconnected.</li>
+              <li><span class="badge" style="background:#eab308; color:#000;">MODIFIED</span> Device present in both but with altered parameters (IP, baudrate, firmware, latency).</li>
+              <li><span class="badge" style="background:#64748b; color:#fff;">UNCHANGED</span> Stable, identical hardware.</li>
+            </ul>
+          </li>
+          <li><strong>Side-by-Side Visualizer:</strong> Interactive modal displaying old values strikethrough in red and new values highlighted in green.</li>
+          <li><strong>Exportable Diff:</strong> Instant download in standard <code>.csv</code> and <code>.json</code> formats.</li>
+        </ul>
+      `,
+      bbmd: `
+        <h3>12. BBMD Traversal &amp; BACnet/IP Routers</h3>
+        <p>In enterprise BMS installations spanning multiple VLANs or Layer-3 subnets, standard Who-Is UDP broadcasts do not traverse network routers.</p>
+
+        <h4>BHAM Solution:</h4>
+        <ul>
+          <li><strong>Foreign Device Registration:</strong> BHAM registers as a <em>Foreign Device</em> with the site BBMD router using configurable TTL (default 60s), forwarding discovery requests across subnets.</li>
+          <li><strong>BDT &amp; FDT Inspection:</strong>
+            <ul>
+              <li><strong>Broadcast Distribution Table (BDT):</strong> List of peer BBMD routers routing broadcasts across facility subnets.</li>
+              <li><strong>Foreign Device Table (FDT):</strong> List of active registered IP clients with port and remaining TTL countdown.</li>
+            </ul>
+          </li>
+          <li><strong>Topology Mapping:</strong> Remote devices are badged with <code>BBMD</code> and nested under their respective router node in the Topological Map.</li>
+        </ul>
+      `,
+      selftest: `
+        <h3>13. Hardware Self-Test &amp; Remote LAN Access</h3>
+        <p>BHAM incorporates automated self-diagnostics and built-in capabilities for remote field commissioning.</p>
+
+        <h4>⚡ Hardware Self-Test:</h4>
+        <p>Accessible from Settings (<em>Adapters &amp; Ports &gt; ⚡ Run Self-Test</em>) or via API <code>GET /api/v1/hardware/self-test</code>:</p>
+        <ul>
+          <li><strong>RS485 Serial Port:</strong> Live probe verifying port open/close cycles and timing latency in milliseconds.</li>
+          <li><strong>Network Interfaces:</strong> Default gateway route verification and broadcast socket binding check.</li>
+          <li><strong>Operating System Privileges:</strong> Confirms <code>dialout</code> group membership (Linux), Administrator rights (Windows), and packet capture capabilities (<code>cap_net_raw</code> or Npcap).</li>
+        </ul>
+
+        <h4>🌐 Remote Tablet / PC Access over LAN:</h4>
+        <p>When running BHAM on a portable Raspberry Pi or headless panel PC inside an electrical panel:</p>
+        <ul>
+          <li>The daemon automatically listens on <code>0.0.0.0:8765</code>, allowing connection from any tablet or laptop on the technician Wi-Fi or LAN.</li>
+          <li>LAN IP addresses for remote access are displayed in the Settings modal and terminal startup log (e.g., <code>http://192.168.1.50:8765</code>).</li>
+        </ul>
+      `,
+      field_tools: `
+        <h3>14. Field Operational Tools &amp; Point Override</h3>
+        <p>The <strong>Field Tools</strong> suite enables commissioning engineers to command actuators, inverter pumps, and valves, or perform ad-hoc read/write probes directly from BHAM across physical buses or the virtual plant.</p>
+        
+        <h4>⚡ Modbus Quick Commander:</h4>
+        <ul>
+          <li><strong>Read Functions:</strong> FC01 (Coils), FC02 (Discrete Inputs), FC03 (Holding Registers), FC04 (Input Registers).</li>
+          <li><strong>Write Functions:</strong> FC05 (Single Coil), FC06 (Single Register), FC15 (Multiple Coils), FC16 (Multiple Registers).</li>
+          <li><strong>Data Types:</strong> UInt16, Int16 (signed), Float32 Big-Endian (MSW:LSW), Float32 Little-Endian (LSW:MSW), Raw Hex, Booleans.</li>
+          <li><strong>Access:</strong> <em>⚡ Field Tools</em> button in header or <em>⚡ Quick Command</em> subtab inside Modbus slave inspector.</li>
+        </ul>
+
+        <h4>⚡ BACnet Point Commander &amp; Priority Array:</h4>
+        <ul>
+          <li><strong>Manual Override:</strong> Direct write to <code>analogOutput</code>, <code>analogValue</code>, <code>binaryOutput</code>, <code>binaryValue</code> at selectable priority (default <strong>Priority 8 – Manual Operator</strong>).</li>
+          <li><strong>Relinquish Command:</strong> Release priority slot back to null, allowing autonomous plant logic to resume control.</li>
+          <li><strong>Access:</strong> <em>⚡ Override</em> button next to each object in BACnet Object Explorer.</li>
+        </ul>
+      `,
+      simulator: `
+        <h3>15. Virtual Plant Simulator (Demo Mode) &amp; Hardware Resilience</h3>
+        <p>BHAM features a built-in virtual plant simulator for offline engineering, pre-commissioning verification, and live demos without physical hardware.</p>
+
+        <h4>🌱 Virtual Plant Engine (Demo Mode):</h4>
+        <ul>
+          <li><strong>Activation:</strong> Header <em>DEMO MODE</em> switch, CLI flag <code>--demo</code>, environment variable <code>BHAM_DEMO=1</code>, or REST endpoint <code>/api/v1/demo/toggle</code>.</li>
+          <li><strong>Simulated Equipment:</strong> Climaveneta Chiller Modbus RTU, Grundfos Inverter Pump Modbus RTU, Schneider PM5350 Power Meter Modbus TCP, AHU 01 BACnet/IP (12 objects), VAV Zone North BACnet/IP (4 objects), KNX gateways/thermostats, and ARP network hosts.</li>
+          <li><strong>Dynamic Telemetry:</strong> Realistic continuous sinusoidal oscillation of water temperatures, airflow, inverter Hz, and electrical loads with real-time WebSocket telemetry pulses.</li>
+        </ul>
+
+        <h4>🛡️ Hardware Resilience &amp; Hot-Plug Auto-Recovery:</h4>
+        <ul>
+          <li><strong>Fault Tolerance:</strong> Transparent interception of accidental USB-RS485 disconnects or serial I/O errors without daemon crashes or data loss.</li>
+          <li><strong>Auto-Recovery:</strong> Background polling automatically reconnects as soon as the adapter is plugged back in, notifying the technician via non-blocking toasts.</li>
+          <li><strong>Enhanced Live Log Viewer:</strong> Multi-level filtering (<code>ALL</code>, <code>DEBUG</code>, <code>INFO</code>, <code>WARN</code>, <code>ERROR</code>), instant search filter, and smooth auto-scroll.</li>
+        </ul>
+      `,
+      profiles: `
+        <h3>16. Industrial Modbus Profiles Library &amp; Custom Manager</h3>
+        <p>BHAM incorporates a comprehensive offline register profiles library to eliminate flipping through manufacturer PDF manuals during field commissioning.</p>
+
+        <h4>📚 Included Industrial Profiles:</h4>
+        <ul>
+          <li><strong>Power Meters:</strong> ABB B23, Carlo Gavazzi EM24 &amp; EM111, IME Nemo 96, Schneider Acti9 iEM3150 &amp; PM5350, Siemens SENTRON PAC3200.</li>
+          <li><strong>Heat &amp; Flow Meters:</strong> Belimo Energy Valve (EV), Isoil ISOMAG, Diehl/Hydrometer Sharky 775, Emerson Rosemount 8712.</li>
+          <li><strong>Actuators &amp; HVAC Controllers:</strong> Belimo Modbus Damper Actuators, Trox VAV Compact, iSMA-B-4I4O I/O Module, Riello Condexa Pro Boiler, Carel pCO Controller.</li>
+        </ul>
+
+        <h4>🛠️ Custom Profiles Manager:</h4>
+        <ul>
+          <li><strong>Creation &amp; Editing:</strong> Define manufacturer, model, register address, data type (UInt16, Float32, etc.), scaling multiplier, and engineering units.</li>
+          <li><strong>JSON Import / Export:</strong> Archive and share custom profiles in open JSON format across field teams.</li>
+          <li><strong>⚡ Apply to Slave:</strong> Instantly binds the register schema to any selected Slave ID on the bus, injecting points into the active live map.</li>
+        </ul>
+      `,
+      safemode: `
+        <h3>17. Safe Mode Interlock</h3>
+        <p>Active safety interlock designed to prevent inadvertent writes and accidental overrides on critical central plant machinery.</p>
+
+        <h4>🔒 Interlocked Protection:</h4>
+        <ul>
+          <li><strong>Locked by Default:</strong> All field bus write commands (Modbus FC05/FC06/FC15/FC16 and BACnet Point Override) are locked with HTTP <code>403 Forbidden</code>.</li>
+          <li><strong>Arming Procedure:</strong> Requires specifying Field Engineer Name, Job Order / Facility reference, and authorization window duration (15, 30, 60, or 120 minutes).</li>
+          <li><strong>Auto-Disarm:</strong> Automatically locks write operations upon timer expiration or immediately when clicking <em>🔒 Disarm Now</em>.</li>
+          <li><strong>Visual Header Badge:</strong> Green locked badge or red pulsating indicator with technician name and live countdown timer.</li>
+        </ul>
+      `,
+      audit: `
+        <h3>18. Crash-Proof Audit Journal (WAL &amp; SHA-256 Chaining)</h3>
+        <p>Forensic tamper-evident logging of all field operations utilizing Write-Ahead Logging (WAL) and SHA-256 cryptographic chaining.</p>
+
+        <h4>🛡️ Key Capabilities:</h4>
+        <ul>
+          <li><strong>Write-Ahead Intent Logging:</strong> Every write command is recorded to disk and committed with <code>os.fsync</code> before raw bytes hit the physical bus.</li>
+          <li><strong>SHA-256 Cryptographic Chain:</strong> Each journal entry incorporates the previous line's hash (<code>prev_hash</code>), generating an immutable blockchain-style audit trail.</li>
+          <li><strong>Automatic Crash Recovery:</strong> On startup following power cuts or abrupt disconnections, orphaned intents are detected and resolved automatically.</li>
+          <li><strong>Integrity Check &amp; JSON Export:</strong> One-click forensic verification across all entries and signed JSON export for official commissioning reports.</li>
+        </ul>
+      `,
+      standalone: `
+        <h3>19. Standalone Packaging (Portable / Installed) &amp; SignPath</h3>
+        <p>Dual-distribution architecture catering to portable thumb drive commissioning as well as managed enterprise workstations.</p>
+
+        <h4>📦 Runtime Execution (<code>core/paths.py</code>):</h4>
+        <ul>
+          <li><strong>Portable Mode:</strong> Detects <code>portable.flag</code> to store all databases, logs, sessions, and journals strictly inside the local executable directory.</li>
+          <li><strong>Installed Mode:</strong> Adheres to standard OS app data directories (<code>%LOCALAPPDATA%\\BHAM</code> on Windows and <code>~/.local/share/bham</code> on Linux).</li>
+          <li><strong>Windows Code Signing (SignPath):</strong> CI/CD workflow utilizing <code>SignPath/github-action-submit-signing-request@v2</code> for trusted digital signature of Windows binaries.</li>
+          <li><strong>Autonomous Linux Signing (GPG):</strong> Dedicated <code>./scripts/sign_linux.sh</code> tool to locally sign <code>.deb</code>, <code>.tar.gz</code>, and <code>SHA256SUMS.asc</code> with personal or corporate GPG keys.</li>
+        </ul>
       `
     }
   },
@@ -489,8 +870,17 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
       { id: "arp", title: "6. Sniffer Pasivo ARP" },
       { id: "maps", title: "7. Mapas BACS Help" },
       { id: "troubleshoot", title: "8. Resolución de Problemas" },
-      { id: "api", title: "9. REST API & Webhooks" },
-      { id: "topology", title: "10. Mapa Topológico & Explorer" }
+      { id: "api", title: "9. REST & WebSocket API" },
+      { id: "topology", title: "10. Mapa Topológico & Explorer" },
+      { id: "diff", title: "11. Session Diff ('Antes vs Después')" },
+      { id: "bbmd", title: "12. Travesía BBMD y Routers BACnet" },
+      { id: "selftest", title: "13. Auto-Prueba Hardware y Acceso LAN" },
+      { id: "field_tools", title: "14. Banco de Pruebas & Override" },
+      { id: "simulator", title: "15. Simulador Virtual & Resiliencia" },
+      { id: "profiles", title: "16. Biblioteca Perfiles Modbus Industriales" },
+      { id: "safemode", title: "17. Bloqueo de Seguridad (Safe Mode)" },
+      { id: "audit", title: "18. Registro de Maniobras Certificado (WAL)" },
+      { id: "standalone", title: "19. Empaquetado Standalone & SignPath" }
     ],
     content: {
       intro: `
@@ -609,8 +999,60 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
         <p>Detiene de inmediato todas las rutinas de escaneo y libera el puerto serie de forma segura.</p>
       `,
       api: `
-        <h3>9. REST API &amp; Webhooks</h3>
-        <p>Documentación Swagger interactiva disponible en <a href="/docs" target="_blank" style="color:var(--bham-modbus)">/docs</a>.</p>
+        <h3>9. Referencia REST &amp; WebSocket API</h3>
+        <p>BHAM cuenta con más de 39 endpoints RESTful y un canal WebSocket de baja latencia para la automatización de puestas en marcha y la integración con BMS de terceros.</p>
+
+        <div class="bham-callout callout-info" style="margin-bottom:14px;">
+          <strong>Documentación Interactiva y Referencia Técnica:</strong><br>
+          • <strong>Swagger UI:</strong> <a href="/docs" target="_blank" style="color:var(--bham-modbus); font-weight:600;">/docs</a> &nbsp;|&nbsp;
+          • <strong>ReDoc:</strong> <a href="/redoc" target="_blank" style="color:var(--bham-modbus); font-weight:600;">/redoc</a> &nbsp;|&nbsp;
+          • <strong>Guía Técnica:</strong> Consulta el archivo <code>API_REFERENCE.md</code> para contratos de datos JSON completos.
+        </div>
+
+        <h4>Tabla de Endpoints Principales:</h4>
+        <div style="overflow-x:auto; margin-bottom:14px;">
+          <table class="bham-data-table" style="font-size:12px; width:100%;">
+            <thead>
+              <tr><th>Método</th><th>Endpoint</th><th>Ámbito</th><th>Descripción</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>GET</code></td><td><code>/api/v1/health</code></td><td>Sistema</td><td>Estado del servicio, versión y clientes WS conectados</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/state</code></td><td>Estado</td><td>Snapshot completo de dispositivos y configuración activa</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/topology</code></td><td>Topología</td><td>Grafo vectorial jerárquico de la instalación</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/hardware/self-test</code></td><td>Hardware</td><td>Auto-prueba rápida de puertos seriales, NIC y permisos</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/modbus/rtu</code></td><td>Escaneo</td><td>Barrido activo Modbus RTU serial (Phase Zero)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/modbus/tcp</code></td><td>Escaneo</td><td>Escaneo Modbus TCP multipuerto en subredes</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/modbus/smart-scan</code></td><td>Modbus</td><td>Escaneo inteligente heurístico de registros holding/input</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/serial/sniff</code></td><td>Sniffer</td><td>Escucha pasiva RS485 Zero-TX y telemetría Bus Health</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/diag/serial/health</code></td><td>Diagnóstico</td><td>Métricas físicas RS485 (PER %, FPS, Carga de Bus %)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/bacnet/ip</code></td><td>Escaneo</td><td>Who-Is broadcast BACnet/IP y soporte Foreign Device</td></tr>
+              <tr><td><code>GET/POST</code></td><td><code>/api/v1/bacnet/devices/{id}/objects</code></td><td>BACnet</td><td>Exploración profunda jerárquica de lista de objetos</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/bacnet/bbmd/tables</code></td><td>BBMD</td><td>Lectura conjunta de tablas BDT y FDT de router BBMD</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/knx/ip</code></td><td>Scan</td><td>Descubrimiento multicast UDP KNXnet/IP</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/arp</code></td><td>Scan</td><td>Sniffer promiscuo Layer-2 ARP</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/scan/abort</code></td><td>Control</td><td>Parada de emergencia inmediata de todos los escaneos</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/v1/sessions/diff</code></td><td>Inteligencia</td><td>Comparación analítica Línea Base vs Sesión Activa</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/report/pdf</code></td><td>Reporte</td><td>Descarga de informe de ensayo en PDF vectorial</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/v1/report/excel</code></td><td>Reporte</td><td>Descarga de libro as-built en Excel de 8 hojas</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Ejemplos con cURL:</h4>
+        <p><strong>1. Auto-Prueba de Hardware:</strong></p>
+        <pre class="bham-code-block">curl -X GET http://localhost:8765/api/v1/hardware/self-test</pre>
+
+        <p><strong>2. Iniciar Escaneo Modbus RTU:</strong></p>
+        <pre class="bham-code-block">curl -X POST http://localhost:8765/api/v1/scan/modbus/rtu \\
+  -H "Content-Type: application/json" \\
+  -d '{"port": "/dev/ttyUSB0", "baudrates": [9600, 19200], "id_range": [1, 2, 3, 4, 5]}'</pre>
+
+        <p><strong>3. Exportar Excel As-Built:</strong></p>
+        <pre class="bham-code-block">curl -X GET http://localhost:8765/api/v1/report/excel -o reporte_as_built.xlsx</pre>
+
+        <h4>Canal WebSocket en Vivo:</h4>
+        <p>Conexión: <code>ws://&lt;host&gt;:8765/api/v1/ws</code><br>
+        Eventos emitidos: <code>scan_progress</code>, <code>device_found</code>, <code>bus_health_update</code>, <code>log_record</code>.</p>
       `,
       topology: `
         <h3>10. Mapa Topológico Interactivo y Exploradores Avanzados</h3>
@@ -637,6 +1079,151 @@ curl http://localhost:8765/api/v1/devices/knx</pre>
         <ul>
           <li><strong>BACnet Object Explorer:</strong> Navegación jerárquica de todos los objetos (AI, AO, AV, BI, BO, BV, MSI, MSO, horarios, tendencias) con Present Value y Status Flags.</li>
           <li><strong>Modbus Smart Scan:</strong> Escaneo predictivo de registros estándar con conversión automática a entero, flotante y hexadecimal.</li>
+        </ul>
+      `,
+      diff: `
+        <h3>11. Inteligencia y Session Diff ("Antes vs Después")</h3>
+        <p>El motor <strong>Session Diff</strong> compara analíticamente una sesión de línea base archivada ("Antes") contra el estado activo en vivo ("Después") o entre dos sesiones históricas.</p>
+
+        <h4>Capacidades Principales:</h4>
+        <ul>
+          <li><strong>Identificación Multi-Protocolo:</strong> Seguimiento por dirección MAC en Ethernet, ID de esclavo en Modbus, Device Instance en BACnet y Dirección Física en KNX.</li>
+          <li><strong>Clasificación de Cambios:</strong>
+            <ul>
+              <li><span class="badge" style="background:#22c55e; color:#000;">ADDED</span> Dispositivo nuevo detectado en campo no presente en la línea base.</li>
+              <li><span class="badge" style="background:#ef4444; color:#fff;">REMOVED</span> Dispositivo de línea base apagado o inalcanzable.</li>
+              <li><span class="badge" style="background:#eab308; color:#000;">MODIFIED</span> Dispositivo presente pero con parámetros modificados (IP, velocidad baud, firmware, latencia).</li>
+              <li><span class="badge" style="background:#64748b; color:#fff;">UNCHANGED</span> Dispositivo estable e idéntico.</li>
+            </ul>
+          </li>
+          <li><strong>Visualizador Comparativo:</strong> Modal interactivo con valores antiguos tachados en rojo y valores nuevos en verde.</li>
+          <li><strong>Exportación Inmediata:</strong> Descarga directa en formatos estándar <code>.csv</code> y <code>.json</code>.</li>
+        </ul>
+      `,
+      bbmd: `
+        <h3>12. Travesía BBMD y Routers BACnet/IP</h3>
+        <p>En redes BMS con segmentación VLAN o subredes de nivel 3, los paquetes de difusión Who-Is no atraviesan los enrutadores IP.</p>
+
+        <h4>Solución BHAM:</h4>
+        <ul>
+          <li><strong>Registro Foreign Device:</strong> BHAM se registra como <em>Foreign Device</em> ante el router BBMD especificado con TTL configurable (por defecto 60s), enrutando paquetes Who-Is a todas las subredes conectadas.</li>
+          <li><strong>Inspección de Tablas BDT y FDT:</strong>
+            <ul>
+              <li><strong>Broadcast Distribution Table (BDT):</strong> Lista de routers BBMD configurados para la distribución de broadcast.</li>
+              <li><strong>Foreign Device Table (FDT):</strong> Lista de dispositivos remotos registrados con IP, puerto y cuenta atrás de TTL.</li>
+            </ul>
+          </li>
+          <li><strong>Mapeo Topológico:</strong> Los dispositivos descubiertos a través de un enrutador se etiquetan con <code>BBMD</code> y se agrupan bajo el nodo router en el Mapa Topológico.</li>
+        </ul>
+      `,
+      selftest: `
+        <h3>13. Auto-Prueba Hardware y Acceso Remoto LAN</h3>
+        <p>BHAM incorpora herramientas avanzadas de diagnóstico de hardware y conectividad remota en campo.</p>
+
+        <h4>⚡ Auto-Prueba de Hardware (Self-Test):</h4>
+        <p>Disponible en el Centro de Configuración (<em>Adaptadores y Puertos &gt; ⚡ Ejecutar Auto-Prueba</em>) o mediante la API <code>GET /api/v1/hardware/self-test</code>:</p>
+        <ul>
+          <li><strong>Puerto Serie RS485:</strong> Verificación en tiempo real de apertura/cierre y latencia en milisegundos.</li>
+          <li><strong>Tarjetas de Red:</strong> Comprobación de ruta a puerta de enlace predeterminada y binding broadcast.</li>
+          <li><strong>Permisos del Sistema Operativo:</strong> Comprobación de pertenencia al grupo <code>dialout</code> (Linux), privilegios de Administrador (Windows) y captura de paquetes (<code>cap_net_raw</code> o Npcap).</li>
+        </ul>
+
+        <h4>🌐 Acceso Remoto desde Tablet o Portátil en Red LAN:</h4>
+        <p>Al ejecutar BHAM en una Raspberry Pi o PC industrial dentro de un cuadro eléctrico:</p>
+        <ul>
+          <li>El servidor escucha en <code>0.0.0.0:8765</code>, permitiendo el acceso web desde cualquier dispositivo conectado a la misma red local.</li>
+          <li>Las direcciones IP LAN se muestran claramente en el modal de configuración y en la consola de inicio (ej. <code>http://192.168.1.50:8765</code>).</li>
+        </ul>
+      `,
+      field_tools: `
+        <h3>14. Herramientas Operativas de Campo ("Field Tools") &amp; Override</h3>
+        <p>La suite <strong>Field Tools</strong> permite a los técnicos de puesta en marcha comandar actuadores, bombas modulantes y válvulas, o realizar lecturas y escrituras puntuales directamente desde BHAM en buses físicos o en la planta virtual.</p>
+        
+        <h4>⚡ Modbus Quick Commander:</h4>
+        <ul>
+          <li><strong>Funciones de Lectura:</strong> FC01 (Coils), FC02 (Discrete Inputs), FC03 (Holding Registers), FC04 (Input Registers).</li>
+          <li><strong>Funciones de Escritura:</strong> FC05 (Single Coil), FC06 (Single Register), FC15 (Multiple Coils), FC16 (Multiple Registers).</li>
+          <li><strong>Formatos de Datos:</strong> UInt16, Int16 (con signo), Float32 Big-Endian (MSW:LSW), Float32 Little-Endian (LSW:MSW), Hex bruto, Booleanos.</li>
+          <li><strong>Acceso:</strong> Botón <em>⚡ Herramientas de Campo</em> en cabecera o pestaña <em>⚡ Comando Rápido</em> en el inspector de esclavo Modbus.</li>
+        </ul>
+
+        <h4>⚡ BACnet Point Commander &amp; Priority Array:</h4>
+        <ul>
+          <li><strong>Override Manual:</strong> Comando en objetos <code>analogOutput</code>, <code>analogValue</code>, <code>binaryOutput</code>, <code>binaryValue</code> al nivel de prioridad seleccionado (predeterminado <strong>Prioridad 8 – Operador Manual</strong>).</li>
+          <li><strong>Comando Relinquish:</strong> Liberación inmediata de la prioridad establecida devolviendo el control al controlador local.</li>
+          <li><strong>Acceso:</strong> Botón <em>⚡ Override</em> junto a cada objeto en el Explorador de Objetos BACnet.</li>
+        </ul>
+      `,
+      simulator: `
+        <h3>15. Simulador de Planta Virtual (Modo Demo) &amp; Resiliencia</h3>
+        <p>BHAM integra un motor de simulación virtual completo para pruebas offline, capacitación y demostraciones sin hardware físico conectado.</p>
+
+        <h4>🌱 Motor de Planta Virtual (Modo Demo):</h4>
+        <ul>
+          <li><strong>Activación:</strong> Interruptor <em>MODO DEMO</em> en cabecera, flag CLI <code>--demo</code>, variable <code>BHAM_DEMO=1</code> o endpoint REST <code>/api/v1/demo/toggle</code>.</li>
+          <li><strong>Equipos Simulados:</strong> Chiller Climaveneta Modbus RTU, Bomba Inverter Grundfos Modbus RTU, Medidor Schneider PM5350 Modbus TCP, Climatizador UTA 01 BACnet/IP (12 objetos), VAV BACnet/IP (4 objetos), pasarela y sensores KNX, y hosts ARP de red.</li>
+          <li><strong>Telemetría Dinámica:</strong> Variación sinusoidal en tiempo real de temperaturas, caudales, potencias y frecuencias transmitidas vía WebSocket.</li>
+        </ul>
+
+        <h4>🛡️ Resiliencia Serie &amp; Auto-Recuperación Hot-Plug:</h4>
+        <ul>
+          <li><strong>Tollerancia a Desconexiones:</strong> Manejo transparente de desconexiones accidentales de adaptadores USB↔RS485 sin caída del servidor ni pérdida de datos.</li>
+          <li><strong>Auto-Recuperación:</strong> Reconexión automática en cuanto se reconecta el puerto serie con notificaciones toast no intrusivas.</li>
+          <li><strong>Visor de Logs Mejorado:</strong> Filtrado por niveles de severidad (<code>ALL</code>, <code>DEBUG</code>, <code>INFO</code>, <code>WARN</code>, <code>ERROR</code>) y cuadro de búsqueda en tiempo real.</li>
+        </ul>
+      `,
+      profiles: `
+        <h3>16. Biblioteca de Perfiles Modbus Industriales &amp; Gestor Custom</h3>
+        <p>BHAM integra una amplia biblioteca de perfiles Modbus estándar para evitar la consulta de manuales en papel durante las pruebas de campo.</p>
+
+        <h4>📚 Perfiles Industriales Integrados:</h4>
+        <ul>
+          <li><strong>Medidores Eléctricos:</strong> ABB B23, Carlo Gavazzi EM24 y EM111, IME Nemo 96, Schneider Acti9 iEM3150 y PM5350, Siemens SENTRON PAC3200.</li>
+          <li><strong>Contabilizadores de Energía y Caudal:</strong> Belimo Energy Valve (EV), Isoil ISOMAG, Diehl/Hydrometer Sharky 775, Emerson Rosemount 8712.</li>
+          <li><strong>Actuadores y Controladores HVAC:</strong> Actuadores Modbus Belimo, Trox VAV Compact, Módulo I/O iSMA-B-4I4O, Caldera Riello Condexa Pro, Controlador Carel pCO.</li>
+        </ul>
+
+        <h4>🛠️ Gestión de Perfiles Personalizados:</h4>
+        <ul>
+          <li><strong>Creación y Modificación:</strong> Definición de fabricante, modelo, direcciones de registro, tipo de dato (UInt16, Float32, etc.), factor de escala y unidades.</li>
+          <li><strong>Importación / Exportación JSON:</strong> Comparta y guarde perfiles personalizados en formato JSON estándar.</li>
+          <li><strong>⚡ Aplicar a Esclavo:</strong> Asignación inmediata del perfil al Slave ID seleccionado con inyección automática en el mapa de registros en vivo.</li>
+        </ul>
+      `,
+      safemode: `
+        <h3>17. Bloqueo de Seguridad para Maniobras (Safe Mode Interlock)</h3>
+        <p>Sistema de protección activa para prevenir escrituras accidentales y maniobras no deseadas en equipos críticos de planta.</p>
+
+        <h4>🔒 Protección Enclavada:</h4>
+        <ul>
+          <li><strong>Bloqueo Predeterminado:</strong> Al iniciar el sistema, todas las órdenes de escritura (Modbus FC05/FC06/FC15/FC16 y BACnet Point Override) están bloqueadas con código <code>403 Forbidden</code>.</li>
+          <li><strong>Procedimiento de Desbloqueo ("Arm"):</strong> Requiere indicar Nombre del Técnico, Orden de Trabajo / Referencia de Obra y duración de la ventana temporal (15, 30, 60 o 120 minutos).</li>
+          <li><strong>Bloqueo Automático:</strong> Al expirar el temporizador o pulsar <em>🔒 Bloquear Inmediatamente</em>, el sistema restablece la protección sin canales abiertos.</li>
+          <li><strong>Distintivo Visual:</strong> Indicador verde bloqueado o rojo parpadeante con nombre del técnico y cuenta atrás en tiempo real.</li>
+        </ul>
+      `,
+      audit: `
+        <h3>18. Registro de Maniobras Certificado (WAL &amp; Cadenas SHA-256)</h3>
+        <p>Trazabilidad forense inmutable de todas las intervenciones en campo con tecnología Write-Ahead Log (WAL) y firma criptográfica SHA-256.</p>
+
+        <h4>🛡️ Características Principales:</h4>
+        <ul>
+          <li><strong>Registro Previo (Write-Ahead):</strong> Cada orden de escritura se guarda en disco con <code>os.fsync</code> antes de emitir los bytes por la línea física.</li>
+          <li><strong>Cadena Criptográfica SHA-256:</strong> Cada entrada incluye el hash del registro anterior (<code>prev_hash</code>), creando una cadena inalterable estilo blockchain.</li>
+          <li><strong>Recuperación tras Caídas de Tensión:</strong> Al reiniciar el sistema tras un apagón o desconexión brusca, los intentos huérfanos se detectan y resuelven automáticamente.</li>
+          <li><strong>Verificación de Integridad y Exportación:</strong> Comprobación forense línea por línea y exportación del registro en JSON firmado para actas de recepción.</li>
+        </ul>
+      `,
+      standalone: `
+        <h3>19. Empaquetado Standalone (Portable / Instalador) &amp; SignPath</h3>
+        <p>Distribución dual adaptada tanto a la ejecución directa desde memoria USB como a la instalación gestionada en ordenadores de empresa.</p>
+
+        <h4>📦 Modos de Ejecución (<code>core/paths.py</code>):</h4>
+        <ul>
+          <li><strong>Modo Portable:</strong> Reconoce el archivo <code>portable.flag</code> y guarda sesiones, registros y perfiles directamente en la carpeta del ejecutable.</li>
+          <li><strong>Modo Instalado:</strong> Emplea directorios estándar del sistema operativo (<code>%LOCALAPPDATA%\\BHAM</code> en Windows y <code>~/.local/share/bham</code> en Linux).</li>
+          <li><strong>Firma Digital Windows (SignPath):</strong> Integración en GitHub Actions con <code>SignPath/github-action-submit-signing-request@v2</code> para firma autenticada de binarios.</li>
+          <li><strong>Firma Digital Autónoma Linux (GPG):</strong> Herramienta <code>./scripts/sign_linux.sh</code> para firmar localmente los paquetes <code>.deb</code>, <code>.tar.gz</code> y <code>SHA256SUMS.asc</code> con su clave GPG.</li>
         </ul>
       `
     }

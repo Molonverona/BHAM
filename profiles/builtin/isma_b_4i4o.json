@@ -1,0 +1,23 @@
+{
+  "id": "isma_b_4i4o",
+  "name": "iSMA CONTROLLI iSMA-B-4I4O-H",
+  "category": "actuator_hvac",
+  "manufacturer": "iSMA CONTROLLI",
+  "model": "iSMA-B-4I4O-H",
+  "description": "Modulo I/O distribuito con 4 ingressi digitali e 4 uscite a relè con override manuale",
+  "default_baudrate": 19200,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Digital_Input_1", "type": "discrete", "format": "bool", "unit": "", "scale": 1.0, "access": "ro", "description": "Ingresso digitale 1 (contatto pulito / conteggio impulsi)" },
+    { "address": 1, "name": "Digital_Input_2", "type": "discrete", "format": "bool", "unit": "", "scale": 1.0, "access": "ro", "description": "Ingresso digitale 2" },
+    { "address": 2, "name": "Digital_Input_3", "type": "discrete", "format": "bool", "unit": "", "scale": 1.0, "access": "ro", "description": "Ingresso digitale 3" },
+    { "address": 3, "name": "Digital_Input_4", "type": "discrete", "format": "bool", "unit": "", "scale": 1.0, "access": "ro", "description": "Ingresso digitale 4" },
+    { "address": 0, "name": "Relay_Output_1", "type": "coil", "format": "bool", "unit": "", "scale": 1.0, "access": "rw", "description": "Uscita relè 1 (contatto NO/NC 230V 3A)" },
+    { "address": 1, "name": "Relay_Output_2", "type": "coil", "format": "bool", "unit": "", "scale": 1.0, "access": "rw", "description": "Uscita relè 2" },
+    { "address": 2, "name": "Relay_Output_3", "type": "coil", "format": "bool", "unit": "", "scale": 1.0, "access": "rw", "description": "Uscita relè 3" },
+    { "address": 3, "name": "Relay_Output_4", "type": "coil", "format": "bool", "unit": "", "scale": 1.0, "access": "rw", "description": "Uscita relè 4" },
+    { "address": 40, "name": "DI1_Pulse_Counter", "type": "holding", "format": "uint32", "unit": "pulses", "scale": 1.0, "access": "rw", "description": "Contatore veloce impulsi DI1" },
+    { "address": 42, "name": "DI2_Pulse_Counter", "type": "holding", "format": "uint32", "unit": "pulses", "scale": 1.0, "access": "rw", "description": "Contatore veloce impulsi DI2" }
+  ]
+}

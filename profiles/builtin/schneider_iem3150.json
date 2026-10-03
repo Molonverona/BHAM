@@ -1,0 +1,24 @@
+{
+  "id": "schneider_iem3150",
+  "name": "Schneider Electric Acti9 iEM3150",
+  "category": "multimeter",
+  "manufacturer": "Schneider Electric",
+  "model": "Acti9 iEM3150",
+  "description": "Multimetro trifase Modbus RTU per montaggio su guida DIN 63A",
+  "default_baudrate": 19200,
+  "default_parity": "E",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 2999, "name": "V_L1_N", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione di fase L1-N" },
+    { "address": 3001, "name": "V_L2_N", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione di fase L2-N" },
+    { "address": 3003, "name": "V_L3_N", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione di fase L3-N" },
+    { "address": 3009, "name": "I_L1", "type": "holding", "format": "float32_be", "unit": "A", "scale": 1.0, "access": "ro", "description": "Corrente di linea L1" },
+    { "address": 3011, "name": "I_L2", "type": "holding", "format": "float32_be", "unit": "A", "scale": 1.0, "access": "ro", "description": "Corrente di linea L2" },
+    { "address": 3013, "name": "I_L3", "type": "holding", "format": "float32_be", "unit": "A", "scale": 1.0, "access": "ro", "description": "Corrente di linea L3" },
+    { "address": 3053, "name": "P_Total", "type": "holding", "format": "float32_be", "unit": "kW", "scale": 1.0, "access": "ro", "description": "Potenza attiva totale trifase" },
+    { "address": 3059, "name": "Q_Total", "type": "holding", "format": "float32_be", "unit": "kvar", "scale": 1.0, "access": "ro", "description": "Potenza reattiva totale" },
+    { "address": 3083, "name": "PF_Total", "type": "holding", "format": "float32_be", "unit": "", "scale": 1.0, "access": "ro", "description": "Fattore di potenza medio" },
+    { "address": 3109, "name": "Frequency", "type": "holding", "format": "float32_be", "unit": "Hz", "scale": 1.0, "access": "ro", "description": "Frequenza di rete" },
+    { "address": 3203, "name": "Active_Energy_Import", "type": "holding", "format": "int64", "unit": "Wh", "scale": 1.0, "access": "ro", "description": "Energia attiva totale importata" }
+  ]
+}

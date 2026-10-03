@@ -92,6 +92,7 @@ class SerialParams(BaseModel):
 # ── Device models ────────────────────────────────────────────────────────────
 
 class ModbusDevice(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     slave_id: int
     protocol: Protocol = Protocol.MODBUS_RTU
     # Serial context (RTU)
@@ -104,6 +105,10 @@ class ModbusDevice(BaseModel):
     response_time_ms: Optional[float] = None
     registers: dict[str, Any] = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
+    vendor_name: Optional[str] = None
+    product_name: Optional[str] = None
+    model_name: Optional[str] = None
+    device_description: Optional[str] = None
 
 
 class BACnetDevice(BaseModel):

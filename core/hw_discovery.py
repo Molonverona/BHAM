@@ -23,14 +23,17 @@ _RS485_VID_PID: set[tuple[int, Optional[int]]] = {
     (0x067B, 0x23A3), # Prolific PL2303GC
     (0x04D8, 0x000A), # Microchip USB-UART
     (0x2C7C, 0x0125), # Quectel EC25 (RS485 board)
+    (0x110A, None),   # Moxa Technologies (UPort 1110, 1130, 1150, …)
+    (0x0451, 0x3410), # Texas Instruments TI 3410 USB-UART
 }
 
-_RS485_KEYWORDS = ("rs485", "rs-485", "rs232", "uart", "serial", "ftdi",
-                   "ch340", "ch341", "cp210", "prolific", "pl2303")
+_RS485_KEYWORDS = ("rs485", "rs-485", "rs232", "rs-232", "rs422", "rs-422",
+                   "uart", "serial", "ftdi", "ch340", "ch341", "cp210",
+                   "prolific", "pl2303", "moxa", "uport", "ti3410", "1150")
 
 
 def _is_rs485_likely(port_info) -> bool:
-    """True se la porta sembra un convertitore USB↔RS485 (VID/PID o descrizione)."""
+    """True se la porta sembra un convertitore USB↔RS485 (VID/PID, dispositivo o descrizione)."""
     try:
         vid = port_info.vid
         pid = port_info.pid
@@ -40,9 +43,15 @@ def _is_rs485_likely(port_info) -> bool:
                     return True
     except AttributeError:
         pass
-    desc  = (port_info.description or "").lower()
-    hwid  = (port_info.hwid or "").lower()
-    return any(kw in f"{desc} {hwid}" for kw in _RS485_KEYWORDS)
+    desc = (getattr(port_info, "description", "") or "").lower()
+    hwid = (getattr(port_info, "hwid", "") or "").lower()
+    device = (getattr(port_info, "device", "") or "").lower()
+    if any(kw in f"{desc} {hwid}" for kw in _RS485_KEYWORDS):
+        return True
+    # Su Linux, qualsiasi interfaccia /dev/ttyUSB* o /dev/ttyACM* è un convertitore seriale esterno
+    if device.startswith(("/dev/ttyusb", "/dev/ttyacm")):
+        return True
+    return False
 
 
 def list_serial_ports() -> list[dict]:
@@ -161,8 +170,11 @@ def run_hardware_self_test(target_serial_port: Optional[str] = None) -> dict:
         port_to_test = rs485_likely[0]
     elif os_type == "windows" and ports:
         port_to_test = ports[0]["port"]
+    elif os_type == "linux":
+        usb_ports = [p["port"] for p in ports if "/dev/ttyUSB" in p["port"] or "/dev/ttyACM" in p["port"]]
+        port_to_test = usb_ports[0] if usb_ports else (ports[0]["port"] if ports else None)
     else:
-        port_to_test = None
+        port_to_test = ports[0]["port"] if ports else None
 
     serial_res = {
         "tested_port": port_to_test,

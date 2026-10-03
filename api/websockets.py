@@ -102,13 +102,20 @@ class ConnectionManager:
 
     # ── Log streaming ────────────────────────────────────────────────────────
 
-    def _enqueue_log(self, message: str) -> None:
+    def _enqueue_log(self, data: Any) -> None:
         """Called by the logger WebSocketHandler on every record."""
         if self._loop:
-            self._loop.call_soon_threadsafe(
-                self._queue.put_nowait,
-                {"event": "log", "message": message}
-            )
+            if isinstance(data, dict):
+                payload = {
+                    "event": "log",
+                    "message": data.get("message", ""),
+                    "level": data.get("level", "INFO"),
+                    "logger": data.get("logger", "bham"),
+                    "timestamp": data.get("created", 0.0),
+                }
+            else:
+                payload = {"event": "log", "message": str(data), "level": "INFO"}
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, payload)
 
     # ── State hook (registered with AppState) ────────────────────────────────
 

@@ -1,0 +1,19 @@
+{
+  "id": "belimo_actuator_modbus",
+  "name": "Belimo Servomotore Serranda (LM/NM/SM-MOD)",
+  "category": "actuator_hvac",
+  "manufacturer": "Belimo",
+  "model": "LM/NM/SM24A-MOD",
+  "description": "Servomotore per serrande di regolazione e tagliafuoco con interfaccia diretta Modbus RTU",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Setpoint_Position", "type": "holding", "format": "uint16", "unit": "%", "scale": 0.01, "access": "rw", "description": "Posizione desiderata serranda (0..10000 = 0.00..100.00%)" },
+    { "address": 1, "name": "Relative_Position", "type": "holding", "format": "uint16", "unit": "%", "scale": 0.01, "access": "ro", "description": "Feedback posizione reale misurata" },
+    { "address": 2, "name": "Absolute_Angle", "type": "holding", "format": "uint16", "unit": "°", "scale": 0.1, "access": "ro", "description": "Angolo di rotazione assoluto (0..95°)" },
+    { "address": 3, "name": "Override_Control", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "rw", "description": "Comando override prioritario: 0=Auto, 1=Open, 2=Close, 3=Mid, 4=FastClose" },
+    { "address": 4, "name": "Command_Source", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "ro", "description": "Sorgente comando attiva (Bus, Segnale analogico o Override)" },
+    { "address": 105, "name": "Malfunction_Fault_Code", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "ro", "description": "Codice diagnostico guasto (motore bloccato, corsa anomala)" }
+  ]
+}

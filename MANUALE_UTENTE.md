@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.7.0)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.8.0)
 
 ---
 
@@ -167,36 +167,58 @@ BHAM supporta l'importazione ed esportazione di mappe punti in formato JSON comp
 
 ---
 
-## 10. Riferimento REST API
-Documentazione Swagger interattiva su: `http://localhost:8765/docs`
+## 10. Riferimento REST & WebSocket API
+La suite BHAM include un set completo di API RESTful e un canale WebSocket per l'automazione, l'integrazione con sistemi terzi, script di collaudo automatico e telemetria live.
 
-| Metodo | Endpoint | Descrizione |
-|---|---|---|
-| `GET` | `/api/v1/health` | Stato del servizio e client WebSocket connessi |
-| `GET` | `/api/v1/state` | Snapshot completo di tutti i dispositivi rilevati |
-| `DELETE` | `/api/v1/state` | Reset memoria e azzeramento stato di collaudo |
-| `GET` | `/api/v1/topology` | Modello topologico ad albero gerarchico d'impianto |
-| `POST` | `/api/v1/scan/modbus/rtu` | Avvio scansione Modbus RTU seriale attiva |
-| `POST` | `/api/v1/scan/modbus/tcp` | Avvio scansione Modbus TCP su elenco host |
-| `POST` | `/api/v1/scan/modbus/smart-scan` | Smart Scan euristico registri slave Modbus |
-| `POST` | `/api/v1/scan/serial/sniff` | Avvio ascolto passivo RS485 Zero-TX (Modbus RTU & BACnet MS-TP) |
-| `GET` | `/api/v1/diag/serial/health` | Metriche Bus Health in tempo reale (PER %, FPS, Bus Load %, nodi attivi) |
-| `POST` | `/api/v1/scan/bacnet/ip` | Avvio Who-Is broadcast BACnet/IP (supporta parametri BBMD) |
-| `GET` | `/api/v1/bacnet/devices/{device_id}/objects` | Esplorazione completa oggetti dispositivo BACnet |
-| `GET` | `/api/v1/bacnet/bbmd/tables` | Interrogazione congiunta tabelle BDT ed FDT di un router BBMD |
-| `GET` | `/api/v1/bacnet/bbmd/bdt` | Lettura Broadcast Distribution Table da router BBMD |
-| `GET` | `/api/v1/bacnet/bbmd/fdt` | Lettura Foreign Device Table da router BBMD |
-| `POST` | `/api/v1/scan/knx/ip` | Avvio discovery multicast KNXnet/IP |
-| `POST` | `/api/v1/scan/arp` | Avvio sniffer promiscuo ARP L2 |
-| `POST` | `/api/v1/scan/abort` | Arresto immediato di tutte le scansioni e sniffer |
-| `POST` | `/api/v1/setup/configure` | Applicazione configurazione seriale e rete |
-| `POST` | `/api/v1/saved-sessions/save` | Salvataggio sessione di collaudo su disco |
-| `GET` | `/api/v1/saved-sessions/list` | Elenco delle sessioni archiviate |
-| `POST` | `/api/v1/saved-sessions/{file}/restore` | Ripristino di una sessione archiviata nello stato attivo |
-| `DELETE`| `/api/v1/saved-sessions/{file}` | Eliminazione di una sessione salvata |
-| `POST` | `/api/v1/sessions/diff` | Confronto differenziale analitico baseline vs collaudo corrente |
-| `GET` | `/api/v1/report/pdf` | Download diretto report di collaudo in PDF vettoriale |
-| `GET` | `/api/v1/report/excel` | Download diretto report di collaudo in formato Excel |
+- **Documentazione Swagger UI:** `http://localhost:8765/docs`
+- **Documentazione ReDoc:** `http://localhost:8765/redoc`
+- **Riferimento Tecnico Completo:** Consulta il file [API_REFERENCE.md](API_REFERENCE.md) per schemi Pydantic, contratti JSON, codici di stato ed esempi di integrazione Python/cURL.
+- **Canale WebSocket Live:** `ws://<HOST_IP>:8765/api/v1/ws`
+
+### Tabella degli Endpoint Principali
+
+| Metodo | Endpoint | Dominio | Descrizione |
+|---|---|---|---|
+| `GET` | `/api/v1/health` | Sistema | Stato del servizio, versione demone e client WebSocket connessi |
+| `GET` | `/api/v1/state` | Stato | Snapshot completo memoria: configurazione e dispositivi attivi |
+| `DELETE` | `/api/v1/state` | Stato | Reset memoria e azzeramento stato di collaudo corrente |
+| `GET` | `/api/v1/topology` | Topologia | Grafo gerarchico d'impianto (Host ➔ Canali ➔ Router ➔ Nodi) |
+| `GET` | `/api/v1/hardware/self-test` | Hardware | Collaudo automatico porte seriali, interfacce di rete e permessi OS |
+| `GET` | `/api/v1/setup/serial-ports` | Hardware | Rilevamento convertitori USB/RS485 (FTDI, CP210x, CH340, Prolific) |
+| `GET` | `/api/v1/setup/network-interfaces` | Rete | Elenco schede NIC attive, IP LAN remoti e velocità negoziata |
+| `POST` | `/api/v1/setup/configure` | Setup | Applicazione configurazione fisica seriale e rete per la sessione |
+| `GET` | `/api/v1/setup/config` | Setup | Configurazione hardware correntemente attiva |
+| `POST` | `/api/v1/scan/modbus/rtu` | Scansioni | Avvio sweep attivo Modbus RTU seriale (Phase Zero + Early Exit) |
+| `POST` | `/api/v1/scan/modbus/tcp` | Scansioni | Scansione Modbus TCP multi-porta su host singoli o subnet CIDR |
+| `POST` | `/api/v1/modbus/smart-scan` | Modbus | Smart Scan euristico predittivo registri holding/input slave Modbus |
+| `POST` | `/api/v1/diag/modbus/fc43` | Modbus | Interrogazione MEI FC43 (0x0E) per Vendor, Product e Revision |
+| `POST` | `/api/v1/scan/serial/sniff` | Sniffer | Avvio ascolto passivo RS485 Zero-TX (Modbus RTU & BACnet MS-TP) |
+| `GET` | `/api/v1/diag/serial/health` | Diagnostica | Metriche fisiche Bus Health (PER %, FPS, Bus Load %, nodi attivi) |
+| `POST` | `/api/v1/scan/bacnet/ip` | Scansioni | Who-Is broadcast BACnet/IP (Annex J) e attraversamento BBMD |
+| `GET/POST`| `/api/v1/bacnet/devices/{id}/objects` | BACnet | Esplorazione approfondita gerarchica object-list dispositivo |
+| `GET` | `/api/v1/bacnet/bbmd/tables` | BBMD | Ispezione combinata tabelle BDT ed FDT del router BBMD |
+| `GET` | `/api/v1/bacnet/bbmd/bdt` | BBMD | Lettura Broadcast Distribution Table da router BBMD |
+| `GET` | `/api/v1/bacnet/bbmd/fdt` | BBMD | Lettura Foreign Device Table da router BBMD con conto alla rovescia TTL |
+| `POST` | `/api/v1/scan/knx/ip` | Scansioni | Discovery multicast UDP KNXnet/IP con estrazione DIB e indirizzi fisici |
+| `POST` | `/api/v1/scan/arp` | Scansioni | Sniffer promiscuo Layer-2 ARP per rilevamento host silenti e OUI MAC |
+| `POST` | `/api/v1/scan/abort` | Controllo | Arresto d'emergenza immediato di tutte le scansioni e sniffer |
+| `POST` | `/api/v1/scan/abort/{session_id}` | Controllo | Arresto di un task di scansione specifico |
+| `GET` | `/api/v1/devices/modbus` | Dispositivi | Elenco dispositivi Modbus RTU/TCP censiti nello stato attivo |
+| `GET` | `/api/v1/devices/bacnet` | Dispositivi | Elenco controllori BACnet/IP censiti con metadati vendor/firmware |
+| `GET` | `/api/v1/devices/knx` | Dispositivi | Elenco gateway e attuatori KNXnet/IP censiti |
+| `GET` | `/api/v1/devices/hosts` | Dispositivi | Elenco apparati IP rilevati dallo sniffer ARP con risoluzione costruttore |
+| `POST` | `/api/v1/saved-sessions/save` | Sessioni | Salvataggio snapshot di collaudo su file JSON persistente |
+| `GET` | `/api/v1/saved-sessions/list` | Sessioni | Elenco cronologico di tutte le sessioni archiviate su disco |
+| `GET` | `/api/v1/saved-sessions/{file}` | Sessioni | Download contenuto JSON grezzo di una sessione archiviata |
+| `DELETE`| `/api/v1/saved-sessions/{file}` | Sessioni | Eliminazione permanente di una sessione archiviata |
+| `POST` | `/api/v1/saved-sessions/{file}/restore` | Sessioni | Ripristino istantaneo di una sessione salvata nello stato attivo |
+| `POST` | `/api/v1/sessions/diff` | Intelligence | Confronto analitico deterministico Baseline vs Collaudo corrente |
+| `POST` | `/api/v1/maps/import` | Mappe | Importazione mappe punti/registri compatibili BACS Help |
+| `GET` | `/api/v1/maps/export` | Mappe | Esportazione consolidata delle mappe registri caricate |
+| `GET` | `/api/v1/maps/{slave_id}` | Mappe | Ritorna l'elenco dei punti mappati per lo slave specificato |
+| `GET` | `/api/v1/report/pdf` | Report | Generazione e download verbale collaudo in PDF vettoriale |
+| `GET` | `/api/v1/report/excel` | Report | Generazione e download cartella as-built in formato Excel a 8 fogli |
+| `WS` | `/api/v1/ws` | Live Stream | Telemetria real-time (progressi scan, dispositivi, bus health, log) |
 
 ---
 
@@ -251,4 +273,191 @@ Nelle reti BACS complesse con segmentazione di sicurezza (VLAN o subnet IP separ
   - **Broadcast Distribution Table (BDT):** Rileva l'elenco dei router BBMD peer configurati per l'instradamento broadcast inter-subnet.
   - **Foreign Device Table (FDT):** Mostra l'elenco dei dispositivi remoti registrati, le rispettive porte, il TTL assegnato e il conto alla rovescia dei secondi rimanenti.
 - **Topologia di Rete Trasparente:** I dispositivi raggiunti attraverso un router vengono contrassegnati con il badge **BBMD** e raggruppati gerarchicamente sotto il nodo router corrispondente nella Mappa Topologica.
+
+---
+
+## 14. Banco Prova Operativo di Campo ("Field Operational Tools") & Override
+La versione 0.8.0 introduce la suite **Field Tools ("Banco Prova & Override")**, concepita per consentire al collaudatore di verificare attuatori, pompe, valvole e sonde direttamente dall'interfaccia o tramite API, senza ricorrere a software di terze parti o disconnettere il bus.
+
+### 14.1 Modbus Quick Commander
+Permette la lettura puntuale e la scrittura rapida di singoli registri o blocchi continui sia su linea fisica (RTU/TCP) sia su impianto simulato.
+- **Funzioni di Lettura Supportate:**
+  - `FC01 Read Coils` (0x)
+  - `FC02 Read Discrete Inputs` (1x)
+  - `FC03 Read Holding Registers` (4x)
+  - `FC04 Read Input Registers` (3x)
+- **Funzioni di Scrittura Supportate:**
+  - `FC05 Write Single Coil`
+  - `FC06 Write Single Register`
+  - `FC15 Write Multiple Coils`
+  - `FC16 Write Multiple Registers`
+- **Tipi di Dato & Decodifica Scientifica:**
+  - `UInt16` (Decimale non segnato 0..65535)
+  - `Int16` (Decimale con segno -32768..32767)
+  - `Float32 Big-Endian` (IEEE 754 standard MSW:LSW)
+  - `Float32 Little-Endian` (IEEE 754 word-swapped LSW:MSW)
+  - `Hex Raw` (Notazione esadecimale es. `0x1F40`)
+  - `Boolean / Coils` (0 / 1 / true / false)
+- **Accesso Operativo:**
+  - Clicca sul pulsante **⚡ Strumenti di Campo** in testata oppure dal modale di ispezione slave Modbus nella tab **⚡ Comando Rapido**.
+  - Risultati visualizzati in tempo reale con griglia sinottica decimale, esadecimale e float.
+
+### 14.2 BACnet Point Commander & Priority Array
+Consente il comando manuale immediato o l'override forzato su oggetti BACnet (`analogOutput`, `analogValue`, `binaryOutput`, `binaryValue`):
+- **Gestione Priority Array (1..16):**
+  - Conforme allo standard ANSI/ASHRAE 135.
+  - Priorità predefinita per collaudo: **Priorità 8 (Manual Operator)**.
+  - Supporto per priorità di emergenza (Priorità 1/2) o regolazione logica supervisore (Priorità 16).
+- **Comando di Relinquish (Rilascio Priorità):**
+  - Rilascia istantaneamente il comando al livello di priorità selezionato impostando `value = null`, permettendo al controllore locale o alla logica automatica di riprendere il controllo del campo.
+- **Accesso Diretto:**
+  - Dall'Object Explorer BACnet (`#bacnet-modal`), clicca sul pulsante **⚡ Override** accanto all'oggetto desiderato, seleziona la priorità (1..16), imposta il valore numerico o booleano e invia con feedback istantaneo.
+
+---
+
+## 15. Simulatore Virtuale d'Impianto ("Demo Mode") & Resilienza Hot-Plug
+Per sessioni di formazione, collaudo logico offline o sviluppo in assenza di hardware di campo collegato, BHAM integra un motore di simulazione virtuale completo.
+
+### 15.1 Virtual Plant Engine (Modalità Demo)
+- **Attivazione Semplice:**
+  - Da CLI: `python3 bham.py --demo`
+  - Da variabile d'ambiente: `export BHAM_DEMO=1`
+  - Da interfaccia: pulsante toggle **DEMO MODE** in testata.
+  - Via API REST: `POST /api/v1/demo/toggle` (o `/api/v1/demo/enable`, `/api/v1/demo/disable`).
+- **Dispositivi Virtuali Inclusi:**
+  1. *Chiller di Centrale Frigo:* Modbus RTU Slave 1 (`/dev/ttyUSB0`), stato compressori, temperature mandata/ritorno, setpoint, pressione R410A.
+  2. *Pompa Primaria Inverter:* Modbus RTU Slave 2 (`/dev/ttyUSB0`), modulazione frequenza (Hz), pressione differenziale (bar), portata idraulica (m³/h), potenza assorbita (kW).
+  3. *Misuratore di Energia Trifase:* Modbus TCP Slave 1 (`192.168.1.50:502`), tensione concatenata/fase, corrente per fase, potenza attiva istantanea (kW), energia cumulativa (kWh).
+  4. *Unità Trattamento Aria (UTA 01):* BACnet/IP Device ID 1001, 12 oggetti tra cui ventilatori mandata/ripresa con Priority Array, serrande aria esterna, sonde temperatura e allarmi gelo.
+  5. *Regolatore VAV Uffici:* BACnet/IP Device ID 1002, 4 oggetti tra cui portata aria ambiente e posizione servocomando.
+  6. *Infrastruttura KNXnet/IP:* Gateway DALI (`1.1.1`) e Termostato Touch Screen (`1.1.2`).
+  7. *Host di Rete IP:* 5 nodi virtuali censiti tramite ARP passivo.
+- **Telemetria Dinamica Real-Time:**
+  - Il motore esegue un loop asincrono in background che oscilla realisticamente le variabili di processo (temperature sinusoidali, potenze, portate) con emissione di impulsi WebSocket periodici.
+
+### 15.2 Resilienza Seriale Hardware & Hot-Plug Auto-Recovery
+- **Tolleranza ai Guasti e Disconnessioni Fisiche:**
+  - Protezione completa per disconnessioni accidentali del convertitore USB↔RS485 o sbalzi di massa su porta seriale.
+  - Gli errori di livello kernel (`serial.SerialException`, `OSError: [Errno 5] Input/output error`, `[Errno 19] No such device`) vengono intercettati dal layer di supervisione senza causare crash del demone o perdita dello stato d'impianto.
+  - L'evento WebSocket `hardware_disconnect` viene trasmesso istantaneamente all'interfaccia utente con notifica toast arancione non bloccante.
+  - Polling intelligente in background: appena il dispositivo seriale viene ricollegato alla medesima porta (`/dev/ttyUSB0`), il canale viene ripristinato automaticamente, inviando l'evento `hardware_reconnect` e consentendo il proseguimento immediato del collaudo.
+- **Live Log Viewer & Sistema Toast:**
+  - Filtro multi-livello dei log di console (`ALL`, `DEBUG`, `INFO`, `WARN`, `ERROR`).
+  - Ricerca testuale rapida con evidenziazione dei messaggi rilevanti.
+  - Sistema di notifiche toast non invasive con icone semantiche e auto-chiusura temporizzata.
+
+---
+
+## 16. Libreria Profili Modbus Estesa & Gestione Profili Custom
+Per eliminare la necessità di consultare manuali cartacei o file PDF dei produttori durante il collaudo in cantiere, BHAM include una ricca libreria integrata di strutture registri Modbus predefinite, arricchite con tipi di dato, fattori di scala, unità ingegneristiche e descrizioni dettagliate.
+
+### 16.1 Profili Industriali Preconfigurati (Built-in)
+- **Multimetri & Analizzatori di Rete:**
+  - **ABB B23:** Tensione di fase/concatenata, Corrente, Potenza attiva (W), Energia attiva importata (kWh).
+  - **Carlo Gavazzi EM24 & EM111:** Tensioni L-N/L-L, Correnti, Potenze di fase e trifase, Energia totale (kWh) e parziale.
+  - **IME Nemo 96:** Tensioni, Correnti di linea, Frequenza di rete (Hz), Potenze e Cosφ.
+  - **Schneider Electric Acti9 iEM3150 & PM5350:** Tensione, Corrente, Potenza attiva/reattiva, Frequenza e Contatori energetici bidirezionali.
+  - **Siemens SENTRON PAC3200:** Tensioni di fase, Correnti, Potenza attiva (kW), Potenza apparente (kVA), Cosφ e Frequenza.
+- **Contabilizzatori di Calore ed Energia / Misuratori di Portata:**
+  - **Belimo Energy Valve (EV):** Portata volumetrica istantanea (l/s), Temperatura di mandata/ritorno (°C), Salto termico Delta-T (K), Potenza termica (kW) e Posizione valvola (%).
+  - **Isoil ISOMAG:** Portata volumetrica (m³/h), Velocità di flusso (m/s) e Conteggio volume cumulato (m³).
+  - **Diehl / Hydrometer Sharky 775 (H&A):** Energia termica cumulativa (MWh), Volume cumulativo (m³), Portata (m³/h), Potenza (kW) e Temperature mandata/ritorno.
+  - **Emerson Rosemount 8712:** Portata volumetrica, Totalizzatore flusso volumetrico e Stato diagnostico sensore.
+- **Attuatori & Regolatori HVAC:**
+  - **Belimo Servocomandi Modbus (Rotativi e Lineari):** Posizione attuale (%), Setpoint comando (%), Coppia relativa, Allarmi e Ore di funzionamento.
+  - **Trox VAV Compact:** Portata effettiva (m³/h), Portata nominale, Setpoint portata d'aria (%) e Posizione serranda (%).
+  - **iSMA CONTROLLI Moduli I/O (B-4I4O):** 4 Ingressi Digitali/Contatori e 4 Uscite a Relè con forzatura e conteggio impulsi.
+  - **Riello Caldaia Condexa Pro:** Temperatura mandata/ritorno caldaia, Modulazione bruciatore (%), Pressione circuito primario (bar) e Codici di blocco/allarme.
+  - **Carel pCO (Controllore Programmabile):** Temperatura ambiente, Sonda umidità (%), Setpoint riscaldamento/raffrescamento, Stato ventilatore e allarmi generali.
+
+### 16.2 Gestione Profili Personalizzati (Custom Profiles Manager)
+L'integratore può creare nuovi profili o modificare quelli esistenti:
+- **Creazione e Modifica:** Dalla finestra *Libreria Profili*, clicca su *➕ Nuovo Profilo Custom* per inserire nome costruttore, modello e definire la tabella registri (indirizzo, nome, formato, scala, unità, permessi R/W).
+- **Importazione ed Esportazione JSON:** I profili personalizzati possono essere salvati in formato `.json`, scambiati tra colleghi o archiviati insieme alla commessa d'impianto.
+- **Applica a Slave (Apply to Slave):** Con un solo clic (*⚡ Applica*), tutti i registri definiti nel profilo vengono associati allo Slave ID selezionato sul bus, popolando automaticamente la vista live dei registri e la Mappa Registri di BHAM.
+
+---
+
+## 17. Blocco Sicurezza Manovre (Safe Mode Interlock)
+Nelle centrali termiche, sale CED o reparti ospedalieri critici, una manovra involontaria su un attuatore (es. chiusura serranda aria, stop pompa primaria o reset contatore) può causare interruzioni di servizio o danni fisici. BHAM implementa il sistema **Safe Mode Interlock** come barriera di protezione attiva.
+
+### 17.1 Principio di Funzionamento
+- **Bloccato per Default (Locked):** All'avvio del sistema, tutte le operazioni di scrittura su bus (Modbus FC05, FC06, FC15, FC16 e BACnet Point Override) sono rigorosamente inibite. Qualsiasi tentativo di scrittura genera un errore `403 Forbidden` (`SafeModeLockedError`).
+- **Procedura di Sblocco Responsabile ("Arming"):** Per effettuare manovre di collaudo, il tecnico deve cliccare sul badge in testata e compilare:
+  1. *Nome Operatore / Tecnico Responsabile:* Nome e cognome di chi esegue il test.
+  2. *Commessa / Ordine di Lavoro:* Identificativo dell'impianto o del cantiere (es. `COMM-2026-OSPEDALE-01`).
+  3. *Finestra Temporale di Sblocco:* Durata dell'autorizzazione (15, 30, 60 o 120 minuti).
+- **Scadenza Automatica e Disarmo:** Un timer in tempo reale decrementa i secondi rimanenti. Al termine della finestra temporale o cliccando su *🔒 Blocca Immediatamente (Disarm)*, il sistema si riblocca automaticamente senza lasciare canali aperti.
+- **Segnalazione Visiva Dinamica:**
+  - *Stato Protetto:* Badge verde `🛡️ Safe Mode: ATTIVO` con bordo fisso.
+  - *Stato Sbloccato:* Badge rosso con pulsazione dinamica e indicazione operatore e countdown rimanente.
+
+---
+
+## 18. Registro Manovre Certificato (Crash-Proof WAL & Chaining Crittografico SHA-256)
+Quando un tecnico esegue una manovra sul campo (es. apertura valvola al 100% o cambio setpoint), è indispensabile garantire la non-ripudiabilità e la tracciabilità forense, anche qualora il computer si spenga improvvisamente, si verifichi un blackout o il cavo venga strappato durante la scrittura.
+
+### 18.1 Write-Ahead Logging (WAL) & Flusso in Due Fasi
+BHAM adotta il pattern di registrazione preventiva Write-Ahead Log:
+1. **Registrazione Preventiva dell'Intento (Phase INTENT):** Prima di trasmettere qualsiasi pacchetto sul bus RS485 o sulla rete IP, BHAM scrive su disco (`audit_journal.jsonl`) un record contenente: identificativo univoco, timestamp ISO ad alta precisione, operatore, commessa, protocollo, slave target, registro/oggetto, valore richiesto e hash della riga precedente (`prev_hash`).
+2. **Sincronizzazione Disco Forzata (`os.fsync`):** Il sistema forza il flush dei buffer del sistema operativo su disco fisico prima di inviare i byte sul cavo, garantendo che anche in caso di blackout immediato l'intenzione sia registrata in modo indelebile.
+3. **Esecuzione Fisica sul Campo:** Il pacchetto viene inviato all'hardware.
+4. **Registrazione del Risultato (Phase RESULT):** Al ritorno della risposta (o in caso di timeout/eccezione), viene scritto un secondo record con esito (`SUCCESS` o `FAILED`), latenza effettiva in millisecondi, codice eccezione e valore verificato letto a valle.
+
+### 18.2 Catena Crittografica SHA-256 (Tamper-Evident)
+- Ogni riga del giornale include l'hash SHA-256 del record precedente (`prev_hash`).
+- L'hash dell'evento corrente (`entry_hash`) viene generato sui campi salienti concatenati con algoritmo `SHA-256`.
+- Qualsiasi modifica manuale o manomissione successiva del file invalida la catena crittografica a partire dal blocco corrotto.
+- L'endpoint `GET /api/v1/audit/verify` e il pulsante *Riverifica Integrità* eseguono una scansione forense dell'intero file verificando riga per riga la validità crittografica della sequenza.
+
+### 18.3 Recupero Automatico Intenti Orfani (Crash Recovery)
+Se il computer o il processo si arresta improvvisamente durante una scrittura (prima della registrazione del record di risultato), al riavvio successivo il motore analizza il file WAL, individua l'intento rimasto orfano e inserisce automaticamente un record di sistema `safe_mode_orphan_recovery` contrassegnato con `INTERRUPTED_BY_SHUTDOWN`.
+
+### 18.4 Esportazione Certificata
+Dal modale Registro Manovre è possibile scaricare l'intero giornale in formato JSON (`GET /api/v1/audit/export`) per allegarlo come allegato certificato al verbale di collaudo d'impianto.
+
+---
+
+## 19. Distribuzione Standalone (Portable vs Installer) & Firma Digitale SignPath
+Per soddisfare le esigenze sia dei tecnici che utilizzano chiavette USB di collaudo (senza diritti di amministratore sui PC di cantiere), sia delle aziende che richiedono installazioni gestite con MSI/Setup certificato, BHAM offre un'architettura di distribuzione duale.
+
+### 19.1 Architettura Percorsi Dinamici (`core/paths.py`)
+BHAM rileva dinamicamente il contesto di esecuzione:
+- **Modalità Portatile (Portable Mode):**
+  - Riconosciuta tramite la presenza del file sentinella `portable.flag` nella cartella dell'eseguibile o tramite l'argomento `--portable`.
+  - Tutte le cartelle operative (`sessions/`, `logs/`, `data/profiles/custom/`, file di configurazione e giornale audit) risiedono all'interno della cartella locale del programma (ideale per esecuzione diretta da pendrive USB).
+- **Modalità Installata (Installed Mode):**
+  - Quando installato tramite setup Windows o pacchetto Linux DEB, l'eseguibile risiede in una cartella di sistema in sola lettura (es. `C:\Program Files\BHAM` o `/usr/bin/bham`).
+  - BHAM salva automaticamente tutti i dati utente, sessioni e audit nei percorsi standard di sistema:
+    - *Windows:* `%LOCALAPPDATA%\BHAM\` (es. `C:\Users\<Utente>\AppData\Local\BHAM\`)
+    - *Linux:* `~/.local/share/bham/`
+- **Ambiente Bundled (PyInstaller Freeze):**
+  - I profili built-in e i file statici del frontend vengono estratti in modo trasparente dal runtime congelato `sys._MEIPASS`.
+
+### 19.2 Installer Windows Inno Setup (`installer/bham.iss`)
+- Script di compilazione per Inno Setup 6:
+  - Genera l'installer x64 `bham-setup-0.8.0.exe`.
+  - Icona applicativa dedicata, creazione collegamenti nel Menu Start e sul Desktop.
+  - Registrazione pulita nel Pannello di Controllo / App di Windows per una disinstallazione sicura senza file residui.
+
+### 19.3 Integrazione Firma Digitale SignPath (Code Signing Windows)
+Per prevenire gli avvisi bloccanti di Microsoft SmartScreen o falsi positivi degli antivirus sui laptop aziendali:
+- La pipeline di CI/CD (`.github/workflows/release.yml`) integra l'azione ufficiale `SignPath/github-action-submit-signing-request@v2`.
+- Sia l'eseguibile compilato `bham.exe` sia l'installer Inno Setup `bham-setup-0.8.0.exe` vengono sottomessi a SignPath per la firma crittografica con certificato attendibile prima della pubblicazione nella GitHub Release.
+
+### 19.4 Firma Digitale Autonoma su Linux (GPG & dpkg-sig)
+Mentre per Windows la firma è automatizzata con SignPath, per i pacchetti e rilasci Linux la firma crittografica viene gestita in piena autonomia tramite chiave GPG locale:
+- **Script dedicato `./scripts/sign_linux.sh`:**
+  - Esecuzione: `./scripts/sign_linux.sh` (chiave GPG predefinita) oppure `./scripts/sign_linux.sh <KEY_ID>`.
+  - Calcola l'impronta crittografica SHA-256 di tutti i pacchetti generati (`bham_*.deb`, `bham-linux-x64.tar.gz`) producendo la tabella `SHA256SUMS`.
+  - Firma in chiaro la tabella checksum generando `SHA256SUMS.asc`.
+  - Crea firme staccate GPG ASCII-armored (`.deb.asc`, `.tar.gz.asc`) per ciascun archivio.
+  - Se `dpkg-sig` è presente nel sistema, appone anche la firma interna al file binario `.deb`.
+- **Verifica di autenticità per il cliente/committente:**
+  ```bash
+  gpg --verify SHA256SUMS.asc
+  sha256sum --check SHA256SUMS
+  ```
+
+
 

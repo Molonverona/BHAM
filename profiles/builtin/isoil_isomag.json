@@ -1,0 +1,19 @@
+{
+  "id": "isoil_isomag",
+  "name": "Isoil Industria ISOMAG (ML210 / MS2500)",
+  "category": "energy_heat",
+  "manufacturer": "Isoil Industria",
+  "model": "ISOMAG ML210 / MS2500",
+  "description": "Misuratore di portata elettromagnetico per liquidi conduttivi ed impianti HVAC/idrici",
+  "default_baudrate": 9600,
+  "default_parity": "E",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Flow_Rate_Percent", "type": "holding", "format": "float32_be", "unit": "%", "scale": 1.0, "access": "ro", "description": "Portata percentuale su fondo scala" },
+    { "address": 2, "name": "Flow_Rate_m3h", "type": "holding", "format": "float32_be", "unit": "m³/h", "scale": 1.0, "access": "ro", "description": "Portata volumetrica istantanea" },
+    { "address": 4, "name": "Flow_Velocity", "type": "holding", "format": "float32_be", "unit": "m/s", "scale": 1.0, "access": "ro", "description": "Velocità media fluido" },
+    { "address": 6, "name": "Positive_Totalizer", "type": "holding", "format": "float32_be", "unit": "m³", "scale": 1.0, "access": "ro", "description": "Totalizzatore volume positivo diretto" },
+    { "address": 8, "name": "Negative_Totalizer", "type": "holding", "format": "float32_be", "unit": "m³", "scale": 1.0, "access": "ro", "description": "Totalizzatore volume inverso" },
+    { "address": 10, "name": "Status_Alarm_Word", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "ro", "description": "Parola di allarme: tubo vuoto, eccitazione bobine, overflow" }
+  ]
+}

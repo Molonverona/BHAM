@@ -1,0 +1,27 @@
+{
+  "id": "gavazzi_em24",
+  "name": "Carlo Gavazzi EM24 DIN",
+  "category": "multimeter",
+  "manufacturer": "Carlo Gavazzi",
+  "model": "EM24 DIN",
+  "description": "Analizzatore di energia compatto trifase con inserzione diretta o tramite TA",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "V_L1_N", "type": "input", "format": "int32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione di fase L1-N" },
+    { "address": 2, "name": "V_L2_N", "type": "input", "format": "int32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione di fase L2-N" },
+    { "address": 4, "name": "V_L3_N", "type": "input", "format": "int32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione di fase L3-N" },
+    { "address": 12, "name": "I_L1", "type": "input", "format": "int32", "unit": "A", "scale": 0.001, "access": "ro", "description": "Corrente linea 1" },
+    { "address": 14, "name": "I_L2", "type": "input", "format": "int32", "unit": "A", "scale": 0.001, "access": "ro", "description": "Corrente linea 2" },
+    { "address": 16, "name": "I_L3", "type": "input", "format": "int32", "unit": "A", "scale": 0.001, "access": "ro", "description": "Corrente linea 3" },
+    { "address": 18, "name": "P_L1", "type": "input", "format": "int32", "unit": "W", "scale": 0.1, "access": "ro", "description": "Potenza attiva L1" },
+    { "address": 20, "name": "P_L2", "type": "input", "format": "int32", "unit": "W", "scale": 0.1, "access": "ro", "description": "Potenza attiva L2" },
+    { "address": 22, "name": "P_L3", "type": "input", "format": "int32", "unit": "W", "scale": 0.1, "access": "ro", "description": "Potenza attiva L3" },
+    { "address": 40, "name": "P_Total", "type": "input", "format": "int32", "unit": "kW", "scale": 0.0001, "access": "ro", "description": "Potenza attiva totale trifase" },
+    { "address": 42, "name": "Q_Total", "type": "input", "format": "int32", "unit": "kvar", "scale": 0.0001, "access": "ro", "description": "Potenza reattiva totale" },
+    { "address": 46, "name": "PF_Total", "type": "input", "format": "int16", "unit": "", "scale": 0.001, "access": "ro", "description": "Fattore di potenza medio" },
+    { "address": 51, "name": "Frequency", "type": "input", "format": "int16", "unit": "Hz", "scale": 0.1, "access": "ro", "description": "Frequenza di linea" },
+    { "address": 54, "name": "Active_Energy_Total", "type": "input", "format": "int32", "unit": "kWh", "scale": 0.1, "access": "ro", "description": "Energia attiva totale (kWh)" }
+  ]
+}

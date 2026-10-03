@@ -11,9 +11,10 @@ from pathlib import Path
 
 block_cipher = None
 
-# Bundle frontend assets
+# Bundle frontend assets and builtin device profiles
 datas = [
     ('frontend', 'frontend'),
+    ('profiles/builtin', 'profiles/builtin'),
 ]
 
 # Ensure dynamic imports and protocols are captured
@@ -44,8 +45,15 @@ hiddenimports = [
     'aiofiles',
     'scanners.knx',
     'scanners.serial_sniffer',
+    'core.paths',
     'core.priv_check',
     'core.session_diff',
+    'core.simulator',
+    'core.audit_journal',
+    'core.safe_mode',
+    'core.profile_manager',
+    'scanners.field_tools',
+    'api.schemas',
 ]
 
 a = Analysis(

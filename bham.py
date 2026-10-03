@@ -339,7 +339,11 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="verifica solo le dipendenze")
     parser.add_argument("--no-browser", action="store_true", help="disabilita l'apertura automatica del browser")
     parser.add_argument("--no-reload", action="store_true", help="disabilita auto-reload")
+    parser.add_argument("--demo", action="store_true", help="avvia in modalità simulazione impianto virtuale (Demo Mode)")
     args = parser.parse_args()
+
+    if args.demo:
+        os.environ["BHAM_DEMO"] = "1"
 
     if sys.version_info[:2] not in SUPPORTED_PY:
         print(f"[i] Python {platform.python_version()} non supportato: cerco {supported_list()} sul sistema...")

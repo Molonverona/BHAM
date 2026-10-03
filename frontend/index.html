@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BHAM – BACS Help Auto Mapper v0.7.0</title>
-  <link rel="stylesheet" href="css/main.css?v=0.7.0" />
+  <title>BHAM – BACS Help Auto Mapper v0.8.0</title>
+  <link rel="stylesheet" href="css/main.css?v=0.8.0" />
 </head>
 <body>
 
@@ -17,10 +17,13 @@
         </svg>
         BHAM
       </span>
-      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.7.0</span>
+      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.8.0</span>
       <span id="ws-pill" class="bham-ws-pill disconnected">
         <span class="bham-ws-dot"></span> <span id="ws-pill-text">Connecting…</span>
       </span>
+      <button id="btn-demo-mode" onclick="toggleDemoMode()" class="bham-demo-pill" title="Attiva/Disattiva simulatore impianto virtuale (Demo Mode)">
+        <span class="bham-demo-dot"></span> <span id="demo-mode-text" data-i18n="demo_mode_off">DEMO: OFF</span>
+      </button>
     </div>
 
     <div class="bham-header-right">
@@ -36,6 +39,26 @@
       </button>
 
       <!-- Utility Actions -->
+      <button id="btn-field-tools" onclick="openToolsModal()" class="bham-header-btn" title="Banco Prova: Modbus Quick Commander &amp; BACnet Point Commander">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span data-i18n="btn_field_tools">Banco Prova</span>
+      </button>
+
+      <button id="btn-safe-mode" onclick="openSafeModeModal()" class="bham-header-btn bham-btn-safe-mode" title="Blocco Sicurezza Manovre di Scrittura (Safe Mode)">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        <span id="safe-mode-badge-text" data-i18n="safe_mode_disarmed_badge">🛡️ Safe Mode: ATTIVO</span>
+      </button>
+
+      <button id="btn-audit-journal" onclick="openAuditModal()" class="bham-header-btn" title="Registro Manovre Certificato (Crash-Proof WAL)">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span data-i18n="btn_audit_journal">Registro Manovre</span>
+      </button>
+
+      <button id="btn-profiles" onclick="openProfilesModal()" class="bham-header-btn" title="Libreria Profili Modbus &amp; Strutture Registri">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        <span data-i18n="btn_profiles_lib">Profili Modbus</span>
+      </button>
+
       <button id="btn-header-console" onclick="toggleConsole()" class="bham-header-btn" title="Mostra/Nascondi Console Diagnostica e Sniffer">
         <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
         <span data-i18n="btn_toggle_console">Console &amp; Sniffer</span>
@@ -792,6 +815,15 @@
       </div>
 
       <div class="bham-dock-header-right">
+        <!-- Live Log Viewer Filters -->
+        <select id="log-level-filter" onchange="filterConsoleLogs()" class="bham-dock-select" title="Filtra livello log">
+          <option value="ALL">ALL</option>
+          <option value="DEBUG">DEBUG</option>
+          <option value="INFO" selected>INFO</option>
+          <option value="WARNING">WARN</option>
+          <option value="ERROR">ERROR</option>
+        </select>
+        <input id="log-search-filter" type="text" oninput="filterConsoleLogs()" data-i18n-placeholder="console_filter_placeholder" placeholder="Cerca nei log..." class="bham-dock-search" title="Filtra testo nei log" />
         <label style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--bham-text-dim)">
           <input id="log-autoscroll" type="checkbox" checked style="accent-color:#0284c7" /> <span data-i18n="console_scroll">Scroll</span>
         </label>
@@ -1171,6 +1203,7 @@
         <div style="display:flex;gap:6px">
           <button id="btn-tab-slave-mapped" onclick="switchSlaveSubTab('mapped')" class="bham-action-btn-sm active" style="font-size:11px;font-weight:600">Mappa BACS Help</button>
           <button id="btn-tab-slave-smart" onclick="switchSlaveSubTab('smart')" class="bham-action-btn-sm" style="font-size:11px;font-weight:600">Auto-Scan Registri</button>
+          <button id="btn-tab-slave-quick" onclick="switchSlaveSubTab('quick')" class="bham-action-btn-sm" style="font-size:11px;font-weight:600">⚡ Quick Commander</button>
         </div>
         <button id="btn-run-smart-scan" onclick="runSmartRegisterScan()" class="bham-btn-action bham-btn-rtu" style="height:28px;padding:0 12px;font-size:11px;width:auto">
           ⚡ Avvia Auto-Scan
@@ -1212,6 +1245,60 @@
         </table>
       </div>
 
+      <!-- Panel 3: Quick Commander (Test & Override) -->
+      <div id="panel-slave-quick" class="hidden" style="max-height:280px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:10px">
+        <div class="bham-quick-form-grid">
+          <div>
+            <label class="bham-form-lbl">Funzione Modbus</label>
+            <select id="quick-fc-select" class="bham-select" style="height:30px;font-size:11px" onchange="handleQuickFCOptionChange()">
+              <option value="3">FC03 Read Holding Regs</option>
+              <option value="1">FC01 Read Coils</option>
+              <option value="2">FC02 Read Discrete Inputs</option>
+              <option value="4">FC04 Read Input Regs</option>
+              <option value="6">FC06 Write Single Reg</option>
+              <option value="5">FC05 Write Single Coil</option>
+              <option value="16">FC16 Write Multiple Regs</option>
+              <option value="15">FC15 Write Multiple Coils</option>
+            </select>
+          </div>
+          <div>
+            <label class="bham-form-lbl">Indirizzo (0-based)</label>
+            <input type="number" id="quick-addr-input" value="0" min="0" max="65535" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="quick-count-wrap">
+            <label class="bham-form-lbl">Quantità (Count)</label>
+            <input type="number" id="quick-count-input" value="1" min="1" max="125" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="quick-val-wrap" style="display:none">
+            <label class="bham-form-lbl">Valore da Forzare</label>
+            <input type="text" id="quick-val-input" placeholder="es. 72 o 1" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="quick-type-wrap" style="display:none">
+            <label class="bham-form-lbl">Formato Dato</label>
+            <select id="quick-type-select" class="bham-select" style="height:30px;font-size:11px">
+              <option value="uint16">UInt16 (0..65535)</option>
+              <option value="int16">Int16 Signed</option>
+              <option value="float32">Float32 IEEE (Big-Endian)</option>
+              <option value="float32_swapped">Float32 (Word Swapped)</option>
+              <option value="bool">Booleano (ON/OFF)</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button id="btn-quick-execute" onclick="executeSlaveQuickCommand()" class="bham-btn-action bham-btn-rtu" style="height:30px;font-size:11px;width:100%">
+              ⚡ Esegui
+            </button>
+          </div>
+        </div>
+
+        <div id="quick-cmd-result" class="bham-result-card" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:11px;font-weight:700;color:var(--bham-modbus)">ESITO OPERAZIONE:</span>
+            <span id="quick-res-elapsed" class="mono text-dim" style="font-size:10.5px">0.0 ms</span>
+          </div>
+          <div id="quick-res-grid" class="bham-result-grid"></div>
+        </div>
+      </div>
+
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
         <button onclick="closeSlaveModal()" class="bham-btn-secondary" style="height:30px" data-i18n="btn_close">Chiudi</button>
       </div>
@@ -1220,7 +1307,7 @@
 
   <!-- ── Modal 5: BACnet Device Object Explorer ──────────────────────────── -->
   <div id="bacnet-modal" class="bham-overlay hidden">
-    <div class="bham-modal" style="max-width:760px">
+    <div class="bham-modal" style="max-width:800px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <h2 id="bacnet-modal-title" class="bham-modal-title color-bacnet">BACnet Device Explorer #1234</h2>
         <button onclick="closeBACnetModal()" class="bham-header-btn">✕</button>
@@ -1245,12 +1332,13 @@
               <th style="width:110px">ID OGGETTO</th>
               <th style="width:90px">TIPO</th>
               <th>NOME OGGETTO</th>
-              <th style="width:140px">VALORE (PRESENT VAL)</th>
-              <th style="width:60px">UNITÀ</th>
+              <th style="width:120px">VALORE</th>
+              <th style="width:50px">UNITÀ</th>
+              <th style="width:95px;text-align:center">AZIONI</th>
             </tr>
           </thead>
           <tbody id="bacnet-modal-objects-tbody">
-            <tr><td colspan="5" class="text-dim" style="text-align:center;padding:12px">Caricamento oggetti del dispositivo...</td></tr>
+            <tr><td colspan="6" class="text-dim" style="text-align:center;padding:12px">Caricamento oggetti del dispositivo...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1462,11 +1550,513 @@
     </div>
   </div>
 
+  <!-- ── Modal 7: BACnet Point Override / Relinquish Mini-Modal ──────────── -->
+  <div id="bacnet-override-modal" class="bham-overlay hidden" style="z-index:10050">
+    <div class="bham-modal" style="max-width:440px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h3 class="bham-modal-title color-bacnet" style="font-size:14px;display:flex;align-items:center;gap:6px">
+          ⚡ <span data-i18n="bacnet_override_title">BACnet Point Commander</span>
+        </h3>
+        <button onclick="closeBACnetOverrideModal()" class="bham-header-btn">✕</button>
+      </div>
+
+      <div style="margin:10px 0;padding:8px 10px;background:var(--bham-bg-surface-elevated);border:1px solid var(--bham-border);border-radius:var(--bham-radius)">
+        <div style="font-size:10.5px;color:var(--bham-text-dim);font-weight:600">OGGETTO TARGET:</div>
+        <div id="ov-target-label" class="mono" style="font-size:12.5px;font-weight:700;color:var(--bham-text-main);margin-top:2px">analogOutput:1</div>
+        <div id="ov-current-val" style="font-size:11px;color:var(--bham-text-dim);margin-top:2px">Valore attuale: —</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label class="bham-form-lbl" data-i18n="bacnet_new_value_lbl">Nuovo Valore da Forzare</label>
+          <input type="text" id="ov-new-value-input" placeholder="es. 45.0, active, 1" class="bham-input mono" style="height:32px" />
+        </div>
+
+        <div>
+          <label class="bham-form-lbl" data-i18n="bacnet_priority_lbl">Livello Priorità (Priority Array)</label>
+          <select id="ov-priority-select" class="bham-select" style="height:32px">
+            <option value="8" selected>Priorità 8: Operatore Manuale (Standard)</option>
+            <option value="1">Priorità 1: Manual Life Safety (Emergenza)</option>
+            <option value="2">Priorità 2: Automatic Life Safety</option>
+            <option value="5">Priorità 5: Evento Critico / Allarme</option>
+            <option value="6">Priorità 6: Minimo On/Off</option>
+            <option value="9">Priorità 9: Regolazione PID</option>
+            <option value="10">Priorità 10: Controllo Generale</option>
+            <option value="16">Priorità 16: Baseline / Default</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="ov-status-msg" style="display:none;margin-top:10px;padding:6px 10px;border-radius:4px;font-size:11px"></div>
+
+      <div style="display:flex;justify-content:space-between;margin-top:14px;gap:8px">
+        <button onclick="executeBACnetRelinquish()" class="bham-btn-secondary" style="height:32px;font-size:11px;color:#ef4444" data-i18n="btn_relinquish">
+          ✕ Rilascia (Relinquish)
+        </button>
+        <div style="display:flex;gap:6px">
+          <button onclick="closeBACnetOverrideModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_cancel">Annulla</button>
+          <button onclick="executeBACnetOverride()" class="bham-btn-action bham-btn-bacnet" style="height:32px;width:auto;padding:0 14px" data-i18n="btn_force_value">
+            ⚡ Forza Valore
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal 8: Unified Field Tools ("Banco Prova & Override") ──────────── -->
+  <div id="tools-modal" class="bham-overlay hidden">
+    <div class="bham-modal" style="max-width:760px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h2 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:7px">
+          <svg class="bham-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span data-i18n="tools_modal_title">Banco Prova &amp; Override di Campo</span>
+        </h2>
+        <button onclick="closeToolsModal()" class="bham-header-btn">✕</button>
+      </div>
+      <p style="font-size:11px;color:var(--bham-text-dim);margin:2px 0 10px 0" data-i18n="tools_modal_sub">
+        Strumenti operativi per collaudo puntuale: lettura/forzatura registri Modbus con decodifica ingegneristica e override uscite BACnet con Priority Array.
+      </p>
+
+      <!-- Tool Sub-tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <button id="btn-tool-tab-modbus" onclick="switchToolTab('modbus')" class="bham-action-btn-sm active" style="font-size:11.5px;font-weight:600">
+          Modbus Quick Commander
+        </button>
+        <button id="btn-tool-tab-bacnet" onclick="switchToolTab('bacnet')" class="bham-action-btn-sm" style="font-size:11.5px;font-weight:600">
+          BACnet Point Commander
+        </button>
+      </div>
+
+      <!-- Tab 1: Modbus Quick Commander -->
+      <div id="panel-tool-modbus">
+        <div class="bham-quick-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))">
+          <div>
+            <label class="bham-form-lbl">Protocollo</label>
+            <select id="tool-modbus-proto" class="bham-select" style="height:30px;font-size:11px" onchange="handleToolModbusProtoChange()">
+              <option value="rtu">Modbus RTU (Seriale)</option>
+              <option value="tcp">Modbus TCP (Ethernet)</option>
+            </select>
+          </div>
+          <div id="tool-modbus-port-wrap">
+            <label class="bham-form-lbl">Porta Seriale RS485</label>
+            <input type="text" id="tool-modbus-port" value="/dev/ttyUSB0" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="tool-modbus-ip-wrap" style="display:none">
+            <label class="bham-form-lbl">Indirizzo IP Host</label>
+            <input type="text" id="tool-modbus-ip" placeholder="192.168.1.50" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div>
+            <label class="bham-form-lbl">Slave ID (1-247)</label>
+            <input type="number" id="tool-modbus-slave" value="1" min="1" max="247" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div>
+            <label class="bham-form-lbl">Funzione Modbus</label>
+            <select id="tool-modbus-fc" class="bham-select" style="height:30px;font-size:11px" onchange="handleToolModbusFCOptionChange()">
+              <option value="3">FC03 Read Holding Regs</option>
+              <option value="1">FC01 Read Coils</option>
+              <option value="2">FC02 Read Discrete Inputs</option>
+              <option value="4">FC04 Read Input Regs</option>
+              <option value="6">FC06 Write Single Reg</option>
+              <option value="5">FC05 Write Single Coil</option>
+              <option value="16">FC16 Write Multiple Regs</option>
+              <option value="15">FC15 Write Multiple Coils</option>
+            </select>
+          </div>
+          <div>
+            <label class="bham-form-lbl">Indirizzo Registro (0-based)</label>
+            <input type="number" id="tool-modbus-addr" value="0" min="0" max="65535" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="tool-modbus-count-wrap">
+            <label class="bham-form-lbl">Quantità (Count)</label>
+            <input type="number" id="tool-modbus-count" value="1" min="1" max="125" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="tool-modbus-val-wrap" style="display:none">
+            <label class="bham-form-lbl">Valore da Scrivere</label>
+            <input type="text" id="tool-modbus-val" placeholder="es. 72 o 21.5" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="tool-modbus-type-wrap" style="display:none">
+            <label class="bham-form-lbl">Codifica Dato</label>
+            <select id="tool-modbus-datatype" class="bham-select" style="height:30px;font-size:11px">
+              <option value="uint16">UInt16 (0..65535)</option>
+              <option value="int16">Int16 Signed (-32768..32767)</option>
+              <option value="float32">Float32 IEEE (Big-Endian)</option>
+              <option value="float32_swapped">Float32 (Word Swapped)</option>
+              <option value="bool">Booleano (ON/OFF)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:6px">
+          <button onclick="executeToolModbusCommand()" class="bham-btn-action bham-btn-rtu" style="height:32px;font-size:11.5px;width:auto;padding:0 18px">
+            ⚡ Esegui Comando Modbus
+          </button>
+        </div>
+
+        <div id="tool-modbus-result" class="bham-result-card" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:11px;font-weight:700;color:var(--bham-modbus)">ESITO OPERAZIONE:</span>
+            <span id="tool-modbus-elapsed" class="mono text-dim" style="font-size:10.5px">0.0 ms</span>
+          </div>
+          <div id="tool-modbus-res-grid" class="bham-result-grid"></div>
+        </div>
+      </div>
+
+      <!-- Tab 2: BACnet Point Commander -->
+      <div id="panel-tool-bacnet" class="hidden">
+        <div class="bham-quick-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))">
+          <div>
+            <label class="bham-form-lbl">Device Instance ID</label>
+            <input type="number" id="tool-bacnet-devid" value="1001" min="0" max="4194303" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div>
+            <label class="bham-form-lbl">Tipo Oggetto</label>
+            <select id="tool-bacnet-objtype" class="bham-select" style="height:30px;font-size:11px">
+              <option value="analogOutput">analogOutput</option>
+              <option value="binaryOutput">binaryOutput</option>
+              <option value="multiStateOutput">multiStateOutput</option>
+              <option value="analogValue">analogValue</option>
+              <option value="binaryValue">binaryValue</option>
+              <option value="multiStateValue">multiStateValue</option>
+            </select>
+          </div>
+          <div>
+            <label class="bham-form-lbl">Istanza Oggetto</label>
+            <input type="number" id="tool-bacnet-instance" value="1" min="0" max="4194303" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div>
+            <label class="bham-form-lbl">Valore da Forzare</label>
+            <input type="text" id="tool-bacnet-val" placeholder="es. 35.0, active, 1" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div>
+            <label class="bham-form-lbl">Priorità</label>
+            <select id="tool-bacnet-priority" class="bham-select" style="height:30px;font-size:11px">
+              <option value="8" selected>8: Operatore Manuale</option>
+              <option value="1">1: Emergenza</option>
+              <option value="5">5: Allarme Critico</option>
+              <option value="10">10: Controllo Generale</option>
+              <option value="16">16: Baseline</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;margin-top:6px;gap:8px">
+          <button onclick="executeToolBACnetRelinquish()" class="bham-btn-secondary" style="height:32px;font-size:11.5px;color:#ef4444" data-i18n="btn_relinquish">
+            ✕ Rilascia (Relinquish)
+          </button>
+          <button onclick="executeToolBACnetOverride()" class="bham-btn-action bham-btn-bacnet" style="height:32px;font-size:11.5px;width:auto;padding:0 18px" data-i18n="btn_force_value">
+            ⚡ Forza Valore
+          </button>
+        </div>
+
+        <div id="tool-bacnet-result" class="bham-result-card" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:11px;font-weight:700;color:var(--bham-bacnet)">ESITO OPERAZIONE:</span>
+            <span id="tool-bacnet-elapsed" class="mono text-dim" style="font-size:10.5px">0.0 ms</span>
+          </div>
+          <div id="tool-bacnet-res-msg" style="font-size:12px;margin-top:6px;color:var(--bham-text-main)"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;border-top:1px solid var(--bham-border);padding-top:10px">
+        <button onclick="closeToolsModal()" class="bham-btn-secondary" style="height:30px" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: SAFE MODE INTERLOCK
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-safe-mode" class="bham-modal hidden" onclick="if(event.target===this)closeSafeModeModal()">
+    <div class="bham-modal-box" style="max-width:540px">
+      <div class="bham-modal-header">
+        <div>
+          <h3 class="bham-modal-title" data-i18n="safe_mode_modal_title">Blocco Sicurezza Manovre (Safe Mode)</h3>
+          <p class="bham-modal-sub" data-i18n="safe_mode_modal_sub">Protezione interbloccata per evitare forzature accidentali su regolatori e contatori d'impianto.</p>
+        </div>
+        <button onclick="closeSafeModeModal()" class="bham-modal-close">&times;</button>
+      </div>
+
+      <div id="safe-mode-armed-view" class="hidden" style="padding:12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:6px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:24px">⚠️</span>
+          <div>
+            <div style="font-weight:700;color:#ef4444;font-size:13px">SAFE MODE SBLOCCATO</div>
+            <div style="font-size:11.5px;color:var(--bham-text-main)">Operatore: <strong id="sm-active-op">-</strong> | Commessa: <strong id="sm-active-job">-</strong></div>
+            <div style="font-size:11.5px;color:var(--bham-text-dim)">Scadenza automatica tra: <strong id="sm-active-countdown" class="mono">--:--</strong></div>
+          </div>
+        </div>
+        <div style="margin-top:12px;text-align:right">
+          <button onclick="executeDisarmSafeMode()" class="bham-btn-secondary" style="color:#ef4444;font-weight:700" data-i18n="btn_disarm_safe_mode">
+            🔒 Blocca Immediatamente (Disarm)
+          </button>
+        </div>
+      </div>
+
+      <div id="safe-mode-disarmed-view">
+        <div class="bham-form-group">
+          <label class="bham-form-lbl" data-i18n="safe_mode_op_lbl">Nome Operatore / Tecnico *</label>
+          <input type="text" id="sm-input-operator" class="bham-input" placeholder="es. Mario Rossi (Tecnico Certificato)" />
+        </div>
+        <div class="bham-form-group" style="margin-top:10px">
+          <label class="bham-form-lbl" data-i18n="safe_mode_job_lbl">Commessa / Impianto / Ordine di Lavoro *</label>
+          <input type="text" id="sm-input-job" class="bham-input" placeholder="es. COMM-2026-OSPEDALE-01" />
+        </div>
+        <div class="bham-form-group" style="margin-top:10px">
+          <label class="bham-form-lbl" data-i18n="safe_mode_duration_lbl">Finestra Temporale di Sblocco</label>
+          <select id="sm-select-duration" class="bham-select">
+            <option value="15">15 Minuti</option>
+            <option value="30" selected>30 Minuti (Consigliato)</option>
+            <option value="60">60 Minuti (1 Ora)</option>
+            <option value="120">120 Minuti (2 Ore)</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+          <button onclick="closeSafeModeModal()" class="bham-btn-secondary" data-i18n="btn_close">Chiudi</button>
+          <button onclick="executeArmSafeMode()" class="bham-btn-action bham-btn-rtu" data-i18n="btn_arm_safe_mode">
+            🔓 Sblocca Scrittura (Arm)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: AUDIT JOURNAL (Crash-Proof WAL)
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-audit" class="bham-modal hidden" onclick="if(event.target===this)closeAuditModal()">
+    <div class="bham-modal-box" style="max-width:960px">
+      <div class="bham-modal-header">
+        <div>
+          <h3 class="bham-modal-title" data-i18n="audit_modal_title">Registro Manovre Certificato (Crash-Proof WAL)</h3>
+          <p class="bham-modal-sub" data-i18n="audit_modal_sub">Tracciabilità forense append-only con sigillo crittografico SHA-256 e registrazione preventiva (Write-Ahead Log).</p>
+        </div>
+        <button onclick="closeAuditModal()" class="bham-modal-close">&times;</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bham-bg-sub);border:1px solid var(--bham-border);border-radius:6px;margin-bottom:12px">
+        <div id="audit-integrity-badge" style="font-size:12px;font-weight:700">
+          Verifica integrità in corso...
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="refreshAuditJournal()" class="bham-btn-secondary" style="height:28px;font-size:11px" data-i18n="btn_verify_audit">
+            Riverifica Integrità
+          </button>
+          <button onclick="exportAuditJournal()" class="bham-btn-secondary" style="height:28px;font-size:11px" data-i18n="btn_export_audit">
+            Esporta Audit JSON
+          </button>
+        </div>
+      </div>
+
+      <div style="max-height:420px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:6px">
+        <table class="bham-table" style="width:100%;font-size:11px">
+          <thead>
+            <tr>
+              <th data-i18n="audit_col_id">ID</th>
+              <th data-i18n="audit_col_time">Timestamp</th>
+              <th data-i18n="audit_col_op">Operatore / Commessa</th>
+              <th data-i18n="audit_col_action">Azione</th>
+              <th data-i18n="audit_col_target">Target</th>
+              <th data-i18n="audit_col_values">Valori</th>
+              <th data-i18n="audit_col_status">Stato</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            <tr><td colspan="7" class="text-center text-dim" style="padding:16px">Nessuna manovra registrata.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:14px">
+        <button onclick="closeAuditModal()" class="bham-btn-secondary" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: PROFILES LIBRARY & CUSTOM MANAGER
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-profiles" class="bham-modal hidden" onclick="if(event.target===this)closeProfilesModal()">
+    <div class="bham-modal-box" style="max-width:920px">
+      <div class="bham-modal-header">
+        <div>
+          <h3 class="bham-modal-title" data-i18n="profiles_modal_title">Libreria Profili Modbus & Strutture Registri</h3>
+          <p class="bham-modal-sub" data-i18n="profiles_modal_sub">Profili industriali preconfigurati per multimetri, contabilizzatori, attuatori e controllori HVAC.</p>
+        </div>
+        <button onclick="closeProfilesModal()" class="bham-modal-close">&times;</button>
+      </div>
+
+      <!-- Categories Filter Tabs -->
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bham-border);padding-bottom:8px;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;gap:6px">
+          <button class="bham-tab-btn active" data-prof-cat="all" onclick="filterProfilesCategory('all')">Tutti</button>
+          <button class="bham-tab-btn" data-prof-cat="multimeter" onclick="filterProfilesCategory('multimeter')">Multimetri</button>
+          <button class="bham-tab-btn" data-prof-cat="energy_heat" onclick="filterProfilesCategory('energy_heat')">Contabilizzatori</button>
+          <button class="bham-tab-btn" data-prof-cat="actuator_hvac" onclick="filterProfilesCategory('actuator_hvac')">Attuatori & HVAC</button>
+          <button class="bham-tab-btn" data-prof-cat="custom" onclick="filterProfilesCategory('custom')">Personalizzati</button>
+        </div>
+        <button onclick="openNewProfileModal()" class="bham-btn-action bham-btn-rtu" style="height:28px;font-size:11px;padding:0 12px" data-i18n="btn_new_custom_profile">
+          ➕ Nuovo Profilo Custom
+        </button>
+      </div>
+
+      <!-- Profiles Grid -->
+      <div id="profiles-grid-container" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(270px, 1fr));gap:10px;max-height:440px;overflow-y:auto;padding:2px">
+        <!-- Rendered by JS -->
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;border-top:1px solid var(--bham-border);padding-top:10px">
+        <button onclick="closeProfilesModal()" class="bham-btn-secondary" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: INSPECT PROFILE REGISTERS
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-profile-inspect" class="bham-modal hidden" onclick="if(event.target===this)closeProfileInspectModal()">
+    <div class="bham-modal-box" style="max-width:800px">
+      <div class="bham-modal-header">
+        <div>
+          <h3 id="inspect-profile-name" class="bham-modal-title">Dettaglio Profilo</h3>
+          <p id="inspect-profile-desc" class="bham-modal-sub"></p>
+        </div>
+        <button onclick="closeProfileInspectModal()" class="bham-modal-close">&times;</button>
+      </div>
+
+      <div style="max-height:360px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:6px">
+        <table class="bham-table" style="width:100%;font-size:11px">
+          <thead>
+            <tr>
+              <th>Indirizzo</th>
+              <th>Nome Punto</th>
+              <th>Tipo</th>
+              <th>Formato</th>
+              <th>Unità</th>
+              <th>Scala</th>
+              <th>Accesso</th>
+              <th>Descrizione</th>
+            </tr>
+          </thead>
+          <tbody id="inspect-profile-points-body">
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;margin-top:14px">
+        <button id="btn-inspect-apply" onclick="promptApplyCurrentProfile()" class="bham-btn-action bham-btn-rtu" style="height:30px;font-size:11.5px">
+          ⚡ Applica a Slave
+        </button>
+        <button onclick="closeProfileInspectModal()" class="bham-btn-secondary" data-i18n="btn_close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: APPLY PROFILE TO SLAVE
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-apply-profile" class="bham-modal hidden" onclick="if(event.target===this)closeApplyProfileModal()">
+    <div class="bham-modal-box" style="max-width:460px">
+      <div class="bham-modal-header">
+        <div>
+          <h3 class="bham-modal-title" data-i18n="profile_apply_modal_title">Applica Profilo su Slave Modbus</h3>
+          <p id="apply-profile-sub" class="bham-modal-sub"></p>
+        </div>
+        <button onclick="closeApplyProfileModal()" class="bham-modal-close">&times;</button>
+      </div>
+
+      <div class="bham-form-group">
+        <label class="bham-form-lbl" data-i18n="profile_target_slave_lbl">Seleziona Slave ID Target (1..247)</label>
+        <select id="apply-slave-select" class="bham-select" style="font-family:monospace">
+        </select>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button onclick="closeApplyProfileModal()" class="bham-btn-secondary" data-i18n="btn_close">Annulla</button>
+        <button onclick="executeApplyProfile()" class="bham-btn-action bham-btn-rtu" data-i18n="btn_confirm_apply">
+          Conferma e Applica Mappa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: CREATE CUSTOM PROFILE
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-new-profile" class="bham-modal hidden" onclick="if(event.target===this)closeNewProfileModal()">
+    <div class="bham-modal-box" style="max-width:760px">
+      <div class="bham-modal-header">
+        <div>
+          <h3 class="bham-modal-title">Nuovo Profilo Modbus Personalizzato</h3>
+          <p class="bham-modal-sub">Crea un nuovo profilo con i registri del tuo dispositivo e salvalo nella libreria locale.</p>
+        </div>
+        <button onclick="closeNewProfileModal()" class="bham-modal-close">&times;</button>
+      </div>
+
+      <div class="bham-quick-form-grid" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr))">
+        <div>
+          <label class="bham-form-lbl">Nome Dispositivo *</label>
+          <input type="text" id="cust-prof-name" placeholder="es. Pompa Calore ABC" class="bham-input" />
+        </div>
+        <div>
+          <label class="bham-form-lbl">Produttore / Brand</label>
+          <input type="text" id="cust-prof-mfg" placeholder="es. Clivet, Daikin, ecc." class="bham-input" />
+        </div>
+        <div>
+          <label class="bham-form-lbl">Modello</label>
+          <input type="text" id="cust-prof-model" placeholder="es. Serie WRN" class="bham-input" />
+        </div>
+        <div>
+          <label class="bham-form-lbl">Categoria</label>
+          <select id="cust-prof-cat" class="bham-select">
+            <option value="custom">Personalizzato</option>
+            <option value="multimeter">Multimetro</option>
+            <option value="energy_heat">Contabilizzatore</option>
+            <option value="actuator_hvac">Attuatore & HVAC</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;border-top:1px solid var(--bham-border);padding-top:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:700">Mappa Registri (Punti)</span>
+          <button onclick="addCustomPointRow()" class="bham-btn-secondary" style="height:26px;font-size:11px">➕ Aggiungi Registro</button>
+        </div>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:4px">
+          <table class="bham-table" style="width:100%;font-size:10.5px">
+            <thead>
+              <tr>
+                <th style="width:70px">Offset</th>
+                <th>Nome Punto</th>
+                <th style="width:90px">Tipo</th>
+                <th style="width:90px">Formato</th>
+                <th style="width:60px">Unità</th>
+                <th style="width:60px">Scala</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="cust-points-table-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button onclick="closeNewProfileModal()" class="bham-btn-secondary" data-i18n="btn_close">Annulla</button>
+        <button onclick="executeSaveCustomProfile()" class="bham-btn-action bham-btn-rtu">
+          💾 Salva Profilo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="bham-toast-container" class="bham-toast-container"></div>
+
 
 
   <!-- Scripts: Relative paths for 100% reliable local & server loading -->
-  <script src="js/i18n.js?v=0.7.0"></script>
-  <script src="js/manual-content.js?v=0.7.0"></script>
-  <script src="js/app.js?v=0.7.0"></script>
+  <script src="js/i18n.js?v=0.8.0"></script>
+  <script src="js/manual-content.js?v=0.8.0"></script>
+  <script src="js/app.js?v=0.8.0"></script>
 </body>
 </html>

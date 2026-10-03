@@ -1,0 +1,27 @@
+{
+  "id": "siemens_pac3200",
+  "name": "Siemens SENTRON PAC3200 / PAC2200",
+  "category": "multimeter",
+  "manufacturer": "Siemens",
+  "model": "SENTRON PAC3200",
+  "description": "Strumento di misura da quadro per grandezze elettriche e monitoraggio consumi",
+  "default_baudrate": 19200,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 1, "name": "V_L1_N", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione L1-N" },
+    { "address": 3, "name": "V_L2_N", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione L2-N" },
+    { "address": 5, "name": "V_L3_N", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione L3-N" },
+    { "address": 7, "name": "V_L1_L2", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione concatenata L1-L2" },
+    { "address": 9, "name": "V_L2_L3", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione concatenata L2-L3" },
+    { "address": 11, "name": "V_L3_L1", "type": "holding", "format": "float32_be", "unit": "V", "scale": 1.0, "access": "ro", "description": "Tensione concatenata L3-L1" },
+    { "address": 13, "name": "I_L1", "type": "holding", "format": "float32_be", "unit": "A", "scale": 1.0, "access": "ro", "description": "Corrente linea L1" },
+    { "address": 15, "name": "I_L2", "type": "holding", "format": "float32_be", "unit": "A", "scale": 1.0, "access": "ro", "description": "Corrente linea L2" },
+    { "address": 17, "name": "I_L3", "type": "holding", "format": "float32_be", "unit": "A", "scale": 1.0, "access": "ro", "description": "Corrente linea L3" },
+    { "address": 25, "name": "Active_Power_Total", "type": "holding", "format": "float32_be", "unit": "kW", "scale": 0.001, "access": "ro", "description": "Potenza attiva totale trifase" },
+    { "address": 33, "name": "Reactive_Power_Total", "type": "holding", "format": "float32_be", "unit": "kvar", "scale": 0.001, "access": "ro", "description": "Potenza reattiva totale trifase" },
+    { "address": 41, "name": "Power_Factor_Total", "type": "holding", "format": "float32_be", "unit": "", "scale": 1.0, "access": "ro", "description": "Fattore di potenza medio trifase" },
+    { "address": 55, "name": "Frequency", "type": "holding", "format": "float32_be", "unit": "Hz", "scale": 1.0, "access": "ro", "description": "Frequenza di alimentazione" },
+    { "address": 801, "name": "Active_Energy_Import", "type": "holding", "format": "float32_be", "unit": "kWh", "scale": 1.0, "access": "ro", "description": "Energia attiva totale importata" }
+  ]
+}

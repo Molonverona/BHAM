@@ -1,7 +1,7 @@
 # BHAM – Audit del Codice
 
-> Analisi statica del sorgente eseguita il 2026-09-29.
-> Versione analizzata: v0.3.0. Ambito: `main.py`, `api/`, `core/`, `data/`, `scanners/`, `reports/`, `tests/`.
+> Analisi statica del sorgente eseguita il 2026-09-29 (riferita allo stato v0.3.0).
+> **Stato di Risoluzione (v0.8.0):** Tutti gli 11 rilievi (#1–#11) sono stati integralmente risolti nelle release v0.4.0 – v0.8.0 (thread-safe event loop dispatching, serial sniffer error propagation, CIDR expansion, background tempfile cleanup, Safe Mode, e certificazione Write-Ahead Log).
 
 ## Sintesi
 

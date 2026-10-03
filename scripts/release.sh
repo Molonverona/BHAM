@@ -2,9 +2,9 @@
 # ==============================================================================
 # BHAM – 1-Command Local Release Trigger
 # Usage:
-#   ./scripts/release.sh patch   (0.7.0 -> 0.7.1)
-#   ./scripts/release.sh minor   (0.7.0 -> 0.8.0)
-#   ./scripts/release.sh major   (0.7.0 -> 1.0.0)
+#   ./scripts/release.sh patch   (0.8.0 -> 0.8.1)
+#   ./scripts/release.sh minor   (0.8.0 -> 0.9.0)
+#   ./scripts/release.sh major   (0.8.0 -> 1.0.0)
 # ==============================================================================
 
 set -e

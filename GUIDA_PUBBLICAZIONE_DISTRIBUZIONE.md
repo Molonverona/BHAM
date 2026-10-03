@@ -47,7 +47,7 @@
 
 1. [Fase 1: Primo Push del Progetto su GitHub](#fase-1-primo-push-del-progetto-su-github)
 2. [Fase 2: Configurazione GitHub (Permessi & Token WinGet Automatico)](#fase-2-configurazione-github-permessi--token-winget-automatico)
-3. [Fase 3: Rilascio Ufficiale della Versione v0.3.0](#fase-3-rilascio-ufficiale-della-versione-v030)
+3. [Fase 3: Rilascio Ufficiale della Versione v0.8.0](#fase-3-rilascio-ufficiale-della-versione-v080)
 4. [Fase 4: Come i Tecnici Installeranno il Software](#fase-4-come-i-tecnici-installeranno-il-software)
 5. [Fase 5: Sfruttare al Massimo www.bacshelp.com](#fase-5-sfruttare-al-massimo-wwwbacshelpcom)
 6. [Fase 6: Gestione Automatica delle Versioni Future](#fase-6-gestione-automatica-delle-versioni-future)
@@ -68,8 +68,8 @@ cd /home/giuliano/Documenti/BHAM
 # Aggiungi tutti i file puliti al tracking di Git
 git add .
 
-# Esegui il primo commit della release
-git commit -m "feat: release v0.3.0 - BHAM production release"
+# Esegui il commit della release
+git commit -m "feat: release v0.8.0 - BHAM industrial field-ready release"
 ```
 
 ### 2. Crea il repository su GitHub:
@@ -123,33 +123,34 @@ Questo passaggio evita di dover compilare manifesti a mano o usare tool su Windo
 
 ---
 
-## 📦 Fase 3: Rilascio Ufficiale della Versione v0.3.0
+## 📦 Fase 3: Rilascio Ufficiale della Versione v0.8.0
 
-Per avviare la compilazione automatica e pubblicare la prima release ufficiale:
+Per avviare la compilazione automatica e pubblicare la release ufficiale:
 
 ### Opzione A: Direttamente da Browser (Consigliata) 🌟
 1. Sul tuo repository GitHub, clicca sulla scheda in alto **Actions**.
-2. Nella barra sinistra clicca su **`Release – Standalone Binaries & Winget`**.
+2. Nella barra sinistra clicca su **`Release – Standalone Binaries`**.
 3. Clicca a destra sul pulsante **Run workflow**:
    - Seleziona `custom` nel menu a tendina.
-   - Nel campo testo scrivi: `0.3.0`
+   - Nel campo testo scrivi: `0.8.0` (oppure `0.8.0-rc1` se intendi pubblicare prima una pre-release).
 4. Clicca il pulsante verde **Run workflow**.
 
 ### Opzione B: Da Terminale Locale
 ```bash
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.8.0
+git push origin v0.8.0
 ```
 
 ### Cosa accade ora in automatico (in circa 2-3 minuti):
 - GitHub Actions crea macchine cloud Windows e Ubuntu.
 - Compila gli eseguibili standalone (nessun bisogno di Python per l'utente finale).
-- Crea la **Release v0.3.0** pubblica con allegati:
-  - `bham-windows-x64.zip` (eseguibile portatile `bham.exe`) + `.sha256`
+- Crea la **Release v0.8.0** pubblica con allegati:
+  - `bham-windows-x64-portable.zip` (archivio portatile `bham.exe` con `portable.flag`) + `.sha256`
+  - `bham-windows-x64-installer-v0.8.0.exe` (installer Inno Setup con firma SignPath) + `.sha256`
   - `bham-linux-x64.tar.gz` (binario Linux x86_64) + `.sha256`
-  - `bham_0.3.0_amd64.deb` (pacchetto Debian/Ubuntu con servizio di sistema) + `.sha256`
+  - `bham_0.8.0_amd64.deb` (pacchetto Debian/Ubuntu con servizio di sistema) + `.sha256`
   - `scripts/install.sh` (installer one-line per Linux)
-- Invia in automatico a Microsoft la richiesta di pubblicazione per WinGet!
+- Sottomette a SignPath la richiesta di firma digitale autenticata per i binari Windows.
 
 ---
 
@@ -157,12 +158,12 @@ git push origin v0.3.0
 
 Una volta pubblicata la release, ecco come i tecnici installeranno e useranno BHAM:
 
-### Su Windows (tramite WinGet):
+### Su Windows (tramite WinGet o Installer):
 Qualsiasi utente con Windows 10 o Windows 11 apre PowerShell o Prompt dei comandi e digita:
 ```powershell
 winget install BacsHelp.BHAM
 ```
-*BHAM viene scaricato, registrato nel percorso di sistema e reso disponibile immediatamente digitando semplicemente `bham`.*
+*Oppure scarica ed esegue direttamente l'installer `bham-windows-x64-installer-v0.8.0.exe`.*
 
 ### Su Linux (qualsiasi distribuzione):
 Tramite l'installer one-line da terminale:
@@ -173,7 +174,7 @@ curl -fsSL https://bacshelp.com/bham/install.sh | sudo bash
 
 ### Su Debian / Ubuntu / Linux Mint (Pacchetto Nativo .deb):
 ```bash
-sudo apt install ./bham_0.3.0_amd64.deb
+sudo apt install ./bham_0.8.0_amd64.deb
 ```
 
 ---
@@ -187,12 +188,12 @@ Carica il file [`scripts/install.sh`](file:///home/giuliano/Documenti/BHAM/scrip
 `https://www.bacshelp.com/bham/install.sh`
 
 ### 2. Redirect Stabili (Consigliati su Nginx / Apache / Cloudflare)
-Imposta questi 3 redirect permanenti (302) per offrire link eleganti che non cambiano mai tra una versione e l'altra:
+Imposta questi redirect permanenti (302) per offrire link eleganti che non cambiano mai tra una versione e l'altra:
 
 | Link sul tuo dominio | Reindirizza automaticamente a: |
 |---|---|
-| `https://www.bacshelp.com/bham/download/windows` | `https://github.com/BacsHelp/BHAM/releases/latest/download/bham-windows-x64.zip` |
-| `https://www.bacshelp.com/bham/download/deb` | `https://github.com/BacsHelp/BHAM/releases/latest/download/bham_0.3.0_amd64.deb` |
+| `https://www.bacshelp.com/bham/download/windows` | `https://github.com/BacsHelp/BHAM/releases/latest/download/bham-windows-x64-portable.zip` |
+| `https://www.bacshelp.com/bham/download/deb` | `https://github.com/BacsHelp/BHAM/releases/latest/download/bham_0.8.0_amd64.deb` |
 | `https://www.bacshelp.com/bham/download/linux` | `https://github.com/BacsHelp/BHAM/releases/latest/download/bham-linux-x64.tar.gz` |
 
 ### 3. Portale Documentazione su Sottodominio (`bham.bacshelp.com`)
@@ -211,12 +212,12 @@ Il manuale tecnico completo sarà online all'indirizzo istituzionale **`https://
 Quando in futuro apporterai modifiche o aggiungerai nuove feature, il rilascio di un aggiornamento richiederà **solo 1 click**:
 
 ### Metodo Web (1-Click dal Browser) 🌟
-1. Vai su GitHub ➔ scheda **Actions** ➔ **Release – Standalone Binaries & Winget**.
+1. Vai su GitHub ➔ scheda **Actions** ➔ **Release – Standalone Binaries**.
 2. Clicca su **Run workflow**.
 3. Seleziona l'incremento:
-   - `patch`: per correzioni minori (es. `0.3.0` ➔ `0.3.1`)
-   - `minor`: per nuove feature o nuovi protocolli (es. `0.3.0` ➔ `0.4.0`)
-   - `major`: per release architetturali (es. `0.3.0` ➔ `1.0.0`)
+   - `patch`: per correzioni minori (es. `0.8.0` ➔ `0.8.1`)
+   - `minor`: per nuove feature o nuovi protocolli (es. `0.8.0` ➔ `0.9.0`)
+   - `major`: per release architetturali (es. `0.8.0` ➔ `1.0.0`)
 4. Clicca sul pulsante verde.
 
 **Fine del tuo lavoro.**  

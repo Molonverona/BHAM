@@ -3,6 +3,111 @@
 > Registro cronologico delle sessioni di sviluppo.
 > File: `/home/giuliano/Documenti/BHAM/DEVLOG.md`
 
+## Sessione 27 – 2026-10-03 ✅ COMPLETE – VERSIONE 0.8.0 ENTERPRISE (FIELD SAFETY, PROFILES & PACKAGING)
+**Libreria Profili Modbus Industriali (ABB, Gavazzi, IME, Schneider, Siemens, Belimo, Isoil, Diehl, Emerson, Carel, Riello, Trox), Gestore Profili Custom, Blocco Sicurezza Manovre (Safe Mode Interlock), Registro Manovre Certificato (Crash-Proof WAL & Chaining SHA-256), Standalone Packaging Duale (Portable vs Installed) e Firma Digitale SignPath**
+
+**Highlights:**
+- ✅ **Libreria Profili Modbus Estesa & Custom Manager (`core/profile_manager.py`, `profiles/builtin/*.json`)**:
+  - Creati 13 profili industriali ricchi con decodifica scientifica di indirizzi, formati (UInt16, Int16, Float32 BE/LE), fattori di scala, unità di misura e permessi:
+    - *Multimetri:* ABB B23, Carlo Gavazzi EM24, Carlo Gavazzi EM111, IME Nemo 96, Schneider Acti9 iEM3150, Schneider PM5350, Siemens SENTRON PAC3200.
+    - *Contabilizzatori & Portata:* Belimo Energy Valve (EV), Isoil ISOMAG, Diehl/Hydrometer Sharky 775, Emerson Rosemount 8712.
+    - *Attuatori & HVAC:* Belimo Servocomando Modbus, Trox VAV Compact, iSMA CONTROLLI Modulo I/O B-4I4O, Riello Caldaia Condexa Pro, Carel pCO Controllore.
+  - Motore di gestione profili custom con persistenza su disco, CRUD, importazione/esportazione JSON.
+  - Funzione "Applica a Slave": mappatura immediata del profilo con iniezione di tutti i registri nella vista live del dispositivo e nel `data/maps_manager.py`.
+- ✅ **Blocco Sicurezza Manovre (Safe Mode Interlock) (`core/safe_mode.py`)**:
+  - Barriera di protezione attiva contro scritture accidentali sul bus (`ModbusQuickCommander` e `BACnetPointCommander` sollevano `SafeModeLockedError` con codice HTTP 403 se il sistema è bloccato).
+  - Flusso di armamento ("Arm") con obbligo di specificare Nome Operatore / Tecnico, Commessa / Ordine di Lavoro, e durata finestra temporale (15, 30, 60, 120 min).
+  - Disarmo manuale immediato o automatico con timer di scadenza in background.
+  - Integrazione completa in testata UI con badge dinamico (verde protetto o rosso pulsante con countdown e dati operatore).
+- ✅ **Registro Manovre Certificato (Crash-Proof WAL & SHA-256 Chaining) (`core/audit_journal.py`)**:
+  - Write-Ahead Log su file append-only `audit_journal.jsonl`.
+  - Registrazione preventiva dell'intento con chiamata esplicita `os.fsync` prima della trasmissione fisica dei byte sul cavo seriale o rete IP.
+  - Registrazione del risultato con esito (`SUCCESS` o `FAILED`), latenza di risposta, codice eccezione e valore verificato.
+  - Chaining crittografico inviolabile SHA-256: ogni voce concatena `prev_hash` garantendo l'individuazione di qualsiasi manomissione successiva.
+  - Auto-recovery degli intenti orfani al riavvio in caso di spegnimento improvviso del PC o caduta di alimentazione.
+  - Endpoint `GET /api/v1/audit/verify` e modale per verifica dell'integrità del giornale ed esportazione in formato JSON firmabile.
+- ✅ **Packaging Unificato Standalone (Portable vs Installed) & Firma SignPath**:
+  - Modulo `core/paths.py` per risoluzione dinamica dei percorsi a runtime:
+    - Riconoscimento ambiente PyInstaller congelato (`sys._MEIPASS`).
+    - Modalità Portatile tramite sentinella `portable.flag` (sessioni, log, custom profile e audit salvati nella cartella locale dell'applicazione).
+    - Modalità Installata conforme agli standard di sistema (`%LOCALAPPDATA%\BHAM` su Windows, `~/.local/share/bham` su Linux).
+  - Script Inno Setup `installer/bham.iss` per installer Windows x64 pulito con creazione collegamenti e disinstallazione.
+  - Pipeline GitHub Actions `.github/workflows/release.yml` con rilascio duale (archivio portatile ZIP + installer Windows EXE) e integrazione ufficiale `SignPath/github-action-submit-signing-request@v2` per firma crittografica autenticata.
+- ✅ **Frontend UI & Sincronizzazione i18n**:
+  - Nuovi pulsanti e modali integrati nell'interfaccia (Safe Mode, Audit Journal, Libreria Profili con filtri categoria e visualizzazione tabellare registri).
+  - Sincronizzazione al 100% su 289 chiavi per Italiano, Inglese e Spagnolo in `frontend/js/i18n.js`.
+  - Validazione JavaScript con `node -c frontend/js/*.js` superata senza errori.
+- ✅ **Testing & Validazione**:
+  - Test suite estesa a 49 test unitari (`TestPaths`, `TestAuditJournal`, `TestSafeMode`, `TestProfileManager`, `TestEnterpriseV08Routes`).
+  - Tutti i 49 test passano con successo al 100% con `-W error` in meno di 6 secondi.
+
+## Sessione 26 – 2026-10-03 ✅ COMPLETE – VERSIONE 0.8.0 STABLE & COMPLETA (INDUSTRIAL FIELD-READY)
+**Collaudo Hardware Reale su USB↔RS485 (Moxa UPort 1150 / TI 3410), hot-plug auto-recovery, Banco Prova Operativo (Modbus Quick Commander & BACnet Point Commander con Priority Array), Simulatore d'Impianto Virtuale (Demo Mode) e Live Log Viewer Dock**
+
+**Highlights:**
+- ✅ **Collaudo Hardware Reale (Moxa UPort 1150 / TI 3410 su `/dev/ttyUSB0`)**:
+  - Rilevato e integrato convertitore seriale Moxa UPort 1150 (VID `0x110A`, PID `0x1150`, TI 3410) in `core/hw_discovery.py`.
+  - Esteso controllo permessi in `core/priv_check.py` per supportare gruppi `uucp`, `dialout` e permessi POSIX diretti `os.access(..., R_OK | W_OK)`.
+  - Self-Test 1-Click con validazione reale: test apertura/chiusura a 9600 8N1 completato in 74ms con esito `status: ok` e `rs485_likely: True`.
+  - Zero-TX Serial Sniffer verificato su linea RS485 a vuoto: diagnosi di linea silenziosa/flottante corretta, nessuna divisione per zero, chiusura pulita delle risorse.
+- ✅ **Resilienza Hardware & Hot-Plug Auto-Recovery (`scanners/serial_sniffer.py`)**:
+  - Gestione eccezioni `(serial.SerialException, OSError, IOError)` durante lo sniffing senza crash del daemon.
+  - Emissione eventi WebSocket `hardware_disconnect` e `hardware_reconnect` con notifica visiva Toast e log semantico.
+  - Ciclo di polling per il riaggancio trasparente della porta seriale appena ricollegata.
+- ✅ **Banco Prova Operativo ("Field Operational Tools") (`scanners/field_tools.py`)**:
+  - **Modbus Quick Commander**: lettura (FC01..FC04) e scrittura (FC05, FC06, FC15, FC16) su Modbus RTU e TCP con decodifica ingegneristica (UInt16, Int16, Float32 BE/LE word-swapped, Hex, Coils).
+  - Integrato sia nello Slave Inspector Modbus (tab "⚡ Quick Commander") che nel modale standalone unificato.
+  - **BACnet Point Commander**: override forzato del `presentValue` con Priority Array (default Priorità 8: Operatore Manuale) e comando di rilascio forzatura (Relinquish / NULL). Mini-modal accessibile direttamente da ciascun oggetto esplorato.
+- ✅ **Simulatore d'Impianto Virtuale BACS (`core/simulator.py`)**:
+  - Generatore di telemetria dinamica sinusoidale per Chiller (Slave 1), Pompa (Slave 2), Power Meter (Slave 3), UTA BACnet (Device 1001), VAV (Device 1002), KNX (1.1.1, 1.1.2) e host ARP.
+  - Toggle rapido in barra comandi con indicatore DEMO: ON / OFF e opzione `--demo` da riga di comando.
+- ✅ **Live Log Viewer & Dock Console**:
+  - Filtro dinamico per livello (`ALL`, `DEBUG`, `INFO`, `WARN`, `ERROR`) e ricerca per parole chiave.
+  - Streaming strutturato da backend con timestamp, livello, logger e messaggio.
+  - Notifiche Toast animate e non-bloccanti.
+- ✅ **Qualità & Standard di Rilascio**:
+  - Suite di unit test superata al 100% con `-W error`.
+  - Parità i18n al 100% su 248 chiavi tra IT, EN ed ES.
+  - Validazione JavaScript Vanilla con `node -c`.
+  - Version bump globale a `0.8.0` su tutti i manifest e documentazioni.
+
+## Sessione 25 – 2026-10-03 ✅ COMPLETE – REST & WEBSOCKET API HARDENING & DOCUMENTATION 2.0
+**Elevazione dell'architettura API a livello enterprise: schemi Pydantic v2 tipizzati per tutti i 39 endpoint, specifiche OpenAPI complete con tag semantici, documentazione esaustiva API_REFERENCE.md e aggiornamento del manuale interattivo**
+
+**Highlights:**
+- ✅ **Layer di Schemi Pydantic v2 Tipizzati (`api/schemas.py`)**:
+  - Creato modulo dedicato `api/schemas.py` con contratti formali e documentati per tutte le richieste e risposte:
+    - *Richieste*: `ModbusRTUScanRequest`, `ModbusTCPScanRequest`, `BACnetIPScanRequest`, `KNXIPScanRequest`, `ARPSniffRequest`, `SerialSniffRequest`, `FC43Request`, `ConfigureRequest`, `SaveSessionRequest`, `ModbusSmartScanBody`.
+    - *Risposte*: `HealthResponse`, `StateClearResponse`, `ScanActionResponse`, `ScanAbortResponse`, `ScanAbortSingleResponse`, `SerialPortInfo`, `NetworkInterfaceInfo`, `NetworkInterfacesResponse`, `HardwareSelfTestResponse`, `ConfigureResponse`, `ConfigActiveResponse`, `SaveSessionResponse`, `DeleteSessionResponse`, `RestoreSessionResponse`, `FC43Response`, `ModbusSmartScanRegister`, `ModbusSmartScanResponse`, `BACnetObjectItem`, `BACnetObjectExplorerResponse`, `MapsImportResponse`, `SlaveMapResponse`.
+  - Configurato `protected_namespaces = ()` per evitare conflitti con identificatori riservati Pydantic (es. `model_name`).
+- ✅ **Metadata OpenAPI & FastAPI App (`main.py`)**:
+  - Aggiunti metadati approfonditi con `API_DESCRIPTION` in Markdown dettagliando i protocolli industriali (Modbus RTU/TCP, BACnet/IP, BACnet MS-TP, KNXnet/IP, ARP L2, RS485 Bus Health).
+  - Raggruppamento semantico degli endpoint in 10 tag strutturati (`system`, `setup`, `scans`, `devices`, `diagnostics`, `modbus`, `bacnet`, `saved-sessions`, `maps`, `reports`).
+  - Configurazione completa per Swagger UI (`/docs`), ReDoc (`/redoc`), licenza MIT e riferimenti di contatto.
+- ✅ **Refactoring Route REST (`api/routes.py`)**:
+  - Applicazione di `response_model`, `summary` e `description` su tutti gli endpoint mantenendo ritorni dizionario nativi per compatibilità totale con le chiamate dirette dei test unitari.
+  - Aggiunto alias di rotta trasparente per `/api/v1/scan/modbus/smart-scan` e `/api/v1/modbus/smart-scan`.
+- ✅ **Riferimento Tecnico Completo (`API_REFERENCE.md`)**:
+  - Creato documento esaustivo di oltre 800 righe con:
+    - Indicazioni su architettura, binding di rete (`0.0.0.0:8765`), sicurezza (avviso assenza autenticazione per impiego sul campo, raccomandazioni VLAN/VPN/reverse-proxy).
+    - Specifiche dettagliate dei codici di stato HTTP (`200`, `400`, `404`, `500`) e payload di input/output per tutti i 39 endpoint.
+    - Specifiche complete del canale WebSocket `ws://<host>:8765/api/v1/ws` (comandi client, eventi broadcast `scan_progress`, `device_found`, `bus_health_update`, `log_record`).
+    - Ricette cURL pronte all'uso e script Python completo per automazione del collaudo ed estrazione report.
+- ✅ **Manuali Utente & In-App Documentation (`MANUALE_UTENTE.md`, `frontend/MANUALE_UTENTE.md`, `frontend/js/manual-content.js`)**:
+  - Aggiornata la Sezione 10 dei manuali con tabella esaustiva di tutti gli endpoint suddivisi per dominio e link ad `API_REFERENCE.md`.
+  - Aggiunti al manuale interattivo (F1) in 3 lingue (IT, EN, ES) i capitoli:
+    - *Capitolo 11*: Session Diff & Intelligence ("Prima vs Dopo")
+    - *Capitolo 12*: Attraversamento BBMD & Router BACnet/IP
+    - *Capitolo 13*: Hardware Self-Test & Accesso Remoto LAN
+  - Ampliato il capitolo 9 (API) con tabella integrata e comandi cURL.
+- ✅ **Aggiornamento `README.md`**:
+  - Inseriti collegamenti diretti a Swagger UI, ReDoc e al nuovo `API_REFERENCE.md`.
+- ✅ **Test & Validazione Continua**:
+  - Aggiunta classe di test `TestOpenAPISpecAndSchemas` in `tests/test_bham.py`.
+  - Suite unitaria: **38/38 test superati al 100% con `-W error`** (zero warning, zero regressioni).
+  - Validazione sintassi JS con `node -c` su tutti i file del frontend.
+  - Verifica parità dizionari multilingua: 232/232 chiavi su IT, EN, ES (100% parità).
+
 ---
 
 ## Sessione 24 – 2026-10-03 ✅ COMPLETE – v0.7.0 RELEASE PREP & FIELD ENHANCEMENTS

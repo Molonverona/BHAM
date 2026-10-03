@@ -1,0 +1,27 @@
+{
+  "id": "ime_nemo96",
+  "name": "IME Nemo 96 HD / HD+",
+  "category": "multimeter",
+  "manufacturer": "IME (Legrand)",
+  "model": "Nemo 96 HD+",
+  "description": "Centrale di misura multifunzione da fronte quadro 96x96",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 300, "name": "V_L1_N", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione di fase 1" },
+    { "address": 302, "name": "V_L2_N", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione di fase 2" },
+    { "address": 304, "name": "V_L3_N", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione di fase 3" },
+    { "address": 306, "name": "V_L1_L2", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione concatenata L1-L2" },
+    { "address": 308, "name": "V_L2_L3", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione concatenata L2-L3" },
+    { "address": 310, "name": "V_L3_L1", "type": "holding", "format": "uint32", "unit": "V", "scale": 0.1, "access": "ro", "description": "Tensione concatenata L3-L1" },
+    { "address": 312, "name": "I_L1", "type": "holding", "format": "uint32", "unit": "A", "scale": 0.001, "access": "ro", "description": "Corrente fase 1" },
+    { "address": 314, "name": "I_L2", "type": "holding", "format": "uint32", "unit": "A", "scale": 0.001, "access": "ro", "description": "Corrente fase 2" },
+    { "address": 316, "name": "I_L3", "type": "holding", "format": "uint32", "unit": "A", "scale": 0.001, "access": "ro", "description": "Corrente fase 3" },
+    { "address": 320, "name": "P_Total", "type": "holding", "format": "int32", "unit": "W", "scale": 1.0, "access": "ro", "description": "Potenza attiva totale trifase" },
+    { "address": 322, "name": "Q_Total", "type": "holding", "format": "int32", "unit": "var", "scale": 1.0, "access": "ro", "description": "Potenza reattiva totale trifase" },
+    { "address": 326, "name": "PF_Total", "type": "holding", "format": "int16", "unit": "", "scale": 0.01, "access": "ro", "description": "Fattore di potenza totale" },
+    { "address": 327, "name": "Frequency", "type": "holding", "format": "uint16", "unit": "Hz", "scale": 0.1, "access": "ro", "description": "Frequenza di linea" },
+    { "address": 4096, "name": "Active_Energy_Import", "type": "holding", "format": "uint32", "unit": "kWh", "scale": 0.1, "access": "ro", "description": "Energia attiva totale importata" }
+  ]
+}

@@ -8,9 +8,9 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Any
 
-_HANDLERS: list[Callable[[str], None]] = []   # WebSocket broadcast hooks
+_HANDLERS: list[Callable[[Any], None]] = []   # WebSocket broadcast hooks
 
 
 class _WebSocketHandler(logging.Handler):
@@ -18,14 +18,20 @@ class _WebSocketHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         msg = self.format(record)
+        entry = {
+            "message": msg,
+            "level": record.levelname,
+            "logger": record.name,
+            "created": record.created,
+        }
         for hook in _HANDLERS:
             try:
-                hook(msg)
+                hook(entry)
             except Exception:
                 pass
 
 
-def register_ws_hook(hook: Callable[[str], None]) -> None:
+def register_ws_hook(hook: Callable[[Any], None]) -> None:
     """Register a broadcast hook called on every log record."""
     _HANDLERS.append(hook)
 
@@ -58,10 +64,10 @@ def _build_logger(name: str = "bham") -> logging.Logger:
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
 
-    # WebSocket stream
+    # WebSocket stream (transmits all levels, UI filters dynamically)
     wsh = _WebSocketHandler()
     wsh.setFormatter(fmt)
-    wsh.setLevel(logging.INFO)
+    wsh.setLevel(logging.DEBUG)
     logger.addHandler(wsh)
 
     return logger

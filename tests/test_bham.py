@@ -965,8 +965,575 @@ class TestBACnetBBMD(unittest.TestCase):
         self.assertIn("--check", out)
 
 
+class TestOpenAPISpecAndSchemas(unittest.TestCase):
+    def test_openapi_generation(self):
+        from main import app
+        schema = app.openapi()
+        self.assertEqual(schema["info"]["title"], "BHAM – BACS Help Auto Mapper")
+        self.assertEqual(schema["info"]["version"], "0.8.0")
+        self.assertIn("/api/v1/health", schema["paths"])
+        self.assertIn("/api/v1/scan/modbus/rtu", schema["paths"])
+        self.assertIn("/api/v1/hardware/self-test", schema["paths"])
+        self.assertIn("/api/v1/modbus/smart-scan", schema["paths"])
+        self.assertIn("/api/v1/bacnet/bbmd/tables", schema["paths"])
+        # v0.8.0 Field Operational Tools and Demo Mode endpoints
+        self.assertIn("/api/v1/tools/modbus/read", schema["paths"])
+        self.assertIn("/api/v1/tools/modbus/write", schema["paths"])
+        self.assertIn("/api/v1/tools/bacnet/write", schema["paths"])
+        self.assertIn("/api/v1/tools/bacnet/relinquish", schema["paths"])
+        self.assertIn("/api/v1/demo/status", schema["paths"])
+        self.assertIn("/api/v1/demo/toggle", schema["paths"])
+        self.assertIn("/api/v1/demo/enable", schema["paths"])
+        self.assertIn("/api/v1/demo/disable", schema["paths"])
+        self.assertGreaterEqual(len(schema["paths"]), 40)
+        self.assertGreaterEqual(len(schema["components"]["schemas"]), 45)
+
+
+class TestHardwareDiscoveryV08(unittest.TestCase):
+    def test_moxa_and_ti3410_in_known_rs485_tables(self):
+        from core.hw_discovery import _RS485_VID_PID, _is_rs485_likely
+        from serial.tools.list_ports_common import ListPortInfo
+
+        # Verify Moxa VID 0x110A and TI 3410 (0x0451, 0x3410) are listed
+        self.assertIn((0x110A, None), _RS485_VID_PID)
+        self.assertIn((0x0451, 0x3410), _RS485_VID_PID)
+
+        # Mock port info matching Moxa UPort 1150
+        p_moxa = ListPortInfo("/dev/ttyUSB0")
+        p_moxa.vid = 0x110A
+        p_moxa.pid = 0x1150
+        p_moxa.description = "Moxa UPort 1150"
+        self.assertTrue(_is_rs485_likely(p_moxa))
+
+        # Mock port info matching TI 3410
+        p_ti = ListPortInfo("/dev/ttyUSB1")
+        p_ti.vid = 0x0451
+        p_ti.pid = 0x3410
+        p_ti.description = "TI 3410 RS485 Adapter"
+        self.assertTrue(_is_rs485_likely(p_ti))
+
+    def test_hardware_self_test_execution(self):
+        from core.hw_discovery import run_hardware_self_test
+        res = run_hardware_self_test()
+        self.assertIn("overall", res)
+        self.assertIn("serial", res)
+        self.assertIn("network", res)
+        self.assertIn("privileges", res)
+        self.assertIn(res["overall"], ("ok", "warning", "error"))
+
+
+class TestVirtualPlantSimulator(unittest.TestCase):
+    def test_simulator_lifecycle_and_telemetry(self):
+        async def _run():
+            from core.simulator import simulator
+
+            # Ensure stopped
+            await simulator.stop()
+            status = simulator.get_status()
+            self.assertFalse(status["active"])
+
+            # Start
+            await simulator.start()
+            status = simulator.get_status()
+            self.assertTrue(status["active"])
+            self.assertEqual(status["summary"]["modbus_slaves"], 3)
+            self.assertEqual(status["summary"]["bacnet_devices"], 2)
+
+            # Test Modbus register read/write
+            reg_before = simulator.read_modbus_registers(slave_id=1, fc=3, address=0, count=1)
+            self.assertEqual(len(reg_before), 1)
+
+            ok = simulator.write_modbus_register(slave_id=1, address=0, values=[12345])
+            self.assertTrue(ok)
+
+            reg_after = simulator.read_modbus_registers(slave_id=1, fc=3, address=0, count=1)
+            self.assertEqual(reg_after, [12345])
+
+            # Test BACnet Point override & relinquish
+            ov_ok = simulator.override_bacnet_point(
+                device_id=1001,
+                object_type="analogOutput",
+                instance=1,
+                value=42.5,
+                priority=8,
+            )
+            self.assertTrue(ov_ok)
+
+            objs = simulator.get_bacnet_objects(1001)
+            target = next((o for o in objs if o["identifier"] == "analogOutput:1"), None)
+            self.assertIsNotNone(target)
+            self.assertEqual(target["present_value"], 42.5)
+
+            rel_ok = simulator.relinquish_bacnet_point(
+                device_id=1001,
+                object_type="analogOutput",
+                instance=1,
+                priority=8,
+            )
+            self.assertTrue(rel_ok)
+
+            # Stop
+            await simulator.stop()
+            status_end = simulator.get_status()
+            self.assertFalse(status_end["active"])
+
+        asyncio.run(_run())
+
+
+class TestFieldOperationalTools(unittest.TestCase):
+    def test_modbus_quick_tools_with_simulator(self):
+        async def _run():
+            from core.simulator import simulator
+            from scanners.field_tools import modbus_quick_read, modbus_quick_write
+
+            await simulator.start()
+
+            # 1. Write UInt16
+            w_res = await modbus_quick_write(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=6,
+                address=10,
+                values=[550],
+                data_type="uint16",
+            )
+            self.assertEqual(w_res["status"], "ok")
+            self.assertEqual(w_res["registers_written"], 1)
+
+            # Read back
+            r_res = await modbus_quick_read(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=3,
+                address=10,
+                count=1,
+            )
+            self.assertEqual(r_res["status"], "ok")
+            self.assertEqual(r_res["registers"], [550])
+            self.assertEqual(r_res["hex_values"], ["0x0226"])
+            self.assertEqual(r_res["int16_values"], [550])
+
+            # 2. Write Float32 IEEE
+            w_flt = await modbus_quick_write(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=16,
+                address=20,
+                values=[21.5],
+                data_type="float32",
+            )
+            self.assertEqual(w_flt["status"], "ok")
+            self.assertEqual(w_flt["registers_written"], 2)
+
+            r_flt = await modbus_quick_read(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=3,
+                address=20,
+                count=2,
+            )
+            self.assertEqual(r_flt["status"], "ok")
+            self.assertEqual(len(r_flt["float32_be"]), 1)
+            self.assertAlmostEqual(r_flt["float32_be"][0], 21.5, places=2)
+
+            # 3. Write and Read Coils
+            w_coil = await modbus_quick_write(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=5,
+                address=0,
+                values=[True],
+                data_type="bool",
+            )
+            self.assertEqual(w_coil["status"], "ok")
+
+            r_coil = await modbus_quick_read(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=1,
+                address=0,
+                count=1,
+            )
+            self.assertEqual(r_coil["status"], "ok")
+            self.assertEqual(r_coil["coils"], [True])
+
+            await simulator.stop()
+
+        asyncio.run(_run())
+
+    def test_bacnet_quick_tools_with_simulator(self):
+        async def _run():
+            from core.simulator import simulator
+            from scanners.field_tools import bacnet_point_override
+
+            await simulator.start()
+
+            # Override presentValue at Priority 8
+            ov = await bacnet_point_override(
+                device_id=1001,
+                object_type="analogOutput",
+                instance=1,
+                value=68.5,
+                priority=8,
+            )
+            self.assertEqual(ov["status"], "ok")
+            self.assertEqual(ov["written_value"], 68.5)
+            self.assertEqual(ov["priority"], 8)
+            self.assertFalse(ov["relinquished"])
+
+            # Relinquish at Priority 8
+            rel = await bacnet_point_override(
+                device_id=1001,
+                object_type="analogOutput",
+                instance=1,
+                priority=8,
+                relinquish=True,
+            )
+            self.assertEqual(rel["status"], "ok")
+            self.assertTrue(rel["relinquished"])
+
+            await simulator.stop()
+
+        asyncio.run(_run())
+
+
+class TestV08APIEndpoints(unittest.TestCase):
+    def test_demo_and_tools_endpoints(self):
+        async def _run():
+            from api import routes, schemas
+
+            # Test demo status & toggle
+            status = await routes.get_demo_status_endpoint()
+            self.assertIn("active", status)
+
+            enabled = await routes.enable_demo_endpoint()
+            self.assertTrue(enabled["active"])
+
+            # Test Modbus quick read via route
+            r_req = schemas.ModbusQuickReadRequest(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=3,
+                address=0,
+                count=2,
+            )
+            r_res = await routes.modbus_quick_read_endpoint(r_req)
+            self.assertEqual(r_res["status"], "ok")
+            self.assertEqual(len(r_res["registers"]), 2)
+
+            # Test BACnet quick write via route
+            b_req = schemas.BACnetPointOverrideRequest(
+                device_id=1001,
+                object_type="analogOutput",
+                instance=1,
+                value=33.3,
+                priority=8,
+            )
+            b_res = await routes.bacnet_point_write_endpoint(b_req)
+            self.assertEqual(b_res["status"], "ok")
+            self.assertEqual(b_res["written_value"], 33.3)
+
+            # Test BACnet relinquish via route
+            rel_req = schemas.BACnetRelinquishRequest(
+                device_id=1001,
+                object_type="analogOutput",
+                instance=1,
+                priority=8,
+            )
+            rel_res = await routes.bacnet_point_relinquish_endpoint(rel_req)
+            self.assertEqual(rel_res["status"], "ok")
+            self.assertTrue(rel_res["relinquished"])
+
+            # Disable demo
+            disabled = await routes.disable_demo_endpoint()
+            self.assertFalse(disabled["active"])
+
+        asyncio.run(_run())
+
+
+class TestPaths(unittest.TestCase):
+    def test_paths_resolution(self):
+        from core.paths import (
+            get_audit_journal_path,
+            get_builtin_profiles_dir,
+            get_bundle_dir,
+            get_data_dir,
+            get_frontend_dir,
+            get_profiles_dir,
+            get_sessions_dir,
+            is_frozen,
+            is_portable,
+        )
+
+        self.assertIsInstance(is_frozen(), bool)
+        self.assertIsInstance(is_portable(), bool)
+
+        bundle = get_bundle_dir()
+        self.assertTrue(bundle.exists())
+
+        frontend = get_frontend_dir()
+        self.assertTrue(frontend.exists())
+        self.assertTrue((frontend / "index.html").exists())
+
+        builtins = get_builtin_profiles_dir()
+        self.assertTrue(builtins.exists())
+
+        data = get_data_dir()
+        self.assertTrue(data.exists())
+
+        sessions = get_sessions_dir()
+        self.assertTrue(sessions.exists())
+
+        profiles = get_profiles_dir()
+        self.assertTrue(profiles.exists())
+
+        journal_path = get_audit_journal_path()
+        self.assertTrue(str(journal_path).endswith("audit_journal.jsonl"))
+
+
+class TestAuditJournal(unittest.TestCase):
+    def test_wal_cryptographic_chain_and_recovery(self):
+        import tempfile
+        from pathlib import Path
+        from core.audit_journal import AuditJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            jpath = Path(tmpdir) / "test_journal.jsonl"
+            journal = AuditJournal(journal_path=jpath)
+
+            # 1. Empty journal integrity
+            integ = journal.verify_integrity()
+            self.assertTrue(integ["valid"])
+            self.assertEqual(integ["total_entries"], 0)
+
+            # 2. Record INTENT
+            target = {"protocol": "modbus_rtu", "slave_id": 5, "address": 100}
+            intent_id = journal.record_intent(
+                action="modbus_write_fc06",
+                protocol="modbus_rtu",
+                target=target,
+                value_requested=[1234],
+                operator="Mario Rossi",
+                job_order="COMM-99",
+            )
+            self.assertTrue(intent_id.startswith("JNL-"))
+
+            # 3. Record RESULT
+            res = journal.record_result(
+                intent_id=intent_id,
+                action="modbus_write_fc06",
+                protocol="modbus_rtu",
+                target=target,
+                status="success",
+                value_requested=[1234],
+                value_verified=[1234],
+                operator="Mario Rossi",
+                job_order="COMM-99",
+                elapsed_ms=12.5,
+            )
+            self.assertEqual(res["status"], "success")
+
+            # 4. Verify cryptographic chain
+            integ = journal.verify_integrity()
+            self.assertTrue(integ["valid"])
+            self.assertEqual(integ["total_entries"], 2)
+            self.assertEqual(len(integ["errors"]), 0)
+
+            # 5. Test orphan intent recovery (simulating sudden power off)
+            orphan_id = journal.record_intent(
+                action="modbus_write_fc16",
+                protocol="modbus_rtu",
+                target=target,
+                value_requested=[9999],
+                operator="Mario Rossi",
+                job_order="COMM-99",
+            )
+            self.assertTrue(orphan_id.startswith("JNL-"))
+
+            # Now recover orphans
+            recovered = journal.recover_orphaned_intents()
+            self.assertEqual(recovered, 1)
+
+            # Check that an interrupted result was appended and chain is valid
+            integ = journal.verify_integrity()
+            self.assertTrue(integ["valid"])
+            self.assertEqual(integ["total_entries"], 4)
+
+            # Verify the last entry has status interrupted
+            entries = journal.list_entries(limit=1, reverse=True)
+            self.assertEqual(entries[0]["status"], "interrupted")
+            self.assertEqual(entries[0]["intent_id"], orphan_id)
+
+            # 6. Tamper test: tamper with one character in the file
+            content = jpath.read_text(encoding="utf-8")
+            tampered = content.replace("Mario Rossi", "Attacker Hack", 1)
+            jpath.write_text(tampered, encoding="utf-8")
+
+            tamper_integ = journal.verify_integrity()
+            self.assertFalse(tamper_integ["valid"])
+            self.assertGreater(len(tamper_integ["errors"]), 0)
+
+
+class TestSafeMode(unittest.TestCase):
+    def test_safe_mode_lifecycle(self):
+        from core.safe_mode import SafeModeManager
+
+        sm = SafeModeManager()
+        self.assertFalse(sm.is_armed)
+        self.assertEqual(sm.operator, "")
+
+        # Arm with validation
+        with self.assertRaises(ValueError):
+            sm.arm(operator="", job_order="COMM-1")
+
+        with self.assertRaises(ValueError):
+            sm.arm(operator="Tecnico", job_order="")
+
+        status = sm.arm(operator="Giuliano", job_order="COMM-2026-X", duration_minutes=15)
+        self.assertTrue(status["armed"])
+        self.assertEqual(status["operator"], "Giuliano")
+        self.assertEqual(status["job_order"], "COMM-2026-X")
+        self.assertTrue(sm.is_armed)
+        self.assertEqual(sm.operator, "Giuliano")
+
+        # Disarm
+        dis = sm.disarm()
+        self.assertFalse(dis["armed"])
+        self.assertFalse(sm.is_armed)
+
+        # Expiry test: arm with negative or 0 duration
+        sm.arm(operator="Giuliano", job_order="COMM-TEST", duration_minutes=1)
+        sm._expires_at = sm._armed_at - 1  # force expired
+        self.assertFalse(sm.is_armed)
+
+
+class TestProfileManager(unittest.TestCase):
+    def test_profile_manager_and_apply(self):
+        from core.profile_manager import profile_manager
+
+        # 1. Built-in profiles loaded
+        profs = profile_manager.list_profiles()
+        self.assertGreaterEqual(len(profs), 10)
+
+        # 2. Category filtering
+        multimeters = profile_manager.list_profiles(category="multimeter")
+        self.assertTrue(any(p["id"] == "schneider_iem3150" for p in multimeters))
+
+        heats = profile_manager.list_profiles(category="energy_heat")
+        self.assertTrue(any(p["id"] == "belimo_energy_valve" for p in heats))
+
+        actuators = profile_manager.list_profiles(category="actuator_hvac")
+        self.assertTrue(any(p["id"] == "carel_pco" for p in actuators))
+
+        # 3. Get profile detail
+        detail = profile_manager.get_profile("schneider_iem3150")
+        self.assertIsNotNone(detail)
+        self.assertEqual(detail["manufacturer"], "Schneider Electric")
+        self.assertGreaterEqual(len(detail["points"]), 5)
+
+        # 4. Save custom profile
+        custom_data = {
+            "name": "Custom Test Meter XYZ",
+            "category": "custom",
+            "manufacturer": "Test Corp",
+            "model": "XYZ-100",
+            "default_baudrate": 9600,
+            "default_parity": "N",
+            "default_stopbits": 1,
+            "points": [
+                {
+                    "address": 10,
+                    "name": "TEST_REG",
+                    "type": "holding",
+                    "format": "uint16",
+                    "unit": "kW",
+                    "scale": 0.1,
+                    "access": "rw",
+                    "description": "Test register",
+                }
+            ],
+        }
+        saved = profile_manager.save_custom_profile(custom_data)
+        self.assertIn("custom_test_meter_xyz", saved["id"])
+
+        # 5. Apply profile to slave
+        applied = profile_manager.apply_profile_to_slave(slave_id=88, profile_id=saved["id"])
+        self.assertTrue(applied["success"])
+        self.assertEqual(applied["slave_id"], 88)
+        self.assertEqual(applied["mapped_points_count"], 1)
+
+        # Verify slave device in state
+        from data.state import state
+        dev = state.modbus_devices.get(88)
+        self.assertIsNotNone(dev)
+        self.assertEqual(dev.vendor_name, "Test Corp")
+
+        # 6. Delete custom profile
+        deleted = profile_manager.delete_custom_profile(saved["id"])
+        self.assertTrue(deleted)
+
+        # 7. Cannot delete built-in profile
+        with self.assertRaises(ValueError):
+            profile_manager.delete_custom_profile("schneider_iem3150")
+
+
+class TestEnterpriseV08Routes(unittest.TestCase):
+    def test_routes_execution(self):
+        async def _run():
+            from api import routes, schemas
+
+            # 1. Safe Mode routes
+            arm_req = schemas.SafeModeArmRequest(
+                operator="Mario Rossi",
+                job_order="ORD-789",
+                duration_minutes=20,
+            )
+            arm_res = await routes.arm_safe_mode_endpoint(arm_req)
+            self.assertTrue(arm_res["armed"])
+            self.assertEqual(arm_res["operator"], "Mario Rossi")
+
+            stat_res = await routes.get_safe_mode_status_endpoint()
+            self.assertTrue(stat_res["armed"])
+
+            dis_res = await routes.disarm_safe_mode_endpoint()
+            self.assertFalse(dis_res["armed"])
+
+            # 2. Audit routes
+            integ = await routes.verify_audit_journal_endpoint()
+            self.assertIn("valid", integ)
+
+            entries = await routes.get_audit_journal_endpoint(limit=10)
+            self.assertIsInstance(entries, list)
+
+            exp = await routes.export_audit_journal_endpoint()
+            self.assertIn("integrity", exp)
+            self.assertIn("entries", exp)
+
+            # 3. Profiles routes
+            all_profs = await routes.list_profiles_endpoint()
+            self.assertGreaterEqual(len(all_profs), 10)
+
+            p_detail = await routes.get_profile_endpoint("schneider_iem3150")
+            self.assertEqual(p_detail["id"], "schneider_iem3150")
+
+            apply_req = schemas.ApplyProfileRequest(slave_id=12, profile_id="belimo_energy_valve")
+            apply_res = await routes.apply_profile_to_slave_endpoint(apply_req)
+            self.assertTrue(apply_res["success"])
+            self.assertEqual(apply_res["slave_id"], 12)
+
+        asyncio.run(_run())
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

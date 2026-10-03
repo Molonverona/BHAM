@@ -1,0 +1,19 @@
+{
+  "id": "trox_vav_compact",
+  "name": "Trox VAV Compact Controller (LHV-D3-MOD)",
+  "category": "actuator_hvac",
+  "manufacturer": "Trox Technik",
+  "model": "LHV-D3-MOD",
+  "description": "Regolatore compatto per scatole e terminali VAV a portata variabile",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Airflow_Setpoint_Percent", "type": "holding", "format": "uint16", "unit": "%", "scale": 0.01, "access": "rw", "description": "Setpoint portata aria desiderata tra V_min e V_max (0..100%)" },
+    { "address": 1, "name": "Actual_Airflow_Percent", "type": "holding", "format": "uint16", "unit": "%", "scale": 0.01, "access": "ro", "description": "Portata aria attuale misurata in %" },
+    { "address": 2, "name": "Actual_Airflow_m3h", "type": "holding", "format": "uint16", "unit": "m³/h", "scale": 1.0, "access": "ro", "description": "Portata aria attuale in m³/h" },
+    { "address": 3, "name": "Differential_Pressure", "type": "holding", "format": "uint16", "unit": "Pa", "scale": 1.0, "access": "ro", "description": "Pressione differenziale sull'ugello di misura" },
+    { "address": 4, "name": "Damper_Position", "type": "holding", "format": "uint16", "unit": "%", "scale": 0.01, "access": "ro", "description": "Posizione effettiva della pala serranda (0..100%)" },
+    { "address": 100, "name": "Operating_Mode_Override", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "rw", "description": "Modalità forzata: 0=Auto, 1=Close, 2=Open, 3=V_min, 4=V_mid, 5=V_max" }
+  ]
+}

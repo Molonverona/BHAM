@@ -1,0 +1,23 @@
+{
+  "id": "riello_caldaia_condexa",
+  "name": "Riello Caldaia Condensa (Condexa Pro / Tau N)",
+  "category": "actuator_hvac",
+  "manufacturer": "Riello",
+  "model": "Condexa Pro / Tau N",
+  "description": "Centrale termica a condensazione modulare ad alta efficienza con scheda Modbus",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Boiler_Status", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "ro", "description": "Stato operativo: 0=Off, 1=Standby, 2=Accensione, 3=Funzionamento a regime, 4=Blocco" },
+    { "address": 1, "name": "Flow_Temperature", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura mandata caldaia misurata" },
+    { "address": 2, "name": "Return_Temperature", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura ritorno impianto" },
+    { "address": 3, "name": "External_Temperature", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "ro", "description": "Temperatura esterna da sonda climatica" },
+    { "address": 4, "name": "Actual_Modulation_Power", "type": "holding", "format": "uint16", "unit": "%", "scale": 1.0, "access": "ro", "description": "Livello di modulazione bruciatore (0..100%)" },
+    { "address": 5, "name": "Water_Pressure", "type": "holding", "format": "uint16", "unit": "bar", "scale": 0.1, "access": "ro", "description": "Pressione circuito primario acqua" },
+    { "address": 10, "name": "Target_Setpoint_Temp", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.1, "access": "rw", "description": "Setpoint temperatura mandata impostato da BMS/supervisore" },
+    { "address": 11, "name": "Remote_Enable_Command", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "rw", "description": "Abilitazione remota bruciatore: 0=Spento, 1=Acceso in modulazione" },
+    { "address": 20, "name": "Flame_Ionization_Current", "type": "holding", "format": "uint16", "unit": "µA", "scale": 0.1, "access": "ro", "description": "Corrente di ionizzazione rilevazione fiamma" },
+    { "address": 30, "name": "Lockout_Error_Code", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "ro", "description": "Codice errore di blocco bruciatore (es. mancata accensione, pressostato fumi)" }
+  ]
+}

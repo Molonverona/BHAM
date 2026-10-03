@@ -1,0 +1,24 @@
+{
+  "id": "belimo_energy_valve",
+  "name": "Belimo Energy Valve (EV / ePIV)",
+  "category": "energy_heat",
+  "manufacturer": "Belimo",
+  "model": "Energy Valve EV / ePIV",
+  "description": "Valvola di regolazione indipendente dalla pressione con contabilizzazione termica integrata",
+  "default_baudrate": 9600,
+  "default_parity": "N",
+  "default_stopbits": 1,
+  "points": [
+    { "address": 0, "name": "Setpoint_Flow_Percent", "type": "holding", "format": "uint16", "unit": "%", "scale": 0.01, "access": "rw", "description": "Setpoint portata/apertura desiderata (0..100%)" },
+    { "address": 1, "name": "Relative_Position", "type": "holding", "format": "uint16", "unit": "%", "scale": 0.01, "access": "ro", "description": "Posizione effettiva della valvola" },
+    { "address": 2, "name": "Absolute_Flow", "type": "holding", "format": "uint16", "unit": "l/s", "scale": 0.01, "access": "ro", "description": "Portata volumetrica istantanea" },
+    { "address": 3, "name": "Heat_Power", "type": "holding", "format": "uint16", "unit": "kW", "scale": 0.1, "access": "ro", "description": "Potenza termica istantanea calcolata" },
+    { "address": 4, "name": "Cooling_Power", "type": "holding", "format": "uint16", "unit": "kW", "scale": 0.1, "access": "ro", "description": "Potenza frigorifera istantanea" },
+    { "address": 5, "name": "Supply_Temp_T1", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.01, "access": "ro", "description": "Temperatura mandata T1" },
+    { "address": 6, "name": "Return_Temp_T2", "type": "holding", "format": "int16", "unit": "°C", "scale": 0.01, "access": "ro", "description": "Temperatura ritorno T2" },
+    { "address": 7, "name": "Delta_T", "type": "holding", "format": "int16", "unit": "K", "scale": 0.01, "access": "ro", "description": "Differenziale di temperatura T1 - T2" },
+    { "address": 8, "name": "Total_Energy_Cooling", "type": "holding", "format": "uint32", "unit": "kWh", "scale": 1.0, "access": "ro", "description": "Energia termica raffrescamento totale" },
+    { "address": 10, "name": "Total_Energy_Heating", "type": "holding", "format": "uint32", "unit": "kWh", "scale": 1.0, "access": "ro", "description": "Energia termica riscaldamento totale" },
+    { "address": 100, "name": "Command_Override", "type": "holding", "format": "uint16", "unit": "", "scale": 1.0, "access": "rw", "description": "Comando override: 0=Auto, 1=Close, 2=Open, 3=MinFlow, 4=MaxFlow" }
+  ]
+}

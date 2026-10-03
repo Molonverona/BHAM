@@ -140,11 +140,17 @@ class SerialSniffer(BaseScanner):
         log = self._log
         state.update_session(self.session_id, status=ScanStatus.RUNNING, progress_pct=0.0)
 
-        # ── Pre-flight: dialout check (Linux only) ────────────────────────────
+        # ── Pre-flight: dialout / rw access check (Linux only) ────────────────
         if platform.system() == "Linux":
             from core.priv_check import has_dialout, is_admin
             import os
-            if not is_admin() and not has_dialout():
+            port_accessible = False
+            try:
+                port_accessible = os.access(req.port, os.R_OK | os.W_OK)
+            except Exception:
+                pass
+
+            if not is_admin() and not has_dialout() and not port_accessible:
                 advice = (
                     f"La porta seriale {req.port} richiede il gruppo 'dialout'. "
                     f"Aggiungiti al gruppo (poi esegui logout/login):  "
@@ -249,8 +255,58 @@ class SerialSniffer(BaseScanner):
 
         try:
             while not self.is_aborted() and time.monotonic() < deadline:
-                # Lettura chunk di byte dal buffer UART
-                chunk = ser.read(512)
+                # Lettura chunk di byte dal buffer UART con gestione Hot-Plug & disconnessioni
+                chunk = None
+                try:
+                    chunk = ser.read(512)
+                except (serial.SerialException, OSError, IOError) as exc:
+                    self._log.warning(
+                        "Anomalia o disconnessione hardware su %s: %s", req.port, exc
+                    )
+                    from api.websockets import manager
+                    manager.broadcast_sync({
+                        "event": "hardware_disconnect",
+                        "port": req.port,
+                        "message": f"Convertitore seriale {req.port} disconnesso o non raggiungibile."
+                    })
+                    try:
+                        ser.close()
+                    except Exception:
+                        pass
+
+                    # Entrata in loop di auto-recovery hot-plug
+                    recovered = False
+                    while not self.is_aborted() and time.monotonic() < deadline:
+                        time.sleep(1.0)
+                        import os
+                        if os.path.exists(req.port):
+                            try:
+                                ser = serial.Serial(
+                                    port=req.port,
+                                    baudrate=baud,
+                                    bytesize=8,
+                                    parity=parity_str,
+                                    stopbits=stopbits,
+                                    timeout=0.04,
+                                )
+                                recovered = True
+                                self._log.info(
+                                    "Convertitore seriale %s RICONNESSO (Hot-Plug auto-recovery OK).", req.port
+                                )
+                                manager.broadcast_sync({
+                                    "event": "hardware_reconnect",
+                                    "port": req.port,
+                                    "message": f"Convertitore seriale {req.port} ricollegato e operativo."
+                                })
+                                break
+                            except Exception:
+                                pass
+
+                    if not recovered:
+                        self._log.warning("Scansione terminata a causa della disconnessione prolungata di %s.", req.port)
+                        break
+                    continue
+
                 now = time.monotonic()
 
                 if chunk:
@@ -290,7 +346,7 @@ class SerialSniffer(BaseScanner):
                     # Euristica Diagnostica Qualità Bus RS485 (Livello Fisico)
                     if total_frames < 5:
                         phy_status = "GOOD"
-                        phy_diag = "Campionamento frame in corso..."
+                        phy_diag = "Campionamento frame in corso / bus a riposo (quiet line)..."
                     elif per > 25.0:
                         phy_status = "CRITICAL"
                         phy_diag = (

@@ -2444,3 +2444,226 @@ html, body {
   border-left-color: var(--bham-modbus);
   color: var(--bham-modbus);
 }
+
+/* ── Demo Mode Indicator Pill ─────────────────────────────────────────────── */
+.bham-demo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.bham-demo-pill:hover {
+  background: #e2e8f0;
+}
+.bham-demo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.bham-demo-pill.active {
+  background: #fdf4ff;
+  border-color: #f0abfc;
+  color: #a21caf;
+}
+.bham-demo-pill.active .bham-demo-dot {
+  background: #d946ef;
+  box-shadow: 0 0 6px #d946ef;
+}
+[data-theme="dark"] .bham-demo-pill {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.25);
+  color: #94a3b8;
+}
+[data-theme="dark"] .bham-demo-pill.active {
+  background: rgba(217, 70, 239, 0.15);
+  border-color: rgba(240, 171, 252, 0.35);
+  color: #f0abfc;
+}
+
+/* ── Live Log Viewer Filter Controls ──────────────────────────────────────── */
+.bham-dock-select {
+  height: 22px;
+  font-size: 10.5px;
+  font-family: "JetBrains Mono", monospace;
+  background: var(--bham-bg-surface);
+  color: var(--bham-text-main);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 0 4px;
+  outline: none;
+  cursor: pointer;
+}
+.bham-dock-search {
+  height: 22px;
+  width: 140px;
+  font-size: 10.5px;
+  background: var(--bham-bg-surface);
+  color: var(--bham-text-main);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 0 6px;
+  outline: none;
+  transition: width 0.2s ease;
+}
+.bham-dock-search:focus {
+  width: 200px;
+  border-color: #0284c7;
+}
+
+/* ── Toast Notifications ─────────────────────────────────────────────────── */
+.bham-toast-container {
+  position: fixed;
+  bottom: 50px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.bham-toast {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--bham-radius);
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: bham-toast-in 0.25s ease-out;
+  transition: opacity 0.3s ease;
+}
+@keyframes bham-toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.bham-toast-info {
+  background: #0284c7;
+  color: #ffffff;
+}
+.bham-toast-warn {
+  background: #f59e0b;
+  color: #ffffff;
+}
+.bham-toast-error {
+  background: #ef4444;
+  color: #ffffff;
+}
+.bham-toast-success {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* ── Field Tools & Quick Commander ────────────────────────────────────────── */
+.bham-quick-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  background: var(--bham-bg-surface-elevated);
+  padding: 10px;
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  margin-bottom: 10px;
+}
+.bham-result-card {
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  padding: 10px;
+  margin-top: 10px;
+}
+.bham-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+.bham-result-box {
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 6px 8px;
+  text-align: center;
+}
+.bham-result-lbl {
+  font-size: 10px;
+  color: var(--bham-text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.bham-result-val {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bham-text-main);
+  margin-top: 2px;
+}
+
+/* ── Safe Mode & Audit Journal (v0.8.0) ─────────────────────────────────── */
+.bham-btn-safe-mode {
+  transition: all 0.2s ease-in-out;
+  border-width: 1px;
+}
+
+.bham-safe-mode-locked {
+  background: #f0fdf4 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+.bham-safe-mode-locked:hover {
+  background: #dcfce7 !important;
+  border-color: #4ade80 !important;
+}
+
+[data-theme="dark"] .bham-safe-mode-locked {
+  background: rgba(22, 101, 52, 0.25) !important;
+  border-color: #166534 !important;
+  color: #86efac !important;
+}
+
+[data-theme="dark"] .bham-safe-mode-locked:hover {
+  background: rgba(22, 101, 52, 0.4) !important;
+  border-color: #22c55e !important;
+}
+
+.bham-safe-mode-armed {
+  background: #fef2f2 !important;
+  border-color: #f87171 !important;
+  color: #b91c1c !important;
+  animation: bham-safe-mode-pulse 2s infinite ease-in-out;
+}
+
+.bham-safe-mode-armed:hover {
+  background: #fee2e2 !important;
+}
+
+[data-theme="dark"] .bham-safe-mode-armed {
+  background: rgba(185, 28, 28, 0.3) !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+}
+
+@keyframes bham-safe-mode-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+

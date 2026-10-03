@@ -59,14 +59,32 @@ def _linux_has_cap_net_raw() -> bool:
 
 
 def _linux_has_dialout() -> bool:
-    """True when the current user belongs to the 'dialout' group."""
+    """
+    True quando l'utente appartiene a 'dialout'/'uucp' oppure ha accesso diretto in lettura/scrittura
+    alle porte seriali connesse (/dev/ttyUSB*, /dev/ttyACM*).
+    """
     try:
         import grp
         gids = os.getgroups()
-        dialout_gid = grp.getgrnam("dialout").gr_gid
-        return dialout_gid in gids
-    except (KeyError, Exception):
-        return False
+        for grp_name in ("dialout", "uucp"):
+            try:
+                if grp.getgrnam(grp_name).gr_gid in gids:
+                    return True
+            except KeyError:
+                pass
+    except Exception:
+        pass
+
+    # Verifica se una qualsiasi porta seriale connessa è già accessibile con permessi rw (ACL/udev/nogroup)
+    import glob
+    for dev in glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"):
+        try:
+            if os.access(dev, os.R_OK | os.W_OK):
+                return True
+        except Exception:
+            pass
+
+    return False
 
 
 def _linux_report() -> PrivReport:
