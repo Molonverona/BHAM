@@ -105,6 +105,9 @@ EXTRA_TARGETS = [
     (ROOT / ".env.example", [
         (r'(APP_VERSION=)\d+\.\d+\.\d+', r"\g<1>{v}"),
     ]),
+    (ROOT / "installer" / "bham.iss", [
+        (r'(#define MyAppVersion\s*")[^"]+', r'\g<1>{v}'),
+    ]),
 ]
 
 # Elenco file da includere nel commit di release (usato da release.sh / CI).
@@ -112,7 +115,7 @@ RELEASE_FILES = [
     "pyproject.toml", "core/config.py", "winget/",
     "frontend/index.html", "frontend/js/i18n.js",
     "MANUALE_UTENTE.md", "frontend/MANUALE_UTENTE.md",
-    "scripts/package_deb.sh", "scripts/install.sh", ".env.example",
+    "scripts/package_deb.sh", "scripts/install.sh", ".env.example", "installer/bham.iss",
     "CHANGELOG.md",
 ]
 

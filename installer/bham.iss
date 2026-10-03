@@ -2,7 +2,7 @@
 ; Builds professional Windows setup executable
 
 #define MyAppName "BHAM - BACS Help Auto Mapper"
-#define MyAppVersion "0.8.0"
+#define MyAppVersion "0.8.1"
 #define MyAppPublisher "BACS Help"
 #define MyAppURL "https://github.com/Molonverona/BHAM"
 #define MyAppExeName "bham.exe"
@@ -18,7 +18,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\BHAM
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-LicenseFile=LICENSE
+LicenseFile=..\LICENSE
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\dist-installer
