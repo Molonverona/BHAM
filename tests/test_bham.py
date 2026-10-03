@@ -581,6 +581,42 @@ class TestSerialSniffer(unittest.TestCase):
 
         asyncio.run(_test())
 
+    def test_bus_health_heuristic_diagnosis(self):
+        from data.models import BusHealth
+
+        h_good = BusHealth(
+            total_frames=100,
+            valid_frames=98,
+            crc_errors=2,
+            packet_error_rate_pct=2.0,
+            physical_status="GOOD",
+            physical_diagnosis="Bus RS485 stabile e conforme (qualità segnale ottimale).",
+        )
+        self.assertEqual(h_good.physical_status, "GOOD")
+        self.assertIn("stabile", h_good.physical_diagnosis)
+
+        h_crit = BusHealth(
+            total_frames=100,
+            valid_frames=60,
+            crc_errors=40,
+            packet_error_rate_pct=40.0,
+            physical_status="CRITICAL",
+            physical_diagnosis="Rilevato alto tasso di errori CRC/framing (>25%): verificare assenza resistenze di terminazione 120Ω.",
+        )
+        self.assertEqual(h_crit.physical_status, "CRITICAL")
+        self.assertIn("terminazione", h_crit.physical_diagnosis)
+
+    def test_hardware_self_test_endpoint(self):
+        async def _test():
+            res = await routes.hardware_self_test()
+            self.assertIn("overall", res)
+            self.assertIn("serial", res)
+            self.assertIn("network", res)
+            self.assertIn("privileges", res)
+            self.assertIn(res["overall"], ("ok", "warning", "error"))
+
+        asyncio.run(_test())
+
 
 class TestSessionDiff(unittest.TestCase):
     """Test suite per il modulo core/session_diff.py ed endpoint /sessions/diff."""
@@ -902,8 +938,35 @@ class TestBACnetBBMD(unittest.TestCase):
         self.assertEqual(req.bbmd_port, 47808)
         self.assertEqual(req.bbmd_ttl, 120)
 
+    def test_get_host_lan_ips(self):
+        from core.hw_discovery import get_host_lan_ips
+        ips = get_host_lan_ips()
+        self.assertIsInstance(ips, list)
+        for ip in ips:
+            self.assertIsInstance(ip, str)
+            self.assertFalse(ip.startswith("127."))
+            self.assertFalse(ip.startswith("169.254."))
+
+    def test_setup_network_interfaces_lan_ips_response(self):
+        async def _run():
+            res = await routes.get_network_interfaces()
+            self.assertIn("interfaces", res)
+            self.assertIn("single_iface_mode", res)
+            self.assertIn("lan_ips", res)
+            self.assertIn("port", res)
+            self.assertIsInstance(res["lan_ips"], list)
+            self.assertEqual(res["port"], 8765)
+        asyncio.run(_run())
+
+    def test_bham_launcher_no_browser_arg(self):
+        import subprocess, sys
+        out = subprocess.check_output([sys.executable, "bham.py", "--help"], text=True)
+        self.assertIn("--no-browser", out)
+        self.assertIn("--check", out)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

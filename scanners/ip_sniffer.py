@@ -22,6 +22,17 @@ if TYPE_CHECKING:
 _SYSTEM = platform.system()
 
 
+def npcap_installed() -> bool:
+    """True se il driver Npcap (o WinPcap legacy) è presente. Solo Windows."""
+    import os
+    sysroot = os.environ.get("SystemRoot", r"C:\Windows")
+    candidates = [
+        os.path.join(sysroot, "System32", "Npcap", "wpcap.dll"),
+        os.path.join(sysroot, "System32", "wpcap.dll"),
+    ]
+    return any(os.path.isfile(c) for c in candidates)
+
+
 class IPSniffer(BaseScanner):
 
     async def scan(self, *args, **kwargs) -> None:
@@ -55,6 +66,20 @@ class IPSniffer(BaseScanner):
                     "oppure esegui BHAM con sudo."
                 )
             log.error("ARP sniffer: permessi insufficienti. %s", advice)
+            state.update_session(self.session_id, error_message=advice)
+            state.finish_session(self.session_id, ScanStatus.ERROR)
+            return
+
+        # ── Pre-flight Npcap (Windows) ────────────────────────────────────────
+        # Senza driver di cattura Scapy non riceve pacchetti: meglio un errore
+        # esplicito che una scansione "completata" con 0 host.
+        if _SYSTEM == "Windows" and not npcap_installed():
+            advice = (
+                "L'ARP Sniffer su Windows richiede il driver Npcap. "
+                "Installalo da https://npcap.com (opzione 'WinPcap API-compatible mode') "
+                "e riavvia BHAM."
+            )
+            log.error("ARP sniffer: %s", advice)
             state.update_session(self.session_id, error_message=advice)
             state.finish_session(self.session_id, ScanStatus.ERROR)
             return
@@ -105,8 +130,11 @@ class IPSniffer(BaseScanner):
                 log.error(msg)
                 return msg
             except Exception as exc:
+                # Qualsiasi errore di cattura invalida il risultato: va segnalato,
+                # altrimenti l'utente vedrebbe "0 host" e penserebbe a una rete vuota.
+                msg = f"Errore di cattura ARP: {exc}"
                 log.error("Sniffer error: %s", exc)
-                return None  # non-fatal
+                return msg
 
         loop = asyncio.get_event_loop()
         err = await loop.run_in_executor(None, _run_sniff)

@@ -51,15 +51,17 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
   - Verbale PDF tecnico vettoriale a due passate con diagramma gerarchico topologico d'impianto ad albero e tabelle as-built complete
   - Esportazione grafica topologica vettoriale (.svg) ad alta definizione
   - Import/Export mappe punti compatibili BACS Help (`/api/v1/maps/*`)
-- **🎨 Field Engineer Studio Layout & i18n (v0.6.0)**:
+- **🎨 Field Engineer Studio Layout & i18n**:
   - Architettura ergonomica a 2 colonne: Sidebar canali e diagnostica a sinistra (360px) + Workspace centrale con Switcher Vista Tabella/Topologia + Dock Diagnostico Inferiore a scomparsa per Live Console e RS485 Inspector
   - Dual Mode (Dark Mode ad alto contrasto per locali tecnici / Light Mode per visibilità sotto luce solare diretta)
   - Color-coding ergonomico per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP, Ambra=Diagnostics)
-  - Internazionalizzazione completa (Italiano, Inglese, Spagnolo, **218 chiavi per lingua**) e Manuale Tecnico interattivo a bordo (F1)
-- **💾 Gestione Sessioni e Riconoscimento HW**:
-  - Rilevamento automatico convertitori USB↔RS485 (FTDI, Silicon Labs CP210x, CH340, Prolific)
-  - Selezione interfacce di rete attive con modalità single-interface
-  - Centro Impostazioni Unificato (5 schede) e ripristino snapshot sessioni salvate
+  - Internazionalizzazione completa (Italiano, Inglese, Spagnolo, **228 chiavi per lingua** con parità 100%) e Manuale Tecnico interattivo a bordo (F1)
+- **🛠️ Diagnostica di Campo Avanzata & Launcher Unificato (v0.7.0)**:
+  - **Launcher Cross-Platform `bham.py`**: Auto-rilevamento requisiti da `requirements.txt`, installazione interattiva o non-interattiva (`--yes`), fallback automatico a `get-pip.py` e supporto Python 3.12/3.13 su Windows e Linux.
+  - **Euristica Livello Fisico Bus RS485**: Diagnosi in tempo reale di riflessioni (terminazione 120Ω mancante), polarità A(+)/B(-) invertita, disturbi o saturazione del polling, con badge e tooltip esplicativi.
+  - **Quick Diagnostic Self-Test 1-Click**: Verifica di apertura porte seriali con misurazione della latenza in millisecondi, rilevamento schede di rete e verifica privilegi di sistema (`dialout`/admin/Npcap).
+  - **Profili Impianto Rapidi (Preset)**: Configurazione istantanea a 1 click per HVAC Standard, Contatori Energia, Gateway DALI o Ricerche Approfondite.
+  - **Centro Impostazioni Riprogettato**: Macro-voci verticali chiare (Adattatori, Connettività, Tema, Sessioni, Mappe) con comodi menu a tendina.
 
 ---
 
@@ -71,47 +73,58 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
 
 ---
 
-## 🚀 Installazione Rapida
+## 🚀 Installazione & Avvio (Windows e Linux) – v0.7.0
 
-### 1. Clonare il repository ed entrare nella directory
+Un solo comando, identico su entrambi i sistemi. Il launcher `bham.py` legge `requirements.txt`,
+mostra l'elenco dei pacchetti mancanti, chiede conferma, crea il `.venv` isolato, installa tutto,
+avvia il server e **apre automaticamente la dashboard nel browser predefinito**.
 
 ```bash
-cd /home/giuliano/Documenti/BHAM
+python3 bham.py        # Linux (Debian, Ubuntu, Raspberry Pi OS, ecc.)
+python  bham.py        # Windows (PowerShell / cmd)
 ```
 
-### 2. Creare e attivare l'ambiente virtuale
+Opzioni utili del launcher:
+
+| Flag | Effetto |
+|------|---------|
+| *(nessuno)* | Verifica/installa dipendenze, avvia il demone e apre il browser |
+| `--no-browser` | Avvia il server senza aprire il browser (ideale su Raspberry Pi headless o via SSH) |
+| `--yes` / `-y` | Installa le dipendenze senza chiedere conferma interattiva |
+| `--check` | Verifica soltanto le dipendenze (exit code `0` = OK, `1` = mancanti) |
+| `--no-reload` | Avvia senza auto-reload (consigliato in cantiere per massima stabilità) |
+
+### 🌐 Accesso Remoto da Rete LAN (Raspberry Pi / Mini-PC di Campo)
+
+Se BHAM è installato su un PC di quadro, notebook di cantiere o **Raspberry Pi** connesso all'impianto, è possibile controllarlo da qualsiasi altro PC portatile, tablet o smartphone collegato alla stessa rete (Wi-Fi o Ethernet):
+
+1. Avvia BHAM sul Raspberry Pi / PC: il launcher mostrerà a video gli indirizzi IP assegnati alla scheda di rete.
+2. Dal tuo portatile o tablet, apri nel browser l'URL della LAN:
+   ```
+   http://192.168.x.x:8765
+   ```
+3. Su Linux, se il firewall di sistema è attivo, consenti la porta:
+   ```bash
+   sudo ufw allow 8765/tcp
+   ```
+
+<details>
+<summary>Installazione manuale (alternativa)</summary>
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Installare le dipendenze
-
-```bash
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8765
 ```
 
----
-
-## 💻 Avvio Applicazione
-
-Avviare con lo script rapido:
-
-```bash
-./start.sh
-```
-
-Oppure con uvicorn:
-
-```bash
-.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload
-```
+Su Linux resta disponibile anche `./start.sh`, che include i controlli permessi `dialout` / `cap_net_raw`.
+</details>
 
 Una volta avviato:
-- **Dashboard Web UI**: [http://localhost:8765](http://localhost:8765)
+- **Dashboard Web UI**: [http://localhost:8765](http://localhost:8765) (o `http://<IP-LAN>:8765`)
 - **Documentazione OpenAPI / Swagger**: [http://localhost:8765/docs](http://localhost:8765/docs)
-- **Canale WebSocket Live Telemetry**: `ws://localhost:8765/api/v1/ws`
+- **Canale WebSocket Live Telemetry**: `ws://<IP-LAN>:8765/api/v1/ws`
 
 ---
 

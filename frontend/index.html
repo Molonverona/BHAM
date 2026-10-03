@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BHAM – BACS Help Auto Mapper v0.6.0</title>
-  <link rel="stylesheet" href="css/main.css?v=0.6.0" />
+  <title>BHAM – BACS Help Auto Mapper v0.7.0</title>
+  <link rel="stylesheet" href="css/main.css?v=0.7.0" />
 </head>
 <body>
 
@@ -17,7 +17,7 @@
         </svg>
         BHAM
       </span>
-      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.6.0</span>
+      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.7.0</span>
       <span id="ws-pill" class="bham-ws-pill disconnected">
         <span class="bham-ws-dot"></span> <span id="ws-pill-text">Connecting…</span>
       </span>
@@ -118,6 +118,23 @@
       <span id="side-site-val" class="hidden"></span>
       <span id="side-rs485-val" class="hidden"></span>
       <span id="side-nic-val" class="hidden"></span>
+      <!-- Quick Scan Profile Selector -->
+      <div class="bham-rack-card" style="padding:8px 10px;margin-bottom:8px;border-left:3px solid var(--bham-modbus)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:11px;font-weight:700;color:var(--bham-text-main);display:flex;align-items:center;gap:5px">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span data-i18n="quick_profile_title">Profilo Impianto</span>
+          </span>
+          <span id="quick-profile-badge" class="mono text-dim" style="font-size:10px">HVAC Std</span>
+        </div>
+        <select id="quick-profile-select" class="bham-select" onchange="applyQuickProfile(this.value)" style="font-size:11px;height:28px">
+          <option value="hvac_std" data-i18n="profile_hvac">HVAC Standard (Modbus 9600 8N1 + BACnet)</option>
+          <option value="energy_meters" data-i18n="profile_energy">Contatori Energia (Modbus 19200 8E1)</option>
+          <option value="dali_gw" data-i18n="profile_dali">Gateway Luce / DALI (Modbus 19200 8N1)</option>
+          <option value="deep_slow" data-i18n="profile_slow">Ricerca Approfondita (Bus Lento, 1-247)</option>
+          <option value="custom" data-i18n="profile_custom">Personalizzato (Manuale)</option>
+        </select>
+      </div>
 
       <!-- Rack Unit 1: Modbus RTU (RS485) -->
       <div class="bham-rack-card" id="rack-rtu">
@@ -762,6 +779,10 @@
           <span class="bham-health-lbl">PER (ERR):</span>
           <span id="health-per" class="bham-health-val mono">0.0%</span>
         </div>
+        <div class="bham-health-item" id="health-diag-wrap" style="display:none;max-width:240px">
+          <span class="bham-health-lbl">DIAG:</span>
+          <span id="health-diagnosis" class="bham-health-val mono" style="cursor:help;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;max-width:180px;display:inline-block" title="">—</span>
+        </div>
         <div class="bham-health-item">
           <span class="bham-health-lbl">NODES:</span>
           <div id="health-nodes" class="bham-health-nodes">
@@ -831,34 +852,56 @@
       <p style="font-size:11px;color:var(--bham-text-dim);margin:0" data-i18n="settings_sub">Gestione centralizzata hardware, motori di scansione, lingua, sessioni salvate e mappe.</p>
 
       <!-- Settings Tabs Navigation -->
-      <div class="bham-modal-tabs">
-        <button id="tab-btn-hw" onclick="switchSettingsTab('hw')" class="bham-modal-tab active">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          <span data-i18n="tab_hw">Hardware &amp; Porte</span>
-        </button>
-        <button id="tab-btn-scan" onclick="switchSettingsTab('scan')" class="bham-modal-tab">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          <span data-i18n="tab_scan">Parametri Scansione</span>
-        </button>
-        <button id="tab-btn-appearance" onclick="switchSettingsTab('appearance')" class="bham-modal-tab">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line></svg>
-          <span data-i18n="tab_appearance">Aspetto &amp; Lingua</span>
-        </button>
-        <button id="tab-btn-sessions" onclick="switchSettingsTab('sessions')" class="bham-modal-tab">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline></svg>
-          <span data-i18n="tab_sessions">Sessioni Salvate</span>
-        </button>
-        <button id="tab-btn-maps" onclick="switchSettingsTab('maps')" class="bham-modal-tab">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg>
-          <span data-i18n="tab_maps">Mappe BACS Help</span>
-        </button>
-      </div>
+      <div style="display:flex; height: 500px; border: 1px solid var(--bham-border); border-radius: var(--bham-radius); overflow: hidden; margin-top: 12px;">
+        <!-- Left Sidebar (Macro voci) -->
+        <div class="bham-settings-sidebar" style="width: 220px; background: var(--bham-bg-surface-elevated); border-right: 1px solid var(--bham-border); display: flex; flex-direction: column; padding: 8px 0; overflow-y:auto;">
+          <button id="tab-btn-hw" onclick="switchSettingsTab('hw')" class="bham-settings-nav-btn active">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span data-i18n="tab_hw">Adattatori & Porte</span>
+          </button>
+          <button id="tab-btn-scan" onclick="switchSettingsTab('scan')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span data-i18n="tab_scan">Connettività & Scansione</span>
+          </button>
+          <button id="tab-btn-appearance" onclick="switchSettingsTab('appearance')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line></svg>
+            <span data-i18n="tab_appearance">Tema & Lingua</span>
+          </button>
+          <button id="tab-btn-sessions" onclick="switchSettingsTab('sessions')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline></svg>
+            <span data-i18n="tab_sessions">Sessioni Salvate</span>
+          </button>
+          <button id="tab-btn-maps" onclick="switchSettingsTab('maps')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg>
+            <span data-i18n="tab_maps">Mappe BACS Help</span>
+          </button>
+        </div>
+        
+        <!-- Right Content -->
+        <div class="bham-settings-content" style="flex: 1; padding: 18px; overflow-y: auto;">
 
       <!-- Tab 1: Hardware & Network -->
       <div id="panel-settings-hw" class="bham-tab-panel">
         <div>
           <label class="bham-label" data-i18n="site_name_label">Nome Sito / Impianto</label>
           <input id="setup-site" type="text" placeholder="Cliente Rossi – Imp. 3" class="bham-input" />
+        </div>
+
+        <!-- Self-Test Interfacce Card -->
+        <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:10px 12px;background:var(--bham-bg-surface-elevated)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-weight:700;font-size:12px;color:var(--bham-text-main);display:flex;align-items:center;gap:6px">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24" style="color:var(--bham-modbus)"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                <span data-i18n="selftest_title">Diagnostica Rapida Interfacce (Self-Test)</span>
+              </span>
+              <p style="font-size:10.5px;color:var(--bham-text-dim);margin:2px 0 0 0" data-i18n="selftest_sub">Collaudo istantaneo 1-click di porta seriale, schede di rete e permessi operativi.</p>
+            </div>
+            <button id="btn-run-selftest" type="button" onclick="runHardwareSelfTest()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:28px;padding:0 12px;font-size:11px" data-i18n="btn_run_selftest">
+              ⚡ Esegui Self-Test
+            </button>
+          </div>
+          <div id="selftest-results" style="margin-top:8px;display:none;font-size:11px;border-top:1px solid var(--bham-border);padding-top:8px"></div>
         </div>
 
         <!-- Seriale -->
@@ -921,6 +964,22 @@
               <div id="setup-client-ip" class="mono text-dim" style="font-size:10.5px;margin-top:4px"></div>
             </div>
           </div>
+
+          <!-- Accesso Remoto LAN Info Box -->
+          <div id="lan-access-box" style="margin-top:10px;padding:9px 12px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.22);border-radius:var(--bham-radius);font-size:11px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:600;color:var(--bham-text-main);display:flex;align-items:center;gap:6px">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24" style="color:#3b82f6"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <span data-i18n="lan_access_title">Accesso Remoto LAN (Tablet / Altri PC)</span>
+              </span>
+            </div>
+            <p style="margin:3px 0 6px 0;font-size:10.5px;color:var(--bham-text-dim)" data-i18n="lan_access_desc">
+              Per usare BHAM da un altro dispositivo collegato alla stessa rete WiFi o Ethernet, apri nel browser:
+            </p>
+            <div id="lan-access-urls" style="display:flex;flex-wrap:wrap;gap:6px">
+              <span class="mono text-dim" style="font-size:10.5px" data-i18n="lan_access_scanning">Rilevamento indirizzi LAN in corso…</span>
+            </div>
+          </div>
         </div>
 
         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px">
@@ -931,6 +990,16 @@
 
       <!-- Tab 2: Scan Parameters -->
       <div id="panel-settings-scan" class="bham-tab-panel hidden">
+        <div style="margin-bottom:12px;background:var(--bham-bg-surface-elevated);border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:10px 12px">
+          <label class="bham-label" data-i18n="preset_profile_label" style="color:var(--bham-modbus);font-weight:700">Profilo Impianto Rapido</label>
+          <select id="cfg-scan-preset" class="bham-select" onchange="applyScanPreset(this.value)">
+            <option value="hvac_std" data-i18n="profile_hvac">HVAC Standard (Modbus 9600 8N1 + BACnet 47808)</option>
+            <option value="energy_meters" data-i18n="profile_energy">Contatori Energia (Modbus 19200 8E1)</option>
+            <option value="dali_gw" data-i18n="profile_dali">Gateway Luce / DALI (Modbus 19200 8N1)</option>
+            <option value="deep_slow" data-i18n="profile_slow">Ricerca Approfondita (Bus Lento, 1-247)</option>
+            <option value="custom" data-i18n="profile_custom">Personalizzato (Manuale)</option>
+          </select>
+        </div>
         <div class="bham-field-row">
           <div>
             <label class="bham-label" data-i18n="rtu_timeout_slow">Timeout Iniziale Modbus RTU (s)</label>
@@ -982,18 +1051,18 @@
       <div id="panel-settings-appearance" class="bham-tab-panel hidden">
         <div>
           <label class="bham-label" data-i18n="lang_selection_label">Lingua dell'Interfaccia</label>
-          <div style="display:flex;gap:10px;margin-top:6px">
-            <button onclick="setAppLanguage('it')" class="bham-btn-secondary" style="flex:1">Italiano (IT)</button>
-            <button onclick="setAppLanguage('en')" class="bham-btn-secondary" style="flex:1">English (EN)</button>
-            <button onclick="setAppLanguage('es')" class="bham-btn-secondary" style="flex:1">Español (ES)</button>
-          </div>
+          <select id="setup-lang" class="bham-select" onchange="setAppLanguage(this.value)" style="margin-top:6px">
+            <option value="it">Italiano (IT)</option>
+            <option value="en">English (EN)</option>
+            <option value="es">Español (ES)</option>
+          </select>
         </div>
         <div style="margin-top:14px">
           <label class="bham-label" data-i18n="theme_selection_label">Tema Grafico</label>
-          <div style="display:flex;gap:10px;margin-top:6px">
-            <button onclick="setThemeMode('dark')" class="bham-btn-secondary" style="flex:1">Dark (Field Soft Slate)</button>
-            <button onclick="setThemeMode('light')" class="bham-btn-secondary" style="flex:1">Light (Field High-Contrast)</button>
-          </div>
+          <select id="setup-theme" class="bham-select" onchange="setThemeMode(this.value)" style="margin-top:6px">
+            <option value="light">Light (Field High-Contrast)</option>
+            <option value="dark">Dark (Field Soft Slate)</option>
+          </select>
         </div>
         <div style="margin-top:14px">
           <label class="bham-label" data-i18n="console_buffer_label">Buffer Retention Console (righe massime)</label>
@@ -1041,8 +1110,10 @@
         </div>
       </div>
 
+      </div>
     </div>
   </div>
+</div>
 
   <!-- ── Modal 2: Interactive Field Manual & Help ──────────────────────── -->
   <div id="help-overlay" class="bham-overlay hidden">
@@ -1394,8 +1465,8 @@
 
 
   <!-- Scripts: Relative paths for 100% reliable local & server loading -->
-  <script src="js/i18n.js?v=0.6.0"></script>
-  <script src="js/manual-content.js?v=0.6.0"></script>
-  <script src="js/app.js?v=0.6.0"></script>
+  <script src="js/i18n.js?v=0.7.0"></script>
+  <script src="js/manual-content.js?v=0.7.0"></script>
+  <script src="js/app.js?v=0.7.0"></script>
 </body>
 </html>

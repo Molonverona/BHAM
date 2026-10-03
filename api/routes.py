@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
 from api.websockets import manager
+from core.config import settings
 from core.logger import logger
 from data.models import Protocol, SessionDiffRequest
 from data.state import state
@@ -300,15 +301,27 @@ async def get_serial_ports() -> list[dict]:
             summary="Elenca interfacce di rete attive con IP")
 async def get_network_interfaces() -> dict:
     """
-    Ritorna NIC disponibili + suggerimento single_iface_mode.
+    Ritorna NIC disponibili + suggerimento single_iface_mode e IP per accesso remoto LAN.
     single_iface_mode=True → usa la stessa NIC per scan e client.
     """
-    from core.hw_discovery import list_network_interfaces, suggest_single_iface
+    from core.hw_discovery import get_host_lan_ips, list_network_interfaces, suggest_single_iface
     ifaces = list_network_interfaces()
     return {
         "interfaces":       ifaces,
         "single_iface_mode": suggest_single_iface(ifaces),
+        "lan_ips":          get_host_lan_ips(),
+        "port":             settings.port,
     }
+
+
+@router.get("/hardware/self-test", tags=["setup"],
+            summary="Diagnostica rapida hardware e permessi di sistema (Self-Test)")
+async def hardware_self_test(port: Optional[str] = None) -> dict:
+    """
+    Collaudo diagnostico 1-click di interfacce seriali RS485, schede di rete e privilegi OS.
+    """
+    from core.hw_discovery import run_hardware_self_test
+    return run_hardware_self_test(target_serial_port=port)
 
 
 class ConfigureRequest(BaseModel):

@@ -5,6 +5,10 @@ Loads settings from environment variables / .env file using pydantic-settings.
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+import platform
+
+# Porta seriale di ripiego quando l'utente non ne ha selezionata una.
+DEFAULT_SERIAL_PORT = "COM1" if platform.system() == "Windows" else "/dev/ttyUSB0"
 
 
 class Settings(BaseSettings):
@@ -17,7 +21,7 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────────────────
     app_name: str = "BHAM – BACS Help Auto Mapper"
-    app_version: str = "0.6.1"
+    app_version: str = "0.7.0"
     debug: bool = False
 
     # ── Server ───────────────────────────────────────────────────────────────

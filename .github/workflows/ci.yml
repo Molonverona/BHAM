@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Run Unit & Integration Tests
+    name: Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -34,3 +34,68 @@ jobs:
       - name: Run Test Suite
         run: |
           python -W error -m unittest discover -s tests -p "test_*.py"
+
+  launcher:
+    name: Launcher auto-setup (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "--check must fail on a clean checkout (no .venv)"
+        shell: bash
+        run: |
+          if python bham.py --check; then
+            echo "Expected --check to fail without .venv"; exit 1
+          fi
+
+      - name: "Auto-install dependencies into .venv (non-interactive)"
+        shell: bash
+        run: |
+          # Avvia l'installazione e interrompe prima dell'avvio del server
+          python - <<'EOF'
+          import subprocess, sys
+          sys.path.insert(0, ".")
+          import bham
+          ok = bham.setup(bham.missing_dependencies(), assume_yes=True)
+          sys.exit(0 if ok else 1)
+          EOF
+
+      - name: "--check must pass after install"
+        run: python bham.py --check
+
+  static:
+    name: Static checks (JS syntax & version sync)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: JavaScript syntax
+        run: |
+          for f in frontend/js/*.js; do node -c "$f"; done
+
+      - name: Version strings are in sync
+        run: |
+          VER=$(python3 scripts/bump_version.py --get)
+          echo "pyproject version: $VER"
+          grep -q "app_version: str = \"$VER\"" core/config.py
+          grep -q "BACS Help Auto Mapper v$VER" frontend/index.html
+          grep -q "?v=$VER" frontend/index.html
+          test "$(grep -c "BACS Help Auto Mapper v$VER" frontend/js/i18n.js)" -eq 3
+          grep -q "PackageVersion: $VER" winget/BacsHelp.BHAM.yaml
+          grep -q "VERSION=\"\${1:-$VER}\"" scripts/package_deb.sh

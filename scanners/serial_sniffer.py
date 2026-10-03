@@ -287,6 +287,31 @@ class SerialSniffer(BaseScanner):
                     bus_load = round(min(100.0, ((total_bytes * 10) / baud) / elapsed * 100), 1)
                     per = round((crc_errors / max(1, total_frames)) * 100.0, 1)
 
+                    # Euristica Diagnostica Qualità Bus RS485 (Livello Fisico)
+                    if total_frames < 5:
+                        phy_status = "GOOD"
+                        phy_diag = "Campionamento frame in corso..."
+                    elif per > 25.0:
+                        phy_status = "CRITICAL"
+                        phy_diag = (
+                            "Rilevato alto tasso di errori CRC/framing (>25%): "
+                            "verificare assenza resistenze di terminazione 120Ω o possibile inversione polarità morsetti A(+)/B(-)."
+                        )
+                    elif per > 8.0:
+                        phy_status = "WARNING"
+                        phy_diag = (
+                            "Disturbi o jitter rilevati sul bus (errori 8-25%): "
+                            "verificare schermatura cavo, terra GND di riferimento o lunghezza tratta bus."
+                        )
+                    elif bus_load > 85.0:
+                        phy_status = "WARNING"
+                        phy_diag = (
+                            "Saturazione bus (>85% load): frequenza di polling Master troppo elevata o baudrate insufficiente."
+                        )
+                    else:
+                        phy_status = "GOOD"
+                        phy_diag = "Bus RS485 stabile e conforme (qualità segnale ottimale)."
+
                     health = BusHealth(
                         total_frames=total_frames,
                         valid_frames=valid_frames,
@@ -297,6 +322,8 @@ class SerialSniffer(BaseScanner):
                         baudrate=baud,
                         parity=parity_str,
                         active_nodes=sorted(list(active_nodes)),
+                        physical_status=phy_status,
+                        physical_diagnosis=phy_diag,
                     )
                     state.update_bus_health(health)
                     last_health_broadcast = now

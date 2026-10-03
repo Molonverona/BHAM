@@ -2,9 +2,9 @@
 # ==============================================================================
 # BHAM – 1-Command Local Release Trigger
 # Usage:
-#   ./scripts/release.sh patch   (0.3.0 -> 0.3.1)
-#   ./scripts/release.sh minor   (0.3.0 -> 0.4.0)
-#   ./scripts/release.sh major   (0.3.0 -> 1.0.0)
+#   ./scripts/release.sh patch   (0.7.0 -> 0.7.1)
+#   ./scripts/release.sh minor   (0.7.0 -> 0.8.0)
+#   ./scripts/release.sh major   (0.7.0 -> 1.0.0)
 # ==============================================================================
 
 set -e
@@ -36,7 +36,7 @@ NEW_VER=$(python3 scripts/bump_version.py "$BUMP_TYPE")
 echo "📈 Avanzamento versione: v${OLD_VER} ➔ v${NEW_VER}"
 
 # 4. Commit automatico e Creazione Tag
-git add pyproject.toml core/config.py winget/
+git add $(python3 scripts/bump_version.py --files)
 git commit -m "chore(release): v${NEW_VER}"
 git tag -a "v${NEW_VER}" -m "Release v${NEW_VER}"
 

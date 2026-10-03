@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 BHAM – Automated Version Bump Utility
-Updates version across pyproject.toml, core/config.py, and winget manifests.
+Updates version across pyproject.toml, core/config.py, winget manifests,
+frontend (title, badge, cache-busters, i18n), user manuals and Debian packaging.
 """
 
 import re
@@ -79,6 +80,46 @@ def update_winget(new_ver: str):
         yml.write_text(txt, encoding="utf-8")
 
 
+# File con stringhe di versione "vX.Y.Z" / "?v=X.Y.Z" da sincronizzare.
+# Ogni voce: (file, lista di (regex, sostituzione con {v}))
+EXTRA_TARGETS = [
+    (ROOT / "frontend" / "index.html", [
+        (r"(BACS Help Auto Mapper v)\d+\.\d+\.\d+", r"\g<1>{v}"),
+        (r"(\?v=)\d+\.\d+\.\d+", r"\g<1>{v}"),
+    ]),
+    (ROOT / "frontend" / "js" / "i18n.js", [
+        (r"(BACS Help Auto Mapper v)\d+\.\d+\.\d+", r"\g<1>{v}"),
+    ]),
+    (ROOT / "MANUALE_UTENTE.md", [
+        (r"(Guida Operativa di Campo \(v)\d+\.\d+\.\d+", r"\g<1>{v}"),
+    ]),
+    (ROOT / "frontend" / "MANUALE_UTENTE.md", [
+        (r"(Guida Operativa di Campo \(v)\d+\.\d+\.\d+", r"\g<1>{v}"),
+    ]),
+    (ROOT / "scripts" / "package_deb.sh", [
+        (r'(VERSION="\$\{1:-)\d+\.\d+\.\d+', r"\g<1>{v}"),
+    ]),
+]
+
+# Elenco file da includere nel commit di release (usato da release.sh / CI).
+RELEASE_FILES = [
+    "pyproject.toml", "core/config.py", "winget/",
+    "frontend/index.html", "frontend/js/i18n.js",
+    "MANUALE_UTENTE.md", "frontend/MANUALE_UTENTE.md", "scripts/package_deb.sh",
+    "CHANGELOG.md",
+]
+
+
+def update_extra(new_ver: str):
+    for path, rules in EXTRA_TARGETS:
+        if not path.exists():
+            continue
+        txt = path.read_text(encoding="utf-8")
+        for pattern, repl in rules:
+            txt = re.sub(pattern, repl.replace("{v}", new_ver), txt)
+        path.write_text(txt, encoding="utf-8")
+
+
 def main():
     if len(sys.argv) < 2:
         print("Uso: python3 scripts/bump_version.py <patch|minor|major|X.Y.Z> [--get]")
@@ -90,11 +131,15 @@ def main():
     if arg == "--get":
         print(curr)
         return
+    if arg == "--files":
+        print(" ".join(RELEASE_FILES))
+        return
 
     new_ver = bump(curr, arg)
     update_pyproject(new_ver)
     update_config(new_ver)
     update_winget(new_ver)
+    update_extra(new_ver)
 
     # Stampa la nuova versione per catturarla negli script / GitHub Actions
     print(new_ver)

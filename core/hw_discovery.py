@@ -139,3 +139,168 @@ def suggest_single_iface(ifaces: list[dict]) -> bool:
     if single:
         log.info("Single-iface mode suggerito: %s – %s", wired[0]["name"], wired[0]["ip"])
     return single
+
+
+def run_hardware_self_test(target_serial_port: Optional[str] = None) -> dict:
+    """
+    Esegue un collaudo diagnostico istantaneo di tutto l'hardware e permessi di sistema.
+    Non lancia scansioni invasive: verifica apertura porte, link NIC e privilegi OS.
+    """
+    from core.priv_check import check_privileges
+    import time
+
+    os_type = "windows" if platform.system() == "Windows" else "linux"
+    priv = check_privileges()
+
+    # 1. Test Porta Seriale RS485
+    ports = list_serial_ports()
+    rs485_likely = [p["port"] for p in ports if p.get("rs485_likely")]
+    if target_serial_port:
+        port_to_test = target_serial_port
+    elif rs485_likely:
+        port_to_test = rs485_likely[0]
+    elif os_type == "windows" and ports:
+        port_to_test = ports[0]["port"]
+    else:
+        port_to_test = None
+
+    serial_res = {
+        "tested_port": port_to_test,
+        "available_ports": [p["port"] for p in ports],
+        "status": "warning",  # ok | warning | error
+        "message": "Nessun convertitore USB-RS485 rilevato (collega un adattatore FTDI, CH340, CP210x o Prolific).",
+        "rs485_likely": False,
+    }
+
+    if port_to_test:
+        matching = next((p for p in ports if p["port"] == port_to_test), None)
+        serial_res["rs485_likely"] = matching.get("rs485_likely", False) if matching else False
+        try:
+            import serial
+            t0 = time.monotonic()
+            ser = serial.Serial(port=port_to_test, baudrate=9600, timeout=0.1)
+            ser.close()
+            ms = round((time.monotonic() - t0) * 1000, 1)
+            serial_res["status"] = "ok"
+            desc = matching.get("description", "") if matching else ""
+            serial_res["message"] = f"Porta {port_to_test} operativa e accessibile ({desc}, {ms}ms)."
+        except PermissionError as exc:
+            serial_res["status"] = "error"
+            if os_type == "windows":
+                serial_res["message"] = f"Accesso negato a {port_to_test}: riesegui come Amministratore."
+            else:
+                serial_res["message"] = f"Permesso negato su {port_to_test}: aggiungi l'utente al gruppo dialout."
+        except Exception as exc:
+            serial_res["status"] = "error"
+            serial_res["message"] = f"Impossibile aprire {port_to_test}: {exc}"
+
+    # 2. Test Interfacce di Rete (NIC)
+    nics = list_network_interfaces()
+    wired = [n for n in nics if not n.get("is_wireless")]
+    wireless = [n for n in nics if n.get("is_wireless")]
+
+    if not nics:
+        nic_status = "error"
+        nic_msg = "Nessuna interfaccia di rete attiva con IPv4 valido (connetti cavo Ethernet o Wi-Fi)."
+    elif wired:
+        nic_status = "ok"
+        w0 = wired[0]
+        nic_msg = f"Interfaccia cablata attiva: {w0['name']} ({w0['ip']}). Pronta per BACnet, KNX e ARP."
+    else:
+        nic_status = "warning"
+        wl0 = wireless[0]
+        nic_msg = f"Rete Wi-Fi attiva: {wl0['name']} ({wl0['ip']}). Consigliata connessione cablata per scansioni bus/LAN."
+
+    net_res = {
+        "status": nic_status,
+        "message": nic_msg,
+        "total_active": len(nics),
+        "interfaces": nics,
+    }
+
+    # 3. Test Privilegi OS & Driver
+    priv_warnings = list(priv.warnings)
+    if os_type == "windows":
+        from scanners.ip_sniffer import npcap_installed
+        has_npcap = npcap_installed()
+        if not has_npcap:
+            priv_warnings.append("Driver Npcap non installato: ARP Sniffer non disponibile.")
+
+    if not priv_warnings:
+        priv_status = "ok"
+        priv_msg = "Privilegi di sistema e driver operativi al 100%."
+    elif any("negato" in w.lower() or "mancante" in w.lower() or "richiede" in w.lower() for w in priv_warnings):
+        priv_status = "warning"
+        priv_msg = f"{len(priv_warnings)} avviso/i sui permessi (alcune funzioni avanzate disabilitate)."
+    else:
+        priv_status = "ok"
+        priv_msg = "Privilegi di base OK."
+
+    priv_res = {
+        "status": priv_status,
+        "message": priv_msg,
+        "is_root_or_admin": priv.is_root_or_admin,
+        "warnings": priv_warnings,
+    }
+
+    # Overall summary
+    statuses = [serial_res["status"], net_res["status"], priv_res["status"]]
+    if "error" in statuses:
+        overall = "error"
+    elif "warning" in statuses:
+        overall = "warning"
+    else:
+        overall = "ok"
+
+    return {
+        "timestamp": time.time(),
+        "overall": overall,
+        "serial": serial_res,
+        "network": net_res,
+        "privileges": priv_res,
+    }
+
+
+def get_host_lan_ips() -> list[str]:
+    """
+    Ritorna la lista di indirizzi IPv4 locali non-loopback per consentire l'accesso da rete LAN.
+    Esclude 127.x.x.x (loopback) e 169.254.x.x (link-local).
+    """
+    ips: set[str] = set()
+    try:
+        for nic in list_network_interfaces():
+            ip = nic.get("ip")
+            if ip and not ip.startswith("127.") and not ip.startswith("169.254."):
+                ips.add(ip)
+    except Exception:
+        pass
+
+    if not ips:
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                if ip and not ip.startswith("127.") and not ip.startswith("169.254."):
+                    ips.add(ip)
+            except Exception:
+                pass
+            finally:
+                s.close()
+        except Exception:
+            pass
+
+    if not ips:
+        try:
+            import socket
+            host = socket.gethostname()
+            for info in socket.getaddrinfo(host, None, socket.AF_INET):
+                ip = info[4][0]
+                if ip and not ip.startswith("127.") and not ip.startswith("169.254."):
+                    ips.add(ip)
+        except Exception:
+            pass
+
+    return sorted(ips)
+

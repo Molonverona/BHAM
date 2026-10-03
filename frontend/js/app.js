@@ -11,8 +11,9 @@
 
 "use strict";
 
-const API    = "/api/v1";
-const WS_URL = `ws://${location.host}/api/v1/ws`;
+const API     = "/api/v1";
+const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+const WS_URL  = `${wsProto}//${location.host}/api/v1/ws`;
 
 let ws = null;
 let currentFilter = "all";
@@ -36,6 +37,8 @@ function setAppLanguage(lang) {
     window.I18N.setLanguage(lang);
     updateCounts();
     log(`[NET] Lingua interfaccia impostata: ${lang.toUpperCase()}`);
+    const sel = document.getElementById("setup-lang");
+    if (sel) sel.value = lang;
   }
 }
 
@@ -62,6 +65,8 @@ function setThemeMode(theme) {
     }
   }
   localStorage.setItem("bham-theme-mode", theme);
+  const sel = document.getElementById("setup-theme");
+  if (sel) sel.value = theme;
 }
 
 function toggleTheme() {
@@ -1074,6 +1079,196 @@ function handleBusHealth(health) {
       nodesElem.innerHTML = health.active_nodes.map(n => `<span class="bham-node-chip">${n}</span>`).join("");
     }
   }
+
+  const diagWrap = document.getElementById("health-diag-wrap");
+  const diagElem = document.getElementById("health-diagnosis");
+  if (diagElem && diagWrap) {
+    if (health.physical_diagnosis) {
+      diagWrap.style.display = "inline-flex";
+      diagElem.textContent = health.physical_diagnosis;
+      diagElem.setAttribute("title", health.physical_diagnosis);
+      if (health.physical_status === "CRITICAL") {
+        diagElem.style.color = "#ef4444";
+      } else if (health.physical_status === "WARNING") {
+        diagElem.style.color = "#f59e0b";
+      } else {
+        diagElem.style.color = "#10b981";
+      }
+    } else {
+      diagWrap.style.display = "none";
+    }
+  }
+}
+
+// ── Scan Presets & Field Quick Profiles ─────────────────────────────────────
+
+const SCAN_PROFILES = {
+  hvac_std: {
+    label: "HVAC Standard",
+    badge: "HVAC Std",
+    rtuSlow: 0.50,
+    rtuFast: 0.12,
+    baud: "9600",
+    parity: "N",
+    stop: "1",
+    idRange: "1 - 247",
+    timeoutMs: 500,
+    tcpPort: "502",
+    bacnetPort: "BAC0",
+    knxPort: "3671",
+  },
+  energy_meters: {
+    label: "Contatori Energia",
+    badge: "Meters",
+    rtuSlow: 0.35,
+    rtuFast: 0.10,
+    baud: "19200",
+    parity: "E",
+    stop: "1",
+    idRange: "1 - 64",
+    timeoutMs: 350,
+    tcpPort: "502",
+    bacnetPort: "BAC0",
+    knxPort: "3671",
+  },
+  dali_gw: {
+    label: "Gateway Luce / DALI",
+    badge: "DALI GW",
+    rtuSlow: 0.35,
+    rtuFast: 0.10,
+    baud: "19200",
+    parity: "N",
+    stop: "1",
+    idRange: "1 - 32",
+    timeoutMs: 350,
+    tcpPort: "502",
+    bacnetPort: "BAC0",
+    knxPort: "3671",
+  },
+  deep_slow: {
+    label: "Ricerca Approfondita (Bus Lento)",
+    badge: "Deep Slow",
+    rtuSlow: 1.20,
+    rtuFast: 0.35,
+    baud: "9600",
+    parity: "N",
+    stop: "1",
+    idRange: "1 - 247",
+    timeoutMs: 1200,
+    tcpPort: "502",
+    bacnetPort: "BAC0",
+    knxPort: "3671",
+  },
+};
+
+function applyQuickProfile(profileKey) {
+  if (profileKey === "custom" || !SCAN_PROFILES[profileKey]) {
+    const b = document.getElementById("quick-profile-badge");
+    if (b) b.textContent = "Custom";
+    const s = document.getElementById("cfg-scan-preset");
+    if (s) s.value = "custom";
+    return;
+  }
+  const prof = SCAN_PROFILES[profileKey];
+
+  const sel1 = document.getElementById("quick-profile-select");
+  if (sel1) sel1.value = profileKey;
+  const sel2 = document.getElementById("cfg-scan-preset");
+  if (sel2) sel2.value = profileKey;
+
+  const badge = document.getElementById("quick-profile-badge");
+  if (badge) badge.textContent = prof.badge;
+
+  const rtuRange = document.getElementById("rtu-id-range");
+  if (rtuRange) rtuRange.value = prof.idRange;
+  const rtuTimeout = document.getElementById("rtu-timeout");
+  if (rtuTimeout) rtuTimeout.value = prof.timeoutMs;
+
+  const cfgSlow = document.getElementById("cfg-rtu-slow");
+  if (cfgSlow) cfgSlow.value = prof.rtuSlow;
+  const cfgFast = document.getElementById("cfg-rtu-fast");
+  if (cfgFast) cfgFast.value = prof.rtuFast;
+  const setupBaud = document.getElementById("setup-baud");
+  if (setupBaud) setupBaud.value = prof.baud;
+  const setupParity = document.getElementById("setup-parity");
+  if (setupParity) setupParity.value = prof.parity;
+  const setupStop = document.getElementById("setup-stop");
+  if (setupStop) setupStop.value = prof.stop;
+
+  if (prof.tcpPort) setTcpPortPreset(prof.tcpPort);
+  if (prof.bacnetPort) setBacnetPortPreset(prof.bacnetPort);
+  if (prof.knxPort) setKnxPortPreset(prof.knxPort);
+
+  localStorage.setItem("bham-selected-profile", profileKey);
+  log(`[PROFILE] Applicato profilo d'impianto: ${prof.label} (${prof.baud} ${prof.parity}8${prof.stop}, timeout=${prof.timeoutMs}ms)`);
+}
+
+function applyScanPreset(val) {
+  applyQuickProfile(val);
+}
+
+// ── Hardware Quick Self-Test ────────────────────────────────────────────────
+
+async function runHardwareSelfTest() {
+  const btn = document.getElementById("btn-run-selftest");
+  const resultsDiv = document.getElementById("selftest-results");
+  if (!resultsDiv) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Test in corso...";
+  }
+
+  resultsDiv.style.display = "block";
+  resultsDiv.innerHTML = `<span class="mono text-dim" style="font-size:11px">Esecuzione diagnosi istantanea hardware e permessi...</span>`;
+
+  try {
+    const portVal = document.getElementById("setup-port")?.value || "";
+    const url = portVal ? `${API}/hardware/self-test?port=${encodeURIComponent(portVal)}` : `${API}/hardware/self-test`;
+    const res = await fetch(url).then(r => r.json());
+
+    const statusBadge = (st) => {
+      if (st === "ok") return `<span style="color:#10b981;font-weight:700">● OK</span>`;
+      if (st === "warning") return `<span style="color:#f59e0b;font-weight:700">▲ AVVISO</span>`;
+      return `<span style="color:#ef4444;font-weight:700">✕ ERRORE</span>`;
+    };
+
+    let html = `
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;background:var(--bham-bg-surface);padding:6px 8px;border-radius:4px;border:1px solid var(--bham-border)">
+          <div>
+            <span style="font-weight:600;color:var(--bham-modbus)">Porta Seriale RS485</span>
+            <div style="color:var(--bham-text-dim);font-size:10.5px;margin-top:2px">${res.serial.message}</div>
+          </div>
+          <div>${statusBadge(res.serial.status)}</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;background:var(--bham-bg-surface);padding:6px 8px;border-radius:4px;border:1px solid var(--bham-border)">
+          <div>
+            <span style="font-weight:600;color:var(--bham-bacnet)">Interfacce di Rete (NIC)</span>
+            <div style="color:var(--bham-text-dim);font-size:10.5px;margin-top:2px">${res.network.message}</div>
+          </div>
+          <div>${statusBadge(res.network.status)}</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;background:var(--bham-bg-surface);padding:6px 8px;border-radius:4px;border:1px solid var(--bham-border)">
+          <div>
+            <span style="font-weight:600;color:var(--bham-text-main)">Permessi OS & Driver</span>
+            <div style="color:var(--bham-text-dim);font-size:10.5px;margin-top:2px">${res.privileges.message}</div>
+          </div>
+          <div>${statusBadge(res.privileges.status)}</div>
+        </div>
+      </div>
+    `;
+
+    resultsDiv.innerHTML = html;
+    log(`[SELFTEST] Esito generale: ${res.overall.toUpperCase()} (Seriale: ${res.serial.status}, Rete: ${res.network.status}, Permessi: ${res.privileges.status})`);
+  } catch (err) {
+    resultsDiv.innerHTML = `<span style="color:#ef4444;font-size:11px">Errore esecuzione Self-Test: ${err.message}</span>`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "⚡ Esegui Self-Test";
+    }
+  }
 }
 
 // ── Port Presets & Dynamic Hints ─────────────────────────────────────────────
@@ -1621,9 +1816,67 @@ async function scanNetworkIfaces() {
       onIfaceChange("client");
       el.textContent = `${ifaces.length} interfaccia/e rilevata/e.`;
     }
+
+    const lanContainer = document.getElementById("lan-access-urls");
+    if (lanContainer) {
+      const port = res.port || (location.port || 8765);
+      const lanIps = (res.lan_ips && res.lan_ips.length) ? res.lan_ips : (ifaces.map(i => i.ip).filter(Boolean));
+      if (lanIps.length) {
+        lanContainer.innerHTML = lanIps.map(ip => {
+          const u = `http://${ip}:${port}`;
+          return `<button type="button" class="mono" onclick="copyToClipboard('${u}', this)" title="Clicca per copiare l'URL" style="cursor:pointer;padding:4px 9px;border-radius:4px;font-size:11px;background:var(--bham-bg-surface);border:1px solid var(--bham-border);color:var(--bham-text-main);display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--bham-modbus)"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span class="url-text">${u}</span>
+          </button>`;
+        }).join("");
+      } else {
+        const fallback = `http://${location.hostname || '127.0.0.1'}:${port}`;
+        lanContainer.innerHTML = `<span class="mono text-dim" style="font-size:10.5px">${fallback}</span>`;
+      }
+    }
   } catch (e) {
     el.textContent = "Errore scansione NIC: " + e.message;
   }
+}
+
+function copyToClipboard(text, btn) {
+  const showSuccess = () => {
+    if (!btn) return;
+    btn.style.borderColor = "var(--bham-success)";
+    btn.style.color = "var(--bham-success)";
+    const urlSpan = btn.querySelector(".url-text");
+    const oldLabel = urlSpan ? urlSpan.textContent : "";
+    if (urlSpan) urlSpan.textContent = "✓ Copiato!";
+    setTimeout(() => {
+      btn.style.borderColor = "";
+      btn.style.color = "";
+      if (urlSpan) urlSpan.textContent = oldLabel;
+    }, 1500);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(showSuccess).catch(() => {
+      _fallbackCopy(text, showSuccess);
+    });
+  } else {
+    _fallbackCopy(text, showSuccess);
+  }
+}
+
+function _fallbackCopy(text, callback) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    if (callback) callback();
+  } catch (e) {
+    console.warn("Fallback copy failed", e);
+  }
+  document.body.removeChild(ta);
 }
 
 function onIfaceChange(role) {
@@ -2639,6 +2892,12 @@ function loadSavedScanParams() {
         setKnxPortPreset(p.knxPort);
       }
     }
+
+    const savedProf = localStorage.getItem("bham-selected-profile");
+    if (savedProf && SCAN_PROFILES[savedProf]) {
+      applyQuickProfile(savedProf);
+    }
+
     const coll = localStorage.getItem("bham-console-collapsed");
     const col = document.getElementById("console-col");
     if (col) {
@@ -3120,3 +3379,9 @@ if (window.I18N) {
 loadSavedScanParams();
 connectWS();
 
+setTimeout(() => {
+  const langSel = document.getElementById("setup-lang");
+  if (langSel && window.I18N) {
+    langSel.value = window.I18N.currentLanguage || localStorage.getItem("bham-lang") || "it";
+  }
+}, 500);

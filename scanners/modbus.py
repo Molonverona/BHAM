@@ -23,7 +23,7 @@ import struct
 import time
 from typing import TYPE_CHECKING, Any, Optional
 
-from core.config import settings
+from core.config import DEFAULT_SERIAL_PORT, settings
 from core.logger import logger
 from data.models import ModbusDevice, Parity, Protocol, ScanStatus, SerialParams
 from data.state import state
@@ -618,7 +618,7 @@ def _smart_register_scan_sync(
         else:
             from pymodbus.client import ModbusSerialClient
             client = ModbusSerialClient(
-                port=port or "/dev/ttyUSB0",
+                port=port or DEFAULT_SERIAL_PORT,
                 baudrate=baudrate,
                 parity=parity,
                 stopbits=stopbits,
@@ -718,7 +718,7 @@ def _smart_register_scan_sync(
 
         return {
             "slave_id": slave_id,
-            "endpoint": ip if is_tcp else (port or "/dev/ttyUSB0"),
+            "endpoint": ip if is_tcp else (port or DEFAULT_SERIAL_PORT),
             "elapsed_ms": elapsed,
             "found_count": len(found_registers),
             "registers": found_registers,

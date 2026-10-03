@@ -69,7 +69,7 @@ if [ "$(uname -s)" = "Linux" ]; then
     read -p "Avvio con sudo? (s/n): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Ss]$ ]]; then
-      exec sudo .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload
+      exec sudo .venv/bin/python3 bham.py "$@"
     fi
   else
     echo "  ✅  Permessi OK (dialout + cap_net_raw)"
@@ -78,4 +78,4 @@ fi
 
 echo ""
 
-exec .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload
+exec python3 bham.py "$@"

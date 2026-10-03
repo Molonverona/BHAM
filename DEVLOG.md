@@ -5,6 +5,54 @@
 
 ---
 
+## Sessione 24 – 2026-10-03 ✅ COMPLETE – v0.7.0 RELEASE PREP & FIELD ENHANCEMENTS
+**Preparazione rilascio v0.7.0: launcher robusto con auto-open browser, accesso remoto LAN Raspberry Pi/PC, autodiagnosi hardware 1-click, euristica RS485 e profili impianto rapidi**
+
+**Highlights:**
+- ✅ **Version Bump v0.7.0** su tutti i file (pyproject, config, winget, index.html + cache-buster, i18n ×3, manuali, `package_deb.sh`). Excel ora usa `settings.app_version`.
+- ✅ **`scripts/bump_version.py`**: sincronizza anche frontend/i18n/manuali/.deb; nuovo `--files` usato da `release.sh` e `release.yml` per il commit di release.
+- ✅ **`bham.py` irrobustito con Auto-Open Browser & Accesso Remoto LAN**:
+  - Verifica *ogni* pacchetto di `requirements.txt` (via `importlib.metadata` dentro il venv, incluse versioni pinnate), flag `--yes`/`--check`/`--no-browser`/`--no-reload`.
+  - **Auto-Apertura Browser**: probe su porta 8765 e apertura automatica del browser predefinito all'avvio; gestione sicura di ambienti headless (Linux SSH/server senza display).
+  - **Accesso Remoto LAN**: rilevamento dinamico di tutti gli IP LAN non-loopback (`get_local_lan_ips()`), banner a console con URL per tablet/PC remoti e indicazioni firewall (`sudo ufw allow 8765/tcp`).
+  - Ricerca automatica interpreti supportati (`3.12`, `3.13`, `py -3.12` su Windows o `python3.12` su Linux), fallback con bootstrap automatico di `pip` via `get-pip.py` su distribuzioni Debian/Ubuntu prive di `ensurepip`.
+- ✅ **Interfaccia Web & Remote Access (`frontend/index.html`, `frontend/js/app.js`)**:
+  - Box dedicato "Accesso Remoto LAN (Tablet / Altri PC)" nella scheda Impostazioni Adattatori & Porte, popolato automaticamente con gli IP dell'host (`http://192.168.x.x:8765`) e pulsante di copia negli appunti con feedback visivo.
+  - WebSocket connection URL reso protocol-aware (`wss:` su HTTPS/tunnel, `ws:` su HTTP).
+- ✅ **A. Diagnostica Euristica Qualità Bus RS485 (`scanners/serial_sniffer.py`, `data/models.py`)**:
+  - Aggiunti campi `physical_status` e `physical_diagnosis` a `BusHealth`.
+  - Calcolo automatico di diagnosi euristiche del livello fisico sul bus in base a PER % e Bus Load %: allarme terminazioni 120Ω mancanti o inversione polarità A(+)/B(-), warning disturbi/schermatura cavo, warning saturazione polling Master.
+  - Badge diagnostico reattivo `#health-diagnosis` nel banner Bus Health della dock inferiore con tooltip esplicito e codifica colore.
+- ✅ **B. Quick Diagnostic Self-Test 1-Click (`core/hw_discovery.py`, `api/routes.py`)**:
+  - Nuovo endpoint `GET /api/v1/hardware/self-test` che collauda in < 100ms la porta seriale USB-RS485 selezionata (apertura/chiusura reale con timing), le schede di rete (IP, link cablato vs Wi-Fi) e i privilegi di sistema (dialout, admin, Npcap).
+  - Card interattiva nel modale Impostazioni con pulsante `[⚡ Esegui Self-Test]` e chip di stato (Verde/Giallo/Rosso) per prevenire scansioni a vuoto prima di andare in campo.
+- ✅ **C. Preset Rapidi di Scansione / Profili Impianto (`frontend/index.html`, `frontend/js/app.js`)**:
+  - Menu a tendina sia nella sidebar che nella scheda Scansione per applicare istantaneamente profili tipici: *HVAC Standard* (9600 8N1 + BACnet 47808), *Contatori Energia* (19200 8E1), *Gateway Luce / DALI* (19200 8N1), *Ricerca Approfondita* (timeout estesi, sweep 1-247).
+  - Persistenza automatica del profilo selezionato in `localStorage`.
+- ✅ **Risoluzione Socket Leak BACnet (`scanners/bacnet.py`)**:
+  - Helper `_safe_close` e chiusura sicura in caso di cancellazione/aborto scansione; eliminati tutti i `ResourceWarning` su socket UDP aperti.
+- ✅ **Parità & Qualità**:
+  - Test suite unificata: **37/37 unit test superati al 100% con flag `-W error`**.
+  - Parità i18n al 100% (232 chiavi identiche in IT, EN, ES).
+  - Sintassi JavaScript verificata con `node -c`.
+  - DOM IDs: 232 elementi unici verificati, 0 duplicati.
+- ✅ Nuovo **`CHANGELOG.md`**; README e manuale con quick start e guida all'accesso remoto.
+
+---
+
+## Sessione 23 – 2026-10-03 ✅ COMPLETE – Ottimizzazione UX & Setup Multi-Piattaforma
+**Revisione del Centro Impostazioni e Automazione del Setup per Windows e Linux**
+
+**Highlights:**
+- ✅ **Setup Multi-Piattaforma & Auto-Dipendenze (`bham.py`)**:
+  - Creato un launcher intelligente `bham.py` per avviare il tool in modo uniforme su Windows e Linux.
+  - Generazione automatica della lista delle dipendenze da `requirements.txt`.
+  - Richiesta esplicita (prompt Y/n) per creare e configurare automaticamente il virtualenv isolato scaricando tutte le dipendenze in modo completamente autonomo.
+- ✅ **Restyling Centro Impostazioni (Impostazione "Tool vs Bel Tool") (`frontend/index.html`, `frontend/css/main.css`)**:
+  - Rivoluzionato il layout del modale impostazioni rimuovendo i tab orizzontali e adottando una più razionale e pragmatica **sidebar laterale** (colonna sinistra) con tutte le macro-voci (Adattatori, Scansione, Tema, etc.).
+  - Sostituiti i pulsanti ingombranti con **menù a tendina chiari e puliti (`<select>`)** per l'impostazione di Lingua e Tema.
+  - Aggiunti controlli per sincronizzazione dello stato dei menù a tendina con il salvataggio dei parametri lato frontend (`app.js`).
+
 ## Sessione 22 – 2026-09-30 ✅ COMPLETE – v0.6.0 OFFICIAL RELEASE
 **Rilascio Ufficiale BHAM v0.6.0: Session Diff Engine, Report Arricchiti 2.0 (8 Fogli & PDF Gerarchico), BBMD Router Traversal & Foreign Device BACnet/IP**
 

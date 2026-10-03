@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.6.0)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.7.0)
 
 ---
 
@@ -21,26 +21,30 @@ Consente l'inventario rapido, l'identificazione hardware, l'arricchimento dei re
 - **Frontend:** Field Engineer Studio v4.2 in Vanilla JS ad alte prestazioni senza dipendenze esterne: architettura a 2 colonne (Sidebar Canali 360px + Workspace centrale con Switcher Vista Tabella/Topologia + Dock Diagnostico a scomparsa).
 - **Mappa Topologica SVG:** Engine vettoriale nativo con calcolo gerarchico, Pan & Zoom continuo, fit-to-screen, orientamento H/V ed esportazione vettoriale .svg.
 - **Reporting:** Generazione istantanea di verbali in formato **PDF Vettoriale a due passate (ReportLab)** e **Fogli Excel (openpyxl)** a 8 fogli di lavoro con metadati, as-built registri e oggetti.
-- **Internazionalizzazione (i18n):** Supporto completo e reattivo per **Italiano**, **Inglese** e **Spagnolo** (218 chiavi per lingua).
+- **Internazionalizzazione (i18n):** Supporto completo e reattivo per **Italiano**, **Inglese** e **Spagnolo** (232 chiavi per lingua con parità al 100%).
+- **Launcher Cross-Platform & Accesso Remoto:** Auto-apertura del browser all'avvio e piena accessibilità da altri dispositivi in rete locale (es. Raspberry Pi su `http://192.168.x.x:8765`).
 
 ---
 
 ## 2. Guida Rapida di Avvio (Quick Start)
-1. **Collegamento Periferiche:** Connetti l'adattatore USB↔RS485 al bus seriale e/o il cavo di rete Ethernet alla LAN BMS dell'edificio.
-2. **Configurazione Hardware:** Clicca sull'icona **Impostazioni** (ingranaggio in alto a destra) ed entra nella scheda *Hardware & Porte*.
+1. **Avvio & Auto-Apertura Browser:** Esegui `python3 bham.py` (Linux) o `python bham.py` (Windows). Il launcher verifica le dipendenze, crea l'ambiente isolato se necessario e apre automaticamente la dashboard nel browser.
+2. **Accesso da Tablet o Altri PC (Rete LAN):** Se BHAM è in esecuzione su un Raspberry Pi o PC industriale in quadro elettrico, collegati via Wi-Fi o cavo e apri nel browser l'indirizzo LAN visualizzato a video o nella scheda Impostazioni (es. `http://192.168.1.50:8765`).
+3. **Collegamento Periferiche:** Connetti l'adattatore USB↔RS485 al bus seriale e/o il cavo di rete Ethernet alla LAN BMS dell'edificio.
+4. **Configurazione Hardware:** Clicca sull'icona **Impostazioni** (ingranaggio in alto a destra) ed entra nella scheda *Adattatori & Porte*.
+   - Clicca *⚡ Esegui Self-Test* per collaudo rapido hardware e permessi di sistema.
    - Clicca *Scansiona Porte* per rilevare convertitori RS485 FTDI, CH340, CP210x.
    - Clicca *Scansiona NIC* per selezionare l'interfaccia cablata associata alla sottorete dell'impianto.
    - Clicca *Applica Configurazione*.
-3. **Avvio Scansione:** Clicca sul pulsante **AVVIA SCAN RAPIDO** in testata. Il sistema eseguirà automaticamente in cascata:
+5. **Avvio Scansione:** Clicca sul pulsante **AVVIA SCAN RAPIDO** in testata. Il sistema eseguirà automaticamente in cascata:
    - Modbus RTU Phase Zero + Early Exit
    - BACnet/IP Who-Is Broadcast
    - KNXnet/IP Discovery
    - ARP Passive Sniffer
-4. **Visualizzazione & Esplorazione:**
+6. **Visualizzazione & Esplorazione:**
    - Consulta le tabelle dispositivi per protocollo nel Workspace centrale.
    - Clicca su **Mappa Topologica** per osservare l'albero d'impianto interattivo con canali fisici e nodi.
    - Ispeziona gli oggetti BACnet con l'**Object Explorer** e mappa i registri Modbus con lo **Smart Scan**.
-5. **Esportazione Verbale:** Scarica i risultati cliccando sui pulsanti **PDF**, **Excel** o esporta la mappa topologica in formato **SVG**.
+7. **Esportazione Verbale:** Scarica i risultati cliccando sui pulsanti **PDF**, **Excel** o esporta la mappa topologica in formato **SVG**.
 
 ---
 

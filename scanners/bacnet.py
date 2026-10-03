@@ -122,6 +122,17 @@ def port_label(port: int) -> str:
     return f"{port}"
 
 
+
+def _safe_close(app) -> None:
+    """Chiude un'Application bacpypes3 (close() è sincrono) ignorando errori."""
+    if app is None:
+        return
+    try:
+        app.close()
+    except Exception:
+        pass
+
+
 class BACnetScanner(BaseScanner):
 
     def __init__(self, session_id: str) -> None:
@@ -214,6 +225,7 @@ class BACnetScanner(BaseScanner):
                 vendorName="BHAM",
             )
             bind_str = f"{host_ip}:0" if host_ip and host_ip != "0.0.0.0" else "0.0.0.0:0"
+            app = None
             try:
                 bind_addr = IPv4Address(bind_str)
                 app = ForeignApplication(local_device, bind_addr)
@@ -223,7 +235,11 @@ class BACnetScanner(BaseScanner):
                 bbmd_addr = IPv4Address(f"{bbmd_ip}:{bbmd_port}")
                 app.register(bbmd_addr, ttl)
                 log.info("  ✓ Foreign Device registrato presso BBMD %s:%d (attesa I-Am...)", bbmd_ip, bbmd_port)
+            except asyncio.CancelledError:
+                _safe_close(app)
+                raise
             except Exception as reg_err:
+                _safe_close(app)
                 log.warning("Impossibile registrare Foreign Device su %s:%d: %s", bbmd_ip, bbmd_port, reg_err)
                 return
 
@@ -293,12 +309,18 @@ class BACnetScanner(BaseScanner):
 
             cidr = "/8" if host_ip.startswith("127.") else "/24"
             bind_str = f"{host_ip}{cidr}:{port}" if "/" not in host_ip else f"{host_ip}:{port}"
+            app = None
             try:
                 bind_addr = IPv4Address(bind_str)
                 app = NormalApplication(local_device, bind_addr)
                 if hasattr(app.normal.server, "_transport_tasks") and app.normal.server._transport_tasks:
                     await asyncio.gather(*app.normal.server._transport_tasks)
+            except asyncio.CancelledError:
+                # Task annullato durante il bind: i socket già aperti vanno chiusi
+                _safe_close(app)
+                raise
             except Exception as bind_err:
+                _safe_close(app)
                 log.warning("Impossibile effettuare bind su %s: %s (porta in uso?)", bind_str, bind_err)
                 continue
 
@@ -387,7 +409,7 @@ class BACnetScanner(BaseScanner):
         await asyncio.gather(*tasks, return_exceptions=True)
 
         try:
-            await app.close()
+            _safe_close(app)
         except Exception:
             pass
 
@@ -616,7 +638,7 @@ async def explore_bacnet_objects(
 
     finally:
         try:
-            await app.close()
+            _safe_close(app)
         except Exception:
             pass
 

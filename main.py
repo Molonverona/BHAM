@@ -41,11 +41,11 @@ async def lifespan(app: FastAPI):
     # Start the WS pump task
     await manager.startup()
 
-    logger.info(
-        "Listening on http://%s:%d  –  WS at ws://%s:%d/ws",
-        settings.host, settings.port,
-        settings.host, settings.port,
-    )
+    from core.hw_discovery import get_host_lan_ips
+    lan_ips = get_host_lan_ips()
+    logger.info("Listening on http://localhost:%d  –  WS at ws://localhost:%d/api/v1/ws", settings.port, settings.port)
+    for ip in lan_ips:
+        logger.info("LAN Remote Access: http://%s:%d", ip, settings.port)
 
     yield
 
@@ -99,6 +99,9 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+    from bham import open_browser_when_ready
+
+    open_browser_when_ready(f"http://localhost:{settings.port}", port=settings.port)
 
     uvicorn.run(
         "main:app",

@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
+from core.config import DEFAULT_SERIAL_PORT
 from data.models import (
     BACnetDevice,
     BusHealth,
@@ -219,7 +220,7 @@ class AppState:
         """
         with self._state_lock:
             site_name = self.session_config.site_name if self.session_config and self.session_config.site_name else "BHAM Field Station"
-            serial_port = self.session_config.serial_port if self.session_config and self.session_config.serial_port else "/dev/ttyUSB0"
+            serial_port = self.session_config.serial_port if self.session_config and self.session_config.serial_port else DEFAULT_SERIAL_PORT
             baudrate = self.session_config.serial_baudrate if self.session_config else 9600
             parity = self.session_config.serial_parity.value if self.session_config and hasattr(self.session_config.serial_parity, "value") else "N"
             nic_name = self.session_config.scan_iface if self.session_config and self.session_config.scan_iface else "eth0"

@@ -75,6 +75,8 @@ class BusHealth(BaseModel):
     baudrate: int = 9600
     parity: str = "N"
     active_nodes: list[int] = Field(default_factory=list)
+    physical_status: str = "GOOD"  # GOOD | WARNING | CRITICAL
+    physical_diagnosis: Optional[str] = None
 
 
 # ── Serial Parameters ────────────────────────────────────────────────────────
