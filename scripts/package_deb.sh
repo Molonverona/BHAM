@@ -6,7 +6,7 @@
 
 set -e
 
-VERSION="${1:-0.8.0}"
+VERSION="${1:-0.8.1}"
 ARCH="amd64"
 PKG_NAME="bham_${VERSION}_${ARCH}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

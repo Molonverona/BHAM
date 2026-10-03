@@ -14,7 +14,7 @@ const I18N = {
   translations: {
     it: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.8.0",
+      brand_sub: "BACS Help Auto Mapper v0.8.1",
       rapid_scan: "AVVIA SCAN RAPIDO",
       rapid_scan_title: "Avvia scansione sequenziale RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -345,7 +345,7 @@ const I18N = {
 
     en: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.8.0",
+      brand_sub: "BACS Help Auto Mapper v0.8.1",
       rapid_scan: "START RAPID SCAN",
       rapid_scan_title: "Start automated sequential scan RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -676,7 +676,7 @@ const I18N = {
 
     es: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.8.0",
+      brand_sub: "BACS Help Auto Mapper v0.8.1",
       rapid_scan: "INICIAR ESCANEO RÁPIDO",
       rapid_scan_title: "Iniciar escaneo secuencial RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
