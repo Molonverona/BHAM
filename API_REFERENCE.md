@@ -69,7 +69,7 @@ Returns the operational health of the BHAM daemon, software version, and count o
 {
   "status": "ok",
   "active_ws": 1,
-  "version": "0.8.0"
+  "version": "0.9.0"
 }
 ```
 

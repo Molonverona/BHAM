@@ -56,33 +56,43 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
   - Dual Mode (Dark Mode ad alto contrasto per locali tecnici / Light Mode per visibilità sotto luce solare diretta)
   - Color-coding ergonomico per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP, Ambra=Diagnostics)
   - Internazionalizzazione completa (Italiano, Inglese, Spagnolo, **289 chiavi per lingua** con parità 100%) e Manuale Tecnico interattivo a bordo (F1, 19 capitoli)
-- **📚 Libreria Profili Modbus Industriali & Custom Manager (v0.8.0)**:
+- **🌐 BACS IP Scanner Avanzato & OUI Recognition (v0.9.0)**:
+  - Scansione asincrona parallela ad alta concorrenza (50 task) di subnet CIDR e range IP (`192.168.1.0/24`, `10.0.0.1-50`)
+  - Database integrato IEEE OUI con oltre 100 produttori BACS, HVAC, PLC e Building Automation (Schneider, Siemens, Honeywell, Carel, WAGO, Beckhoff, Moxa, Tridium, Belimo, ABB, Carlo Gavazzi, Danfoss, Phoenix Contact, Johnson Controls, ecc.) con lookup $O(1)$
+  - Risoluzione dei nomi host multi-livello con fallback automatico: reverse DNS PTR e NetBIOS Name Service (UDP 137 RFC 1002)
+  - Port scanner selettivo per servizi BACS: Modbus TCP (502), BACnet/IP (47808), KNXnet/IP (3671), Web GUI (80/443/8080/8443), Niagara Fox (1911) e MQTT (1883)
+- **🧙‍♂️ BACS Discovery Wizard & Adaptive Fallback (v0.9.0)**:
+  - Procedura guidata 4-step per il commissioning assistito d'impianto con auto-detect periferiche hardware
+  - Fallback adattivo seriale RS485 (se 9600 8N1 fallisce, attiva automaticamente scansione a matrice o 15s di Zero-TX sniffer passivo)
+- **🔍 1-Click Device Lens (v0.9.0)**:
+  - Scheda tecnica aggregata per ciascun dispositivo di campo con ricerca online immediata dei manuali/datasheet PDF e mappatura 1-click profili Modbus
+- **📚 Libreria Profili Modbus Industriali & Custom Manager (v0.9.0)**:
   - **13 Profili Preconfigurati Industriali**: Multimetri (ABB B23, Carlo Gavazzi EM24/EM111, IME Nemo 96, Schneider Acti9 iEM3150 e PM5350, Siemens SENTRON PAC3200), Contabilizzatori ed Energia (Belimo Energy Valve EV, Isoil ISOMAG, Diehl/Hydrometer Sharky 775, Emerson Rosemount 8712), Attuatori & Regolatori HVAC (Belimo Servocomandi Modbus, Trox VAV Compact, iSMA-B-4I4O, Riello Condexa Pro, Carel pCO).
   - **Custom Profiles Manager**: Creazione e modifica profili personalizzati, import/export JSON e funzione "⚡ Applica a Slave" per l'iniezione istantanea dei registri nella vista live e nelle mappe d'impianto.
-- **🔒 Blocco Sicurezza Manovre (Safe Mode Interlock) (v0.8.0)**:
-  - Protezione attiva contro comandi e forzature accidentali su registri Modbus e override BACnet (blocco predefinito HTTP 403 Forbidden).
+- **🔒 Blocco Sicurezza Manovre (Safe Mode Interlock Permanente) (v0.9.0)**:
+  - Protezione attiva non-disattivabile contro comandi e forzature accidentali su registri Modbus e override BACnet (blocco predefinito HTTP 403 Forbidden).
   - Procedura di sblocco temporizzata e vincolata a: Nome Tecnico/Operatore, Commessa / Ordine di Lavoro, e durata finestra temporale (15..120 min) con auto-disarmo e badge visivo dinamico.
-- **📜 Registro Manovre Certificato (Crash-Proof WAL & Chaining SHA-256) (v0.8.0)**:
+- **📜 Registro Manovre Certificato (Crash-Proof WAL & Chaining SHA-256) (v0.9.0)**:
   - Write-Ahead Log su file append-only `audit_journal.jsonl`.
   - Registrazione preventiva dell'intento con `os.fsync` forzato prima della trasmissione fisica sul bus o su IP.
   - Concatenazione crittografica immutabile stile blockchain: ogni riga calcola `entry_hash = SHA-256(prev_hash + campi)`.
   - Auto-recovery degli intenti orfani al riavvio in caso di blackout o cadute di tensione.
   - Verifica forense dell'integrità del registro con rilevamento manomissioni ed esportazione JSON certificata.
-- **📦 Packaging Standalone Unificato & Firma Digitale (SignPath / GPG) (v0.8.0)**:
+- **📦 Packaging Standalone Unificato & Firma Digitale (SignPath / GPG) (v0.9.0)**:
   - Risoluzione runtime dei percorsi tramite `core/paths.py`: supporto per PyInstaller congelato (`sys._MEIPASS`), rilevamento modalità portatile (`portable.flag`) e fallback su percorsi standard di sistema (`%LOCALAPPDATA%` / `~/.local/share/bham`).
   - Installer Windows Inno Setup x64 pulito (`installer/bham.iss`).
   - Pipeline GitHub Actions con firma autenticata Windows via SignPath (`SignPath/github-action-submit-signing-request@v2`).
   - Script dedicato per firma digitale autonoma su Linux tramite GPG e dpkg-sig (`scripts/sign_linux.sh`).
-- **⚡ Banco Prova Operativo ("Field Operational Tools") & Override (v0.8.0)**:
+- **⚡ Banco Prova Operativo ("Field Operational Tools") & Override (v0.9.0)**:
   - **Modbus Quick Commander**: Lettura puntuale (FC01..FC04) e scrittura rapida (FC05, FC06, FC15, FC16) su Modbus RTU/TCP con decodifica scientifica multiformato (UInt16, Int16 signed, Float32 Big/Little Endian swapped, Hex, Coils).
   - **BACnet Point Commander & Priority Array**: Override manuale su uscite analogiche/binarie con Priority Array (default: Priorità 8 – Manual Operator) e comando di Relinquish.
-- **🌱 Simulatore Virtuale d'Impianto BACS ("Demo Mode") & Telemetria Dinamica (v0.8.0)**:
+- **🌱 Simulatore Virtuale d'Impianto BACS ("Demo Mode") & Telemetria Dinamica (v0.9.0)**:
   - Impianto HVAC sintetico completo (Chiller Climaveneta, Pompa Grundfos Inverter, Power Meter Schneider PM5350, UTA 01 BACnet con 12 oggetti, VAV Uffici con 4 oggetti, Gateway/Sensori KNX, nodi IP/ARP).
   - Telemetria dinamica sinusoidale in background ed emissione periodica di impulsi WebSocket per test e dimostrazioni offline senza hardware.
-- **🛡️ Resilienza Hardware & Hot-Plug Auto-Recovery (v0.8.0)**:
+- **🛡️ Resilienza Hardware & Hot-Plug Auto-Recovery (v0.9.0)**:
   - Tolleranza totale a disconnessioni accidentali del convertitore USB↔RS485 (FTDI, CH340, CP210x, Moxa UPort 1150 / TI 3410) senza crash del daemon.
   - Auto-riconnessione automatica in background ed eventi WebSocket `hardware_disconnect` / `hardware_reconnect` con notifiche toast non bloccanti.
-- **🛠️ Diagnostica di Campo Avanzata & Launcher Unificato (v0.8.0)**:
+- **🛠️ Diagnostica di Campo Avanzata & Launcher Unificato (v0.9.0)**:
   - **Launcher Cross-Platform `bham.py`**: Auto-rilevamento requisiti da `requirements.txt`, installazione interattiva o non-interattiva (`--yes`), fallback automatico a `get-pip.py` e supporto Python 3.12/3.13 su Windows e Linux.
   - **Live Log Viewer Dock**: Filtraggio per livello di gravità (`ALL`, `DEBUG`, `INFO`, `WARN`, `ERROR`), ricerca rapida con auto-scroll e streaming strutturato.
   - **Euristica Livello Fisico Bus RS485**: Diagnosi in tempo reale di riflessioni (terminazione 120Ω mancante), polarità A(+)/B(-) invertita, disturbi o saturazione del polling, con badge e tooltip esplicativi.
@@ -100,7 +110,7 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
 
 ---
 
-## 🚀 Installazione & Avvio (Windows e Linux) – v0.8.0
+## 🚀 Installazione & Avvio (Windows e Linux) – v0.9.0
 
 Un solo comando, identico su entrambi i sistemi. Il launcher `bham.py` legge `requirements.txt`,
 mostra l'elenco dei pacchetti mancanti, chiede conferma, crea il `.venv` isolato, installa tutto,
