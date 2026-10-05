@@ -269,7 +269,7 @@ class TestReporting(unittest.TestCase):
             wb = openpyxl.load_workbook(path)
             expected_sheets = [
                 "Network Topology", "Modbus Devices", "BACnet Devices",
-                "KNX Devices", "IP Hosts", "Modbus Registers",
+                "KNX Devices", "BACS IP Hosts", "Modbus Registers",
                 "BACnet Objects", "Report Info"
             ]
             for s in expected_sheets:
@@ -1413,6 +1413,63 @@ class TestSafeMode(unittest.TestCase):
         sm.arm(operator="Giuliano", job_order="COMM-TEST", duration_minutes=1)
         sm._expires_at = sm._armed_at - 1  # force expired
         self.assertFalse(sm.is_armed)
+
+    def test_safe_mode_strictly_non_deactivatable(self):
+        """Verifica che il blocco di sicurezza Safe Mode sia permanentemente non disattivabile."""
+        from core.safe_mode import safe_mode, SafeModeManager
+        from core.config import settings
+
+        # 1. Non esiste alcun metodo per disattivare permanentemente safe_mode
+        self.assertFalse(hasattr(safe_mode, "disable"))
+        self.assertFalse(hasattr(safe_mode, "bypass"))
+
+        # 2. La proprietà non_deactivatable è sempre True
+        self.assertTrue(safe_mode.non_deactivatable)
+        status = safe_mode.get_status()
+        self.assertTrue(status.get("non_deactivatable"))
+
+        # 3. Non esistono flag di configurazione in settings per disabilitare safe_mode
+        self.assertFalse(hasattr(settings, "disable_safe_mode"))
+        self.assertFalse(hasattr(settings, "safe_mode_disabled"))
+        self.assertFalse(hasattr(settings, "bypass_safe_mode"))
+
+    def test_physical_write_interlock_strictly_enforced(self):
+        """Verifica che scritture fisiche Modbus e forzature BACnet siano bloccate se Safe Mode non è armato."""
+        async def _run():
+            from core.simulator import simulator
+            from core.safe_mode import safe_mode
+            from scanners.field_tools import modbus_quick_write, bacnet_point_override
+
+            # Assicurarsi che il simulatore sia spento (target fisico)
+            if simulator.is_active:
+                await simulator.stop()
+            safe_mode.disarm()
+
+            # 1. Modbus write su bus reale senza safe_mode armato -> BLOCCATO
+            mb_res = await modbus_quick_write(
+                protocol="RTU",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                function_code=6,
+                address=100,
+                values=[42],
+            )
+            self.assertFalse(mb_res["success"])
+            self.assertEqual(mb_res["status"], "safe_mode_locked")
+            self.assertIn("Safe Mode Attivo", mb_res["error"])
+
+            # 2. BACnet override su dispositivo reale senza safe_mode armato -> BLOCCATO
+            bn_res = await bacnet_point_override(
+                device_id=9999,
+                object_type="analogOutput",
+                instance=1,
+                value=50.0,
+            )
+            self.assertFalse(bn_res["success"])
+            self.assertEqual(bn_res["status"], "safe_mode_locked")
+            self.assertIn("Safe Mode Attivo", bn_res["error"])
+
+        asyncio.run(_run())
 
 
 class TestProfileManager(unittest.TestCase):

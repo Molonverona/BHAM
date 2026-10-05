@@ -121,6 +121,11 @@ class SafeModeManager:
 
         return self.get_status()
 
+    @property
+    def non_deactivatable(self) -> bool:
+        """BHAM Core Invariant: Safe Mode interlock cannot be disabled globally or permanently."""
+        return True
+
     def get_status(self) -> dict[str, Any]:
         """Return current Safe Mode interlock status and countdown."""
         now = time.time()
@@ -135,6 +140,7 @@ class SafeModeManager:
                 "expires_at": self._expires_at if armed else None,
                 "remaining_seconds": remaining_seconds,
                 "remaining_minutes": round(remaining_seconds / 60, 1) if armed else 0.0,
+                "non_deactivatable": True,
             }
 
 

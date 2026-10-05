@@ -2667,3 +2667,90 @@ html, body {
   }
 }
 
+
+/* ── BACS IP Scanner & Vendor Badges ─────────────────────────────── */
+.bham-badge-vendor {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  white-space: nowrap;
+}
+[data-theme="dark"] .bham-badge-vendor {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.bham-service-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-right: 3px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+.tag-modbus  { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
+.tag-bacnet  { background: #f3e8ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+.tag-knx     { background: #ffedd5; color: #ea580c; border: 1px solid #fed7aa; }
+.tag-niagara { background: #fef08a; color: #854d0e; border: 1px solid #fef08a; }
+.tag-web     { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+.tag-mqtt    { background: #fce7f3; color: #db2777; border: 1px solid #fbcfe8; }
+
+[data-theme="dark"] .tag-modbus  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); }
+[data-theme="dark"] .tag-bacnet  { background: rgba(192, 132, 252, 0.15); color: #c084fc; border-color: rgba(192, 132, 252, 0.3); }
+[data-theme="dark"] .tag-knx     { background: rgba(251, 146, 60, 0.15); color: #fb923c; border-color: rgba(251, 146, 60, 0.3); }
+[data-theme="dark"] .tag-niagara { background: rgba(250, 204, 21, 0.15); color: #facc15; border-color: rgba(250, 204, 21, 0.3); }
+[data-theme="dark"] .tag-web     { background: rgba(52, 211, 153, 0.15); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
+[data-theme="dark"] .tag-mqtt    { background: rgba(244, 114, 182, 0.15); color: #f472b6; border-color: rgba(244, 114, 182, 0.3); }
+
+/* ── Discovery Wizard Steps ─────────────────────────────────────── */
+.wizard-steps-track {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  position: relative;
+}
+.wizard-step-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.wizard-step-node.active {
+  color: var(--bham-modbus);
+}
+.wizard-step-node.completed {
+  color: #16a34a;
+}
+.wizard-node-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  border: 2px solid var(--border-color);
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+.wizard-step-node.active .wizard-node-circle {
+  background: var(--bham-modbus);
+  color: #fff;
+  border-color: var(--bham-modbus);
+}
+.wizard-step-node.completed .wizard-node-circle {
+  background: #16a34a;
+  color: #fff;
+  border-color: #16a34a;
+}

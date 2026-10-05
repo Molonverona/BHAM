@@ -580,7 +580,7 @@ async def bacnet_point_override(
     t0 = time.monotonic()
     priority = max(1, min(16, priority))
     is_relinquish = relinquish or (value is None)
-    is_sim = simulator.is_active or device_id in (1001, 1002)
+    is_sim = simulator.is_active and (device_id in (1001, 1002))
 
     # Safe Mode Interlock
     if not is_sim and not safe_mode.is_armed:

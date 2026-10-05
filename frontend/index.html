@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BHAM – BACS Help Auto Mapper v0.8.5</title>
-  <link rel="stylesheet" href="css/main.css?v=0.8.5" />
+  <title>BHAM – BACS Help Auto Mapper v0.9.0</title>
+  <link rel="stylesheet" href="css/main.css?v=0.9.0" />
 </head>
 <body>
 
@@ -17,7 +17,7 @@
         </svg>
         BHAM
       </span>
-      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.8.5</span>
+      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.9.0</span>
       <span id="ws-pill" class="bham-ws-pill disconnected">
         <span class="bham-ws-dot"></span> <span id="ws-pill-text">Connecting…</span>
       </span>
@@ -42,6 +42,11 @@
       <button id="btn-field-tools" onclick="openToolsModal()" class="bham-header-btn" title="Banco Prova: Modbus Quick Commander &amp; BACnet Point Commander">
         <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         <span data-i18n="btn_field_tools">Banco Prova</span>
+      </button>
+
+      <button id="btn-wizard" onclick="openWizardModal()" class="bham-header-btn bham-header-btn-wizard" style="background:linear-gradient(135deg,#0284c7,#2563eb);color:#fff;border-color:#38bdf8;font-weight:600" title="Procedura Guidata Impianto (BACS Discovery Wizard)">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor"></polygon></svg>
+        <span data-i18n="btn_wizard">Wizard Impianto</span>
       </button>
 
       <button id="btn-safe-mode" onclick="openSafeModeModal()" class="bham-header-btn bham-btn-safe-mode" title="Blocco Sicurezza Manovre di Scrittura (Safe Mode)">
@@ -329,32 +334,41 @@
         </button>
       </div>
 
-      <!-- Rack Unit 5: ARP Sniffer (L2) -->
+      <!-- Rack Unit 5: BACS IP Scanner & ARP -->
       <div class="bham-rack-card" id="rack-arp">
         <div class="bham-rack-header">
           <div class="bham-rack-title-wrap">
             <svg class="bham-svg-sm color-network" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-            <span class="bham-rack-title color-network" data-i18n="arp_title">ARP Sniffer (L2)</span>
+            <span class="bham-rack-title color-network" data-i18n="ip_scanner_title">BACS IP Scanner &amp; ARP</span>
           </div>
           <div class="bham-rack-status-right">
-            <span id="led-arp" class="bham-led led-idle" title="Stato Sniffer ARP"></span>
-            <span id="rack-count-arp" class="bham-rack-badge badge-network" title="Host IP rilevati tramite ARP">0 host</span>
+            <span id="led-arp" class="bham-led led-idle" title="Stato Scanner IP"></span>
+            <span id="rack-count-arp" class="bham-rack-badge badge-network" title="Host IP rilevati">0 host</span>
           </div>
         </div>
-        <div class="bham-field-row">
+        <div>
+          <label class="bham-label" data-i18n="subnet_label">Subnet CIDR / Range IP</label>
+          <input id="ipscan-subnet" type="text" value="192.168.1.0/24" class="bham-input" placeholder="192.168.1.0/24 o 192.168.1.1-100" />
+        </div>
+        <div class="bham-field-row" style="margin-top:2px">
           <div>
-            <label class="bham-label" data-i18n="iface_label">Interfaccia</label>
-            <input id="arp-iface" type="text" value="eth0" class="bham-input" />
+            <label class="bham-label" data-i18n="lbl_bacs_ports">Porte BACS / IoT</label>
+            <input id="ipscan-ports" type="text" value="502,47808,3671,80,443,1911" class="bham-input" placeholder="502, 47808..." />
           </div>
           <div>
-            <label class="bham-label" data-i18n="duration_sec">Durata (sec)</label>
-            <input id="arp-dur" type="number" value="30" min="5" class="bham-input" />
+            <label class="bham-label" data-i18n="lbl_concurrency">Concorrenza</label>
+            <input id="ipscan-concurrency" type="number" value="50" min="5" max="200" class="bham-input" />
           </div>
         </div>
-        <button onclick="startARP()" class="bham-btn-action bham-btn-arp" style="margin-top:2px">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-          <span data-i18n="btn_start_arp">Avvia Sniffing</span>
-        </button>
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <button onclick="startIPScan()" class="bham-btn-action bham-btn-arp" style="flex:2">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span data-i18n="btn_start_ip_scan">Avvia Scansione IP</span>
+          </button>
+          <button onclick="startARP()" class="bham-btn-action" style="flex:1;background:var(--bg-hover);color:var(--text-main);border:1px solid var(--border-color)" title="Sniffing ARP L2 passivo (ascolto promiscuo)">
+            <span>ARP L2</span>
+          </button>
+        </div>
       </div>
 
       <!-- Rack Unit 6: Sniffer Seriale Passivo (Zero-TX) -->
@@ -635,10 +649,10 @@
       <div id="card-hosts" class="bham-table-card hidden">
         <div class="bham-table-card-header">
           <div class="bham-table-card-title color-network">
-            <span>IP HOSTS (ARP DISCOVERY)</span>
+            <span data-i18n="card_hosts_title">HOST IP (SCANSIONE RETE &amp; ARP)</span>
             <span id="ip-count-badge" class="bham-badge-count badge-count-network">0</span>
           </div>
-          <span id="hosts-subnet-label" class="bham-table-card-status">Passive L2 ARP Sniffing</span>
+          <span id="hosts-subnet-label" class="bham-table-card-status" data-i18n="card_hosts_status">Scansione Subnet BACS &amp; Sniffer ARP</span>
         </div>
         <div style="overflow-x:auto">
           <table class="bham-data-table">
@@ -646,9 +660,11 @@
               <tr>
                 <th data-i18n="th_ip_addr">INDIRIZZO IP</th>
                 <th>MAC ADDRESS</th>
+                <th data-i18n="th_oui_vendor">PRODUTTORE (OUI)</th>
                 <th data-i18n="th_hostname">HOSTNAME / NETBIOS</th>
-                <th style="width:85px" data-i18n="th_first_seen">RILEVATO</th>
-                <th data-i18n="th_oui_vendor">OUI VENDOR</th>
+                <th data-i18n="th_bacs_services">SERVIZI BACS &amp; PORTE</th>
+                <th style="width:75px" data-i18n="th_latency">LATENZA</th>
+                <th style="width:90px">AZIONI</th>
               </tr>
             </thead>
             <tbody id="hosts-table"></tbody>
@@ -2049,14 +2065,174 @@
     </div>
   </div>
 
+  <!-- ── Modal: BACS Discovery Wizard (Procedura Guidata Impianto) ────────── -->
+  <div id="modal-discovery-wizard" class="bham-overlay hidden" onclick="if(event.target===this)closeWizardModal()">
+    <div class="bham-modal" style="max-width:780px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h3 class="bham-modal-title" style="display:flex;align-items:center;gap:8px">
+            <span>🧙‍♂️</span>
+            <span data-i18n="wizard_title">Procedura Guidata Impianto (BACS Discovery Wizard)</span>
+          </h3>
+          <p class="bham-modal-sub" style="margin:2px 0 0 0;font-size:11.5px;color:var(--text-dim)" data-i18n="wizard_sub">Rilevamento hardware assistito, scansione combinata Ethernet &amp; Seriale e Fallback Adattivo.</p>
+        </div>
+        <button onclick="closeWizardModal()" class="bham-header-btn">✕</button>
+      </div>
+
+      <!-- Step Indicator Track -->
+      <div class="wizard-steps-track" style="margin-top:14px">
+        <div id="wz-step-node-1" class="wizard-step-node active">
+          <div class="wizard-node-circle">1</div>
+          <span>Canali</span>
+        </div>
+        <div id="wz-step-node-2" class="wizard-step-node">
+          <div class="wizard-node-circle">2</div>
+          <span>Hardware</span>
+        </div>
+        <div id="wz-step-node-3" class="wizard-step-node">
+          <div class="wizard-node-circle">3</div>
+          <span>Parametri</span>
+        </div>
+        <div id="wz-step-node-4" class="wizard-step-node">
+          <div class="wizard-node-circle">4</div>
+          <span>Esecuzione</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Canali e Protocolli -->
+      <div id="wz-step-1" class="bham-wizard-step">
+        <h4 style="font-size:13px;margin-bottom:8px">Seleziona i canali fisici da scansionare per questo impianto:</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label class="bham-field-row" style="background:var(--bg-hover);padding:12px;border-radius:6px;border:1px solid var(--border-color);cursor:pointer">
+            <input type="checkbox" id="wz-chk-ip" checked style="width:18px;height:18px" />
+            <div>
+              <div style="font-weight:600;font-size:13px">🌐 Rete Ethernet / IP</div>
+              <div class="cell-text-dim" style="font-size:11.5px">Modbus TCP, BACnet/IP, KNX/IP, Niagara Fox, Web PLC e OUI Vendor</div>
+            </div>
+          </label>
+          <label class="bham-field-row" style="background:var(--bg-hover);padding:12px;border-radius:6px;border:1px solid var(--border-color);cursor:pointer">
+            <input type="checkbox" id="wz-chk-serial" checked style="width:18px;height:18px" />
+            <div>
+              <div style="font-weight:600;font-size:13px">🔌 Seriale RS485 (Bus 2-Fili)</div>
+              <div class="cell-text-dim" style="font-size:11.5px">Modbus RTU con Fallback Adattivo e Zero-TX passivo</div>
+            </div>
+          </label>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:20px">
+          <button onclick="wizardGoToStep(2)" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 20px">Avanti: Rileva Hardware →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Rilevamento Hardware -->
+      <div id="wz-step-2" class="bham-wizard-step" style="display:none">
+        <h4 style="font-size:13px;margin-bottom:8px">Hardware di comunicazione rilevato sul sistema:</h4>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:var(--bg-hover);padding:10px;border-radius:6px;border:1px solid var(--border-color)">
+            <div style="font-weight:600;font-size:12px;margin-bottom:6px">🌐 Scheda di Rete Ethernet Attiva</div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <select id="wz-select-iface" class="bham-input" style="flex:1" onchange="wizardOnIfaceChanged()"></select>
+              <input id="wz-input-subnet" type="text" class="bham-input" style="flex:1" placeholder="192.168.1.0/24" />
+            </div>
+          </div>
+          <div style="background:var(--bg-hover);padding:10px;border-radius:6px;border:1px solid var(--border-color)">
+            <div style="font-weight:600;font-size:12px;margin-bottom:6px">🔌 Porta Seriale RS485 (Adattatore USB/Seriale)</div>
+            <select id="wz-select-port" class="bham-input" style="width:100%"></select>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:20px">
+          <button onclick="wizardGoToStep(1)" class="bham-btn-secondary">← Indietro</button>
+          <button onclick="wizardGoToStep(3)" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 20px">Avanti: Parametri →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Parametri & Euristica Fallback -->
+      <div id="wz-step-3" class="bham-wizard-step" style="display:none">
+        <h4 style="font-size:13px;margin-bottom:8px">Parametri di collaudo d'impianto:</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="bham-label">Baudrate Primario RS485</label>
+            <select id="wz-baudrate" class="bham-input">
+              <option value="9600" selected>9600 baud (Standard HVAC)</option>
+              <option value="19200">19200 baud</option>
+              <option value="38400">38400 baud</option>
+            </select>
+          </div>
+          <div>
+            <label class="bham-label">Range Slave ID Modbus</label>
+            <input id="wz-range" type="text" value="1-32" class="bham-input" placeholder="1-32" />
+          </div>
+        </div>
+        <div style="margin-top:14px;background:rgba(2,132,199,0.08);border:1px solid rgba(2,132,199,0.25);padding:12px;border-radius:6px">
+          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
+            <input type="checkbox" id="wz-adaptive-fallback" checked style="margin-top:2px" />
+            <div>
+              <div style="font-weight:600;font-size:12.5px;color:var(--bham-modbus)">⚡ Fallback Adattivo Intelligente (Consigliato)</div>
+              <div class="cell-text-dim" style="font-size:11px">Se a 9600 8N1 non risponde alcun dispositivo, sblocca automaticamente la scansione veloce a 19200/38400 o l'avvio dello Sniffer Passivo Zero-TX 15s per identificare il master e il baudrate reale.</div>
+            </div>
+          </label>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:20px">
+          <button onclick="wizardGoToStep(2)" class="bham-btn-secondary">← Indietro</button>
+          <button onclick="wizardStartExecution()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 24px;font-weight:700">🚀 Avvia Discovery Impianto</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Esecuzione Guidata -->
+      <div id="wz-step-4" class="bham-wizard-step" style="display:none">
+        <h4 style="font-size:13px;margin-bottom:8px">Esecuzione scansione guidata in corso...</h4>
+        <div class="bham-progress-track" style="margin-bottom:12px">
+          <div id="wz-progress-bar" class="bham-progress-bar" style="width:0%"></div>
+        </div>
+        <div id="wz-status-box" style="background:var(--bg-hover);padding:12px;border-radius:6px;border:1px solid var(--border-color);font-family:var(--font-mono);font-size:11.5px;min-height:100px;max-height:140px;overflow-y:auto">
+          In attesa...
+        </div>
+
+        <!-- Banner Fallback Adattivo (visibile su richiesta) -->
+        <div id="wz-fallback-panel" style="display:none;margin-top:12px;background:#fef2f2;border:1px solid #f87171;padding:12px;border-radius:6px">
+          <div style="font-weight:600;color:#b91c1c;font-size:12.5px;margin-bottom:4px">⚠️ Nessuna risposta seriale a 9600 8N1</div>
+          <p style="font-size:11.5px;color:#7f1d1d;margin:0 0 10px 0">Il bus RS485 potrebbe comunicare a un baudrate differente (19200, 38400) o essere occupato da un PLC master.</p>
+          <div style="display:flex;gap:8px">
+            <button onclick="wizardExecuteBaudProbe()" class="bham-action-btn-sm" style="background:#ea580c;color:#fff;font-weight:600;padding:6px 12px">⚡ Prova 19200 &amp; 38400</button>
+            <button onclick="wizardExecutePassiveSniff()" class="bham-action-btn-sm" style="background:#0284c7;color:#fff;font-weight:600;padding:6px 12px">🎧 Sniffer Zero-TX (15s)</button>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px">
+          <button onclick="abortScan();wizardUpdateStatus('Interrotto dall\'utente.');" class="bham-btn-secondary" style="color:#ef4444">Arresta</button>
+          <button id="wz-btn-finish" onclick="closeWizardModal()" class="bham-btn-action bham-btn-rtu" style="display:none;width:auto;padding:0 20px">✅ Visualizza Impianto Mappato</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: 1-Click Device Lens (Ricerca Documentale & Profili) ──────── -->
+  <div id="modal-device-lens" class="bham-overlay hidden" onclick="if(event.target===this)closeDeviceLensModal()">
+    <div class="bham-modal" style="max-width:680px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h3 class="bham-modal-title" style="display:flex;align-items:center;gap:8px">
+            <span>🔍</span>
+            <span id="lens-device-title">1-Click Device Lens</span>
+          </h3>
+          <p id="lens-device-sub" class="bham-modal-sub" style="margin:2px 0 0 0;font-size:11.5px;color:var(--text-dim)">Dati aggregati, ricerca documentale automatica e associazione profilo Modbus.</p>
+        </div>
+        <button onclick="closeDeviceLensModal()" class="bham-header-btn">✕</button>
+      </div>
+
+      <div id="lens-body" style="margin-top:14px">
+        <!-- Contenuto dinamico iniettato da openDeviceLens() -->
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div id="bham-toast-container" class="bham-toast-container"></div>
 
 
 
   <!-- Scripts: Relative paths for 100% reliable local & server loading -->
-  <script src="js/i18n.js?v=0.8.5"></script>
-  <script src="js/manual-content.js?v=0.8.5"></script>
-  <script src="js/app.js?v=0.8.5"></script>
+  <script src="js/i18n.js?v=0.9.0"></script>
+  <script src="js/manual-content.js?v=0.9.0"></script>
+  <script src="js/app.js?v=0.9.0"></script>
 </body>
 </html>

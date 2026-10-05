@@ -302,13 +302,62 @@ class PlantSimulator:
         )
         state.upsert_knx(knx2)
 
-        # 5. IP Hosts (ARP)
+        # 5. IP Hosts (BACS Network Discovery)
+        from core.oui_lookup import get_vendor_by_mac
         hosts = [
-            IPHost(ip="192.168.1.1", mac="00:0c:29:4f:8e:11", hostname="gw-core-lan01"),
-            IPHost(ip="192.168.1.10", mac="00:1c:06:12:34:56", hostname="plc-simatic-s7-1200"),
-            IPHost(ip="192.168.1.20", mac="00:50:f1:aa:bb:cc", hostname="jace-8000-niagara4"),
-            IPHost(ip="192.168.1.50", mac="00:80:f4:33:22:11", hostname="pm5350-switchboard"),
-            IPHost(ip="192.168.1.100", mac="00:10:e0:55:66:77", hostname="tracer-sc-ahu01"),
+            IPHost(
+                ip="192.168.1.1",
+                mac="00:0c:29:4f:8e:11",
+                vendor=get_vendor_by_mac("00:0c:29:4f:8e:11"),
+                hostname="gw-core-lan01",
+                hostname_source="dns",
+                open_ports=[80, 443],
+                services={80: "HTTP (PLC/BMS Web)", 443: "HTTPS (Secure PLC/BMS)"},
+                response_time_ms=1.2,
+            ),
+            IPHost(
+                ip="192.168.1.10",
+                mac="00:1c:06:12:34:56",
+                vendor=get_vendor_by_mac("00:1c:06:12:34:56"),
+                hostname="plc-simatic-s7-1200",
+                hostname_source="netbios",
+                open_ports=[80, 502, 47808],
+                services={80: "HTTP (PLC/BMS Web)", 502: "Modbus TCP", 47808: "BACnet/IP"},
+                response_time_ms=3.5,
+                protocol_hints=[Protocol.MODBUS_TCP, Protocol.BACNET_IP],
+            ),
+            IPHost(
+                ip="192.168.1.20",
+                mac="00:50:f1:aa:bb:cc",
+                vendor=get_vendor_by_mac("00:50:f1:aa:bb:cc"),
+                hostname="jace-8000-niagara4",
+                hostname_source="netbios",
+                open_ports=[80, 443, 1911, 8443],
+                services={80: "HTTP (PLC/BMS Web)", 443: "HTTPS (Secure PLC/BMS)", 1911: "Niagara Fox Native", 8443: "HTTPS-Alt / Niagara Fox Secure"},
+                response_time_ms=4.8,
+            ),
+            IPHost(
+                ip="192.168.1.50",
+                mac="00:80:f4:33:22:11",
+                vendor=get_vendor_by_mac("00:80:f4:33:22:11"),
+                hostname="pm5350-switchboard",
+                hostname_source="dns",
+                open_ports=[80, 502],
+                services={80: "HTTP (PLC/BMS Web)", 502: "Modbus TCP"},
+                response_time_ms=2.1,
+                protocol_hints=[Protocol.MODBUS_TCP],
+            ),
+            IPHost(
+                ip="192.168.1.100",
+                mac="00:10:e0:55:66:77",
+                vendor=get_vendor_by_mac("00:10:e0:55:66:77"),
+                hostname="tracer-sc-ahu01",
+                hostname_source="dns",
+                open_ports=[80, 47808],
+                services={80: "HTTP (PLC/BMS Web)", 47808: "BACnet/IP"},
+                response_time_ms=5.4,
+                protocol_hints=[Protocol.BACNET_IP],
+            ),
         ]
         for h in hosts:
             state.upsert_ip_host(h)

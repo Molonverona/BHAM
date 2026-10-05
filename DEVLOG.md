@@ -3,6 +3,29 @@
 > Registro cronologico delle sessioni di sviluppo.
 > File: `/home/giuliano/Documenti/BHAM/DEVLOG.md`
 
+## Sessione 28 – 2026-10-05 ✅ COMPLETE – VERSIONE 0.9.0 (BACS IP SCANNER, DISCOVERY WIZARD, DEVICE LENS & SAFE MODE HARDENING)
+**BACS IP Scanner Concorrente, IEEE OUI Database (>100 Vendor HVAC/PLC), NetBIOS/DNS Resolution, Discovery Wizard 4-Step con Adaptive Fallback, 1-Click Device Lens, Blocco Scrittura Safe Mode Non-Disattivabile, Reportistica Excel/PDF & SVG Topology**
+
+**Highlights:**
+- ✅ **BACS IP Scanner Avanzato & OUI Lookup (`scanners/ip_scanner.py`, `core/oui_lookup.py`)**:
+  - Scansione asincrona parallela con semaforo di concorrenza su subnet CIDR e range IP.
+  - Database IEEE OUI con oltre 100 vendor industriali e lookup $O(1)$.
+  - Risoluzione NetBIOS Name Service (UDP 137 RFC 1002) e DNS PTR.
+  - Probing BACS porte aperte (502, 47808, 3671, 80, 443, 8080, 8443, 1911, 1883).
+  - Endpoint REST `POST /api/v1/scan/ip` e `GET /api/v1/network/oui/{mac}`.
+- ✅ **BACS Discovery Wizard**:
+  - Procedura guidata 4-step per il commissioning d'impianto con auto-detect hardware e Adaptive Fallback RS485.
+- ✅ **1-Click Device Lens**:
+  - Scheda tecnica aggregata per host/dispositivo, ricerca online manuali/datasheet in 1 click e mappatura profili Modbus istantanea.
+- ✅ **Verifica & Hardening Blocco Scrittura (Safe Mode Non-Disattivabile)**:
+  - Verificato che il blocco di sicurezza è permanente e non disattivabile via config, env o API.
+  - Forzature fisiche Modbus e BACnet richiedono inderogabilmente Safe Mode armato a tempo con tracciamento operatore e commessa.
+- ✅ **Reportistica Excel & PDF & Grafo Topologico SVG**:
+  - Foglio Excel e sezione PDF arricchiti con colonne OUI Manufacturer, NetBIOS, Servizi BACS e latenza.
+  - Topologia SVG integrata con badge OUI e link Device Lens.
+- ✅ **Test Suite Completa**:
+  - 67 test unitari eseguiti al 100% con `-W error` in 5.8 secondi.
+
 ## Sessione 27 – 2026-10-03 ✅ COMPLETE – VERSIONE 0.8.0 ENTERPRISE (FIELD SAFETY, PROFILES & PACKAGING)
 **Libreria Profili Modbus Industriali (ABB, Gavazzi, IME, Schneider, Siemens, Belimo, Isoil, Diehl, Emerson, Carel, Riello, Trox), Gestore Profili Custom, Blocco Sicurezza Manovre (Safe Mode Interlock), Registro Manovre Certificato (Crash-Proof WAL & Chaining SHA-256), Standalone Packaging Duale (Portable vs Installed) e Firma Digitale SignPath**
 

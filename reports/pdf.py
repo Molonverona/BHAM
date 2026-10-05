@@ -373,28 +373,37 @@ def generate_pdf(filepath: str) -> str:
 
     elements.append(Spacer(1, 16))
 
-    # ── 4. Tabella IP Hosts (ARP) ────────────────────────────────────────────
-    elements.append(Paragraph(f"4. Host di Rete Rilevati ({ip_count})", h2_style))
+    # ── 4. Tabella BACS IP Hosts & OUI ───────────────────────────────────────
+    elements.append(Paragraph(f"4. Host di Rete & Dispositivi IP Rilevati ({ip_count})", h2_style))
     if ip_count == 0:
-        elements.append(Paragraph("<i>Nessun host rilevato tramite sniffing ARP.</i>", tbl_cell_style))
+        elements.append(Paragraph("<i>Nessun host rilevato tramite scansione IP / ARP.</i>", tbl_cell_style))
     else:
         ip_headers = [
             Paragraph("Indirizzo IP", tbl_hdr_style),
             Paragraph("Indirizzo MAC", tbl_hdr_style),
-            Paragraph("Hostname", tbl_hdr_style),
-            Paragraph("Primo Rilevamento", tbl_hdr_style),
+            Paragraph("Costruttore (OUI)", tbl_hdr_style),
+            Paragraph("Hostname / NetBIOS", tbl_hdr_style),
+            Paragraph("Servizi BACS & Porte", tbl_hdr_style),
+            Paragraph("Latenza", tbl_hdr_style),
         ]
         ip_rows = [ip_headers]
-        for h in sorted(state.ip_hosts.values(), key=lambda x: x.ip):
-            first_seen_str = str(h.first_seen)[:19] if h.first_seen else "—"
+        for h in sorted(state.ip_hosts.values(), key=lambda x: [int(p) for p in x.ip.split(".") if p.isdigit()] if "." in x.ip else [0]):
+            vendor_str = getattr(h, "vendor", "") or "—"
+            services_str = ", ".join(h.services) if getattr(h, "services", None) else (", ".join(str(p) for p in h.open_ports) if h.open_ports else "—")
+            latency_str = f"{round(h.response_time_ms, 1)} ms" if getattr(h, "response_time_ms", None) else "—"
+            hostname_str = h.hostname or "—"
+            if getattr(h, "hostname_source", None):
+                hostname_str = f"{h.hostname} ({h.hostname_source})"
             ip_rows.append([
                 Paragraph(h.ip, tbl_cell_bold),
                 Paragraph(h.mac or "—", tbl_cell_center),
-                Paragraph(h.hostname or "—", tbl_cell_style),
-                Paragraph(first_seen_str, tbl_cell_center),
+                Paragraph(vendor_str, tbl_cell_style),
+                Paragraph(hostname_str, tbl_cell_style),
+                Paragraph(services_str, tbl_cell_style),
+                Paragraph(latency_str, tbl_cell_center),
             ])
 
-        col_w = [110, 130, 140, 135]
+        col_w = [80, 85, 95, 85, 120, 50]
         t_ip = Table(ip_rows, colWidths=col_w, repeatRows=1)
         t_ip_style = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#059669")),

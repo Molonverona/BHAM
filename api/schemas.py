@@ -76,6 +76,24 @@ class ARPSniffRequest(BaseModel):
     duration: float = Field(30.0, description="Durata della finestra di cattura passiva in secondi")
 
 
+class IPScanRequest(BaseModel):
+    subnet: str = Field(..., description="Sottorete CIDR (es. 192.168.1.0/24) o singolo IP / range IP")
+    ports: list[int] = Field(
+        default=[502, 47808, 3671, 80, 443, 8080, 8443, 1911, 1883],
+        description="Lista porte TCP/UDP BACS e IoT da scansionare",
+    )
+    ping_timeout_ms: int = Field(400, description="Timeout probe host raggiungibile (ms)")
+    port_timeout_ms: int = Field(500, description="Timeout connect porta TCP (ms)")
+    resolve_names: bool = Field(True, description="Risoluzione automatica hostname (PTR, NetBIOS, mDNS)")
+    concurrency: int = Field(50, description="Numero massimo di worker paralleli concorrenti")
+
+
+class OUILookupResponse(BaseModel):
+    mac: str
+    vendor: Optional[str] = None
+    recognized: bool = False
+
+
 class SerialSniffRequest(BaseModel):
     port: str = Field(..., description="Porta seriale RS485 da monitorare (es. /dev/ttyUSB0)")
     baudrate: int = Field(0, description="Velocità in baud (0 = auto-baud tramite frequenza campionamento frame)")
@@ -382,6 +400,7 @@ class SafeModeStatusResponse(BaseModel):
     expires_at: Optional[float] = Field(None, description="Timestamp scadenza autorizzazione")
     remaining_seconds: int = Field(0, description="Secondi rimanenti prima del disarmo automatico")
     remaining_minutes: float = Field(0.0, description="Minuti rimanenti prima del blocco automatico")
+    non_deactivatable: bool = Field(True, description="Garantisce che il blocco di sicurezza è permanente e non disattivabile globalmente")
 
 
 class SafeModeArmRequest(BaseModel):

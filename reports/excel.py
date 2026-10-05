@@ -156,23 +156,31 @@ def generate_excel(filepath: str) -> str:
         ])
     _write_sheet(wb, "KNX Devices", knx_headers, knx_rows, _HDR_ORANGE)
 
-    # ── Sheet 5: IP Hosts (ARP) ──────────────────────────────────────────────
+    # ── Sheet 5: BACS IP Hosts & OUI ─────────────────────────────────────────
     ip_headers = [
-        "IP Address", "MAC", "Hostname", "Open Ports",
-        "Protocol Hints", "First Seen", "Last Seen"
+        "IP Address", "MAC", "Costruttore (OUI)", "Hostname / NetBIOS", "Sorgente Hostname",
+        "Servizi BACS & Porte", "Porte Aperte", "Latenza (ms)", "Protocol Hints", "First Seen", "Last Seen"
     ]
     ip_rows = []
-    for h in state.ip_hosts.values():
+    for h in sorted(state.ip_hosts.values(), key=lambda x: [int(p) for p in x.ip.split(".") if p.isdigit()] if "." in x.ip else [0]):
+        services_str = ", ".join(h.services) if getattr(h, "services", None) else ""
+        vendor_str = getattr(h, "vendor", "") or ""
+        latency_str = round(h.response_time_ms, 2) if getattr(h, "response_time_ms", None) else ""
+        source_str = getattr(h, "hostname_source", "") or ""
         ip_rows.append([
             h.ip,
             h.mac or "",
+            vendor_str,
             h.hostname or "",
+            source_str,
+            services_str,
             ", ".join(str(p) for p in h.open_ports),
+            latency_str,
             ", ".join(p.value for p in h.protocol_hints),
             str(h.first_seen)[:19],
             str(h.last_seen)[:19],
         ])
-    _write_sheet(wb, "IP Hosts", ip_headers, ip_rows, _HDR_GREEN)
+    _write_sheet(wb, "BACS IP Hosts", ip_headers, ip_rows, _HDR_GREEN)
 
     # ── Sheet 6: Modbus Smart Registers ──────────────────────────────────────
     reg_headers = [

@@ -146,8 +146,13 @@ class KNXDevice(BaseModel):
 class IPHost(BaseModel):
     ip: str
     mac: Optional[str] = None
+    vendor: Optional[str] = None
     hostname: Optional[str] = None
+    hostname_source: Optional[str] = None
     open_ports: list[int] = Field(default_factory=list)
+    services: dict[int, str] = Field(default_factory=dict)
+    response_time_ms: Optional[float] = None
+    status: str = "online"
     first_seen: datetime = Field(default_factory=utc_now)
     last_seen: datetime = Field(default_factory=utc_now)
     protocol_hints: list[Protocol] = Field(default_factory=list)

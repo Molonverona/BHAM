@@ -1,5 +1,5 @@
 # BHAM – REST & WebSocket API Reference
-**Version:** 0.8.0  
+**Version:** 0.9.0  
 **Base URL:** `http://<host>:8765/api/v1`  
 **WebSocket URL:** `ws://<host>:8765/api/v1/ws`  
 **Interactive Documentation:** [Swagger UI](http://localhost:8765/docs) | [ReDoc](http://localhost:8765/redoc)
@@ -391,6 +391,45 @@ Launches promiscuous Layer-2 ARP capture using Scapy. Discovers unadvertised IP 
 {
   "session_id": "arp_20261003_120500",
   "status": "started"
+}
+```
+
+---
+
+### `POST /api/v1/scan/ip`
+Launches asynchronous concurrent subnet scan with NetBIOS / DNS hostname discovery, IEEE OUI manufacturer resolution, and BACS port probing (502, 47808, 3671, 80, 443, 8080, 8443, 1911, 1883).
+
+**Request Body (`IPScanRequest`):**
+```json
+{
+  "subnet": "192.168.1.0/24",
+  "ports": [502, 47808, 3671, 80, 443, 8080, 8443, 1911, 1883],
+  "timeout": 0.6,
+  "concurrency": 50,
+  "resolve_netbios": true
+}
+```
+
+**Response `200 OK` (`ScanActionResponse`):**
+```json
+{
+  "session_id": "ip_20261005_120600",
+  "status": "started"
+}
+```
+
+---
+
+### `GET /api/v1/network/oui/{mac}`
+Performs instant $O(1)$ lookup in the IEEE OUI database for HVAC/PLC and BACS hardware manufacturers.
+
+**Response `200 OK` (`OUILookupResponse`):**
+```json
+{
+  "mac": "00:0e:8c:11:22:33",
+  "prefix": "00:0E:8C",
+  "vendor": "Schneider Electric",
+  "category": "plc_hvac"
 }
 ```
 

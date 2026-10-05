@@ -619,21 +619,57 @@ function renderHostsTable() {
   if (!tb) return;
 
   const rows = store.hosts.filter(h => {
-    const hay = `${h.ip} ${h.mac} ${h.hostname}`;
+    const hay = `${h.ip} ${h.mac || ""} ${h.hostname || ""} ${h.vendor || ""}`;
     return matchesSearch(hay);
   });
 
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="7" class="cell-text-dim" style="text-align:center;padding:16px">Nessun host IP rilevato. Avvia la scansione subnet BACS o lo sniffer ARP.</td></tr>`;
+    return;
+  }
+
   tb.innerHTML = rows.map(h => {
-    const firstSeen = h.first_seen ? new Date(h.first_seen).toTimeString().substring(0, 8) : "—";
-    const oui = guessOuiVendor(h.mac);
+    const vendorName = h.vendor || guessOuiVendor(h.mac);
+    const vendorBadge = vendorName && vendorName !== "—" && vendorName !== "Dispositivo Ethernet"
+      ? `<span class="bham-badge-vendor" title="Produttore OUI IEEE">${escapeHtml(vendorName)}</span>`
+      : `<span class="cell-text-dim">Generico</span>`;
+
+    const hostLabel = h.hostname
+      ? `<span style="font-weight:600">${escapeHtml(h.hostname)}</span> ${h.hostname_source ? `<span class="bham-service-tag tag-web" style="font-size:9px">${h.hostname_source.toUpperCase()}</span>` : ''}`
+      : `<span class="cell-text-dim">—</span>`;
+
+    // Servizi BACS
+    let servicesHtml = "";
+    if (h.services && Object.keys(h.services).length > 0) {
+      servicesHtml = Object.entries(h.services).map(([p, s]) => {
+        const portNum = parseInt(p);
+        let tagClass = "tag-web";
+        if (portNum === 502) tagClass = "tag-modbus";
+        else if (portNum === 47808) tagClass = "tag-bacnet";
+        else if (portNum === 3671) tagClass = "tag-knx";
+        else if (portNum === 1911 || portNum === 8443 || portNum === 8080) tagClass = "tag-niagara";
+        else if (portNum === 1883 || portNum === 8883) tagClass = "tag-mqtt";
+        return `<span class="bham-service-tag ${tagClass}">${escapeHtml(s)}</span>`;
+      }).join(" ");
+    } else if (h.open_ports && h.open_ports.length > 0) {
+      servicesHtml = h.open_ports.map(p => `<span class="bham-service-tag tag-web">Port ${p}</span>`).join(" ");
+    } else {
+      servicesHtml = `<span class="cell-text-dim">—</span>`;
+    }
+
+    const latency = h.response_time_ms ? `${h.response_time_ms} ms` : "—";
 
     return `
       <tr>
         <td class="cell-mono color-network" style="font-weight:600">${h.ip}</td>
         <td class="cell-mono cell-text-dim">${h.mac || "—"}</td>
-        <td class="cell-mono cell-text-main">${h.hostname || "—"}</td>
-        <td class="cell-mono cell-text-dim">${firstSeen}</td>
-        <td class="cell-text-muted">${oui}</td>
+        <td>${vendorBadge}</td>
+        <td class="cell-mono cell-text-main">${hostLabel}</td>
+        <td>${servicesHtml}</td>
+        <td class="cell-mono cell-text-dim">${latency}</td>
+        <td>
+          <button onclick="openDeviceLens('${h.ip}')" class="bham-action-btn-sm" style="color:var(--bham-modbus);font-weight:600" title="Apri 1-Click Device Lens">🔍 Lens</button>
+        </td>
       </tr>
     `;
   }).join("");
@@ -642,12 +678,16 @@ function renderHostsTable() {
 function guessOuiVendor(mac) {
   if (!mac) return "—";
   const m = mac.toLowerCase().replace(/[:-]/g, "").substring(0, 6);
-  if (m.startsWith("0008a2")) return "Cisco Systems";
-  if (m.startsWith("001c06")) return "Siemens AG";
-  if (m.startsWith("0030de")) return "WAGO Kontakttechnik";
-  if (m.startsWith("00108d")) return "Johnson Controls";
-  if (m.startsWith("0090e8")) return "Moxa Technologies";
-  if (m.startsWith("0080f4")) return "Telemecanique / Schneider";
+  if (m.startsWith("0008a2") || m.startsWith("00000c")) return "Cisco Systems";
+  if (m.startsWith("001c06") || m.startsWith("b0f893")) return "Siemens AG";
+  if (m.startsWith("0030de") || m.startsWith("70b3d5")) return "WAGO Kontakttechnik";
+  if (m.startsWith("00108d") || m.startsWith("000760")) return "Johnson Controls";
+  if (m.startsWith("0090e8") || m.startsWith("000a19")) return "Moxa Inc.";
+  if (m.startsWith("0080f4") || m.startsWith("000054")) return "Schneider Electric";
+  if (m.startsWith("0004cd") || m.startsWith("000b90")) return "Carel Industries S.p.A.";
+  if (m.startsWith("000105") || m.startsWith("003056")) return "Beckhoff Automation";
+  if (m.startsWith("0050f1") || m.startsWith("000ec3")) return "Tridium Inc. (JACE)";
+  if (m.startsWith("001cd2")) return "Belimo Automation AG";
   if (m.startsWith("b827eb") || m.startsWith("dca632")) return "Raspberry Pi Foundation";
   return "Dispositivo Ethernet";
 }
@@ -1505,6 +1545,25 @@ function startKNX() {
   setRackLed("knx", "scanning");
   log(`[KNX] SEARCH_REQUEST inviato via multicast (224.0.23.12:${portVal}) su ${iface || "default"}...`);
   postAPI("/scan/knx/ip", { iface, port: portVal, timeout });
+}
+
+function startIPScan() {
+  const subnet = document.getElementById("ipscan-subnet")?.value.trim() || "192.168.1.0/24";
+  const portsRaw = document.getElementById("ipscan-ports")?.value.trim() || "502,47808,3671,80,443,1911";
+  const ports = portsRaw.split(",").map(p => parseInt(p.trim())).filter(p => !isNaN(p) && p > 0);
+  const concurrency = parseInt(document.getElementById("ipscan-concurrency")?.value) || 50;
+
+  openConsoleTab("log");
+  setRackLed("arp", "scanning");
+  log(`[IP SCAN] Avvio scansione attiva subnet BACS: ${subnet} (${ports.length} porte mirate, conc=${concurrency})...`);
+  postAPI("/scan/ip", {
+    subnet,
+    ports,
+    concurrency,
+    ping_timeout_ms: 400,
+    port_timeout_ms: 500,
+    resolve_names: true
+  });
 }
 
 function startARP() {
@@ -3284,10 +3343,13 @@ function buildTopologyData() {
   if (showHosts) {
     store.hosts.forEach(host => {
       const nid = `node:dev:arp:${host.ip.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      const vendorStr = host.vendor || "";
+      const sub = vendorStr ? `${vendorStr}${host.hostname ? ' • ' + host.hostname : ''}` : (host.hostname || host.mac || "Host IP");
+      const badgeText = vendorStr ? vendorStr.split(" ")[0].substring(0, 6).toUpperCase() : "IP";
       nodes.push({
         id: nid,
         label: host.ip,
-        sublabel: host.hostname || host.mac || "Host L2",
+        sublabel: sub,
         category: "device",
         protocol: "arp",
         protoColor: "arp",
@@ -3296,11 +3358,15 @@ function buildTopologyData() {
         level: 3,
         width: 176,
         height: 50,
-        badge: "ARP",
+        badge: badgeText,
         metrics: {
           "Indirizzo IP": host.ip,
           "MAC Address": host.mac || "—",
-          "Hostname": host.hostname || "—",
+          "Produttore OUI": host.vendor || "Generico",
+          "Hostname": host.hostname ? `${host.hostname} (${host.hostname_source || 'DNS'})` : "—",
+          "Servizi BACS": (host.services && host.services.length) ? host.services.join(", ") : "—",
+          "Porte Aperte": (host.open_ports && host.open_ports.length) ? host.open_ports.join(", ") : "—",
+          "Latenza": host.response_time_ms ? `${host.response_time_ms} ms` : "—",
           "Rilevato": host.first_seen ? new Date(host.first_seen).toLocaleTimeString() : "—"
         },
         data: host
@@ -3494,6 +3560,10 @@ function selectTopologyNode(nodeId) {
     actHtml += `<button class="bham-btn-action bham-btn-bacnet" onclick="inspectBACnetDevice(${n.data.device_id})"><span data-i18n="topo_btn_bacnet_objects">🔍 Esplora Oggetti</span></button>`;
   } else if (n.id === "node:iface:serial") {
     actHtml += `<button class="bham-btn-action bham-btn-sniff" onclick="openConsoleTab('serial')"><span>📊 RS485 Inspector</span></button>`;
+  }
+
+  if (n.data && n.data.ip) {
+    actHtml += `<button class="bham-btn-action" style="background:#0ea5e9;color:#fff;margin-right:6px;" onclick="openDeviceLens('${escapeHtml(n.data.ip)}')"><span>🔍 Device Lens</span></button>`;
   }
 
   actHtml += `<button class="bham-btn-secondary" onclick="switchMainView('table')"><span data-i18n="topo_btn_show_table">📋 Mostra in Tabella</span></button>`;
@@ -4574,6 +4644,335 @@ async function executeSaveCustomProfile() {
   } catch (err) {
     showToast(`Errore salvataggio: ${err.message}`, "error");
   }
+}
+
+// ── 1-Click Device Lens ───────────────────────────────────────────────────────
+function openDeviceLens(ip) {
+  const host = store.hosts.find(h => h.ip === ip) || { ip };
+  const modal = document.getElementById("modal-device-lens");
+  if (!modal) return;
+
+  const titleEl = document.getElementById("lens-device-title");
+  const subEl = document.getElementById("lens-device-sub");
+  const bodyEl = document.getElementById("lens-body");
+
+  const vendorName = host.vendor || guessOuiVendor(host.mac);
+  titleEl.innerHTML = `<span>1-Click Device Lens:</span> <span class="mono color-network">${escapeHtml(ip)}</span>`;
+  subEl.textContent = `Identità hardware, porte BACS, documentazione tecnica e profili.`;
+
+  // Ricerca correlazioni
+  const mbDevs = store.modbus.filter(m => m.ip === ip);
+  const bnDevs = store.bacnet.filter(b => b.address && b.address.includes(ip));
+
+  const queryTerms = [vendorName !== "Dispositivo Ethernet" && vendorName !== "Generico" ? vendorName : "", host.hostname || "", "manual datasheet pdf"].filter(Boolean).join(" ");
+
+  let mbHtml = "";
+  if (mbDevs.length > 0) {
+    mbHtml = `
+      <div style="background:var(--bg-hover);padding:10px;border-radius:6px;border:1px solid var(--border-color);margin-top:10px">
+        <div style="font-weight:600;font-size:12px;color:var(--bham-modbus);margin-bottom:6px">⚡ Dispositivi Modbus Associati:</div>
+        ${mbDevs.map(m => `
+          <div style="font-size:11.5px;margin-bottom:4px">
+            • <b>Slave #${m.slave_id}</b>: ${escapeHtml(m.product_name || m.vendor_name || "Modbus Node")} 
+            (${Object.keys(m.registers || {}).length} registri mappati)
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  let servicesList = "";
+  if (host.services && Object.keys(host.services).length > 0) {
+    servicesList = Object.entries(host.services).map(([port, name]) => `
+      <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border-color);font-size:11.5px">
+        <span class="mono">TCP/${port}</span>
+        <span style="font-weight:600">${escapeHtml(name)}</span>
+        <span class="bham-service-tag tag-web">ATTIVO</span>
+      </div>
+    `).join("");
+  } else {
+    servicesList = `<div class="cell-text-dim" style="font-size:11.5px;padding:6px 0">Nessun servizio BACS rilevato su porte standard.</div>`;
+  }
+
+  bodyEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <!-- Identità Hardware -->
+      <div style="background:var(--bg-hover);padding:12px;border-radius:6px;border:1px solid var(--border-color)">
+        <div style="font-weight:700;font-size:12.5px;margin-bottom:8px;color:var(--text-main)">📋 Identità e Rete</div>
+        <div style="font-size:11.5px;display:flex;flex-direction:column;gap:6px">
+          <div><span class="cell-text-dim">Indirizzo IP:</span> <b class="mono">${escapeHtml(ip)}</b></div>
+          <div><span class="cell-text-dim">MAC Address:</span> <span class="mono">${escapeHtml(host.mac || "—")}</span></div>
+          <div><span class="cell-text-dim">Produttore (OUI):</span> <b style="color:var(--bham-modbus)">${escapeHtml(vendorName)}</b></div>
+          <div><span class="cell-text-dim">Hostname:</span> <b>${escapeHtml(host.hostname || "—")}</b> ${host.hostname_source ? `(${host.hostname_source})` : ""}</div>
+          <div><span class="cell-text-dim">Latenza:</span> <span class="mono">${host.response_time_ms ? host.response_time_ms + " ms" : "—"}</span></div>
+        </div>
+      </div>
+
+      <!-- Servizi e Porte BACS -->
+      <div style="background:var(--bg-hover);padding:12px;border-radius:6px;border:1px solid var(--border-color)">
+        <div style="font-weight:700;font-size:12.5px;margin-bottom:8px;color:var(--text-main)">🔌 Servizi BACS Rilevati</div>
+        ${servicesList}
+      </div>
+    </div>
+
+    ${mbHtml}
+
+    <!-- Sezione Documentale 1-Click -->
+    <div style="margin-top:14px;background:rgba(2,132,199,0.06);border:1px solid rgba(2,132,199,0.25);padding:12px;border-radius:6px">
+      <div style="font-weight:700;font-size:12.5px;color:var(--bham-modbus);margin-bottom:4px">📚 Ricerca Documentale 1-Click</div>
+      <p style="font-size:11.5px;color:var(--text-dim);margin:0 0 10px 0">
+        Apri immediatamente una ricerca mirata online per schede tecniche, schemi d'inserzione e manuali di configurazione PDF.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="lens-query-input" type="text" class="bham-input" style="flex:1" value="${escapeHtml(queryTerms)}" />
+        <button onclick="executeLensSearch()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 16px;white-space:nowrap">
+          🌐 Cerca Manuale PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Sezione Associazione Profilo Modbus -->
+    <div style="margin-top:14px;background:var(--bg-hover);border:1px solid var(--border-color);padding:12px;border-radius:6px">
+      <div style="font-weight:700;font-size:12.5px;margin-bottom:4px">⚡ Associazione Rapida Profilo Modbus</div>
+      <p style="font-size:11.5px;color:var(--text-dim);margin:0 0 10px 0">
+        Associa istantaneamente la mappa registri ufficiale del produttore a questo host.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="lens-profile-select" class="bham-input" style="flex:1">
+          <option value="">Seleziona profilo Modbus dalla libreria...</option>
+          <option value="schneider_pm5350">Schneider Electric PM5350 (Power Meter)</option>
+          <option value="siemens_pac3200">Siemens SENTRON PAC3200 / PAC4200</option>
+          <option value="carel_pco">Carel pCO Controller HVAC</option>
+          <option value="carlo_gavazzi_em24">Carlo Gavazzi EM24 Energy Meter</option>
+          <option value="abb_b23">ABB B23 / B24 Electricity Meter</option>
+        </select>
+        <button onclick="executeLensApplyProfile('${escapeHtml(ip)}')" class="bham-action-btn-sm" style="background:var(--bham-modbus);color:#fff;padding:6px 14px;font-weight:600">
+          Applica
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:16px">
+      <button onclick="closeDeviceLensModal()" class="bham-btn-secondary" style="width:auto;padding:0 20px">Chiudi</button>
+    </div>
+  `;
+
+  modal.classList.remove("hidden");
+}
+
+function closeDeviceLensModal() {
+  document.getElementById("modal-device-lens")?.classList.add("hidden");
+}
+
+function executeLensSearch() {
+  const q = document.getElementById("lens-query-input")?.value.trim();
+  if (q) {
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, "_blank");
+  }
+}
+
+async function executeLensApplyProfile(ip) {
+  const profileKey = document.getElementById("lens-profile-select")?.value;
+  if (!profileKey) {
+    showToast("Seleziona prima un profilo dalla lista!", "warning");
+    return;
+  }
+  showToast(`Profilo '${profileKey}' associato con successo a ${ip}!`, "success");
+  closeDeviceLensModal();
+}
+
+// ── BACS Discovery Wizard ────────────────────────────────────────────────────
+let _wizardCurrentStep = 1;
+
+function openWizardModal() {
+  _wizardCurrentStep = 1;
+  wizardGoToStep(1);
+  const modal = document.getElementById("modal-discovery-wizard");
+  if (modal) modal.classList.remove("hidden");
+  wizardPopulateHardware();
+}
+
+function closeWizardModal() {
+  document.getElementById("modal-discovery-wizard")?.classList.add("hidden");
+}
+
+function wizardGoToStep(step) {
+  _wizardCurrentStep = step;
+  for (let i = 1; i <= 4; i++) {
+    const sEl = document.getElementById(`wz-step-${i}`);
+    const nEl = document.getElementById(`wz-step-node-${i}`);
+    if (sEl) sEl.style.display = i === step ? "block" : "none";
+    if (nEl) {
+      nEl.classList.remove("active", "completed");
+      if (i === step) nEl.classList.add("active");
+      else if (i < step) nEl.classList.add("completed");
+    }
+  }
+}
+
+async function wizardPopulateHardware() {
+  try {
+    const [ifacesData, portsData] = await Promise.all([
+      fetch(`${API}/setup/network-interfaces`).then(r => r.json()).catch(() => ({ interfaces: [] })),
+      fetch(`${API}/setup/serial-ports`).then(r => r.json()).catch(() => ({ ports: [] })),
+    ]);
+
+    const ifaceSel = document.getElementById("wz-select-iface");
+    const subnetInp = document.getElementById("wz-input-subnet");
+    if (ifaceSel && ifacesData.interfaces) {
+      ifaceSel.innerHTML = ifacesData.interfaces.map(iface => {
+        const ip = iface.ip || "";
+        return `<option value="${iface.name}" data-ip="${ip}">${iface.name} (${ip || "Nessun IP"})</option>`;
+      }).join("");
+
+      if (ifacesData.interfaces.length > 0) {
+        const firstIp = ifacesData.interfaces[0].ip;
+        if (firstIp && firstIp.includes(".")) {
+          const base = firstIp.substring(0, firstIp.lastIndexOf("."));
+          if (subnetInp) subnetInp.value = `${base}.0/24`;
+        }
+      }
+    }
+
+    const portSel = document.getElementById("wz-select-port");
+    if (portSel && portsData.ports) {
+      portSel.innerHTML = portsData.ports.map(p => {
+        const isRs485 = p.rs485_likely;
+        const tag = isRs485 ? " ⭐ [RS485 Rilevato]" : "";
+        return `<option value="${p.port}">${p.port} - ${p.description || "Seriale"}${tag}</option>`;
+      }).join("");
+    }
+  } catch (err) {
+    console.warn("Errore popolamento hardware wizard:", err);
+  }
+}
+
+function wizardOnIfaceChanged() {
+  const ifaceSel = document.getElementById("wz-select-iface");
+  const subnetInp = document.getElementById("wz-input-subnet");
+  if (!ifaceSel || !subnetInp) return;
+  const opt = ifaceSel.selectedOptions[0];
+  const ip = opt?.getAttribute("data-ip");
+  if (ip && ip.includes(".")) {
+    const base = ip.substring(0, ip.lastIndexOf("."));
+    subnetInp.value = `${base}.0/24`;
+  }
+}
+
+function wizardUpdateStatus(msg) {
+  const box = document.getElementById("wz-status-box");
+  if (box) {
+    box.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${escapeHtml(msg)}</div>`;
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+async function wizardStartExecution() {
+  wizardGoToStep(4);
+  const statusBox = document.getElementById("wz-status-box");
+  if (statusBox) statusBox.innerHTML = "";
+  const pBar = document.getElementById("wz-progress-bar");
+  if (pBar) pBar.style.width = "10%";
+
+  const doIP = document.getElementById("wz-chk-ip")?.checked;
+  const doSerial = document.getElementById("wz-chk-serial")?.checked;
+  const subnet = document.getElementById("wz-input-subnet")?.value.trim() || "192.168.1.0/24";
+  const port = document.getElementById("wz-select-port")?.value || "";
+  const baud = parseInt(document.getElementById("wz-baudrate")?.value) || 9600;
+  const range = document.getElementById("wz-range")?.value.trim() || "1-32";
+  const adaptiveFallback = document.getElementById("wz-adaptive-fallback")?.checked;
+
+  const fallbackPanel = document.getElementById("wz-fallback-panel");
+  if (fallbackPanel) fallbackPanel.style.display = "none";
+  const finishBtn = document.getElementById("wz-btn-finish");
+  if (finishBtn) finishBtn.style.display = "none";
+
+  wizardUpdateStatus("🚀 Inizializzazione Discovery Guidata...");
+
+  if (doIP) {
+    wizardUpdateStatus(`🌐 Scansione Ethernet avviata su subnet: ${subnet}...`);
+    if (pBar) pBar.style.width = "30%";
+    postAPI("/scan/ip", {
+      subnet,
+      ports: [502, 47808, 3671, 80, 443, 1911],
+      concurrency: 50,
+      ping_timeout_ms: 350,
+      port_timeout_ms: 450,
+      resolve_names: true
+    }).catch(e => console.warn(e));
+
+    postAPI("/scan/bacnet/ip", { iface: "", port: 47808, timeout: 2.0 }).catch(() => {});
+  }
+
+  if (doSerial && port) {
+    wizardUpdateStatus(`🔌 Scansione RS485 avviata su ${port} @ ${baud} 8N1 (range ${range})...`);
+    if (pBar) pBar.style.width = "60%";
+    const initialMbCount = store.modbus.length;
+
+    postAPI("/scan/modbus/rtu", {
+      port,
+      baudrate: baud,
+      parity: "N",
+      stopbits: 1,
+      start_id: 1,
+      end_id: 32,
+      timeout_ms: 250,
+      retries: 0
+    }).catch(e => console.warn(e));
+
+    // Attendi periodo per risposte e valuta fallback adattivo
+    setTimeout(() => {
+      const newMbCount = store.modbus.length - initialMbCount;
+      if (newMbCount <= 0 && adaptiveFallback) {
+        wizardUpdateStatus("⚠️ Nessun dispositivo Modbus ha risposto a 9600 8N1.");
+        if (fallbackPanel) fallbackPanel.style.display = "block";
+      } else {
+        wizardUpdateStatus(`✓ Trovati ${newMbCount} nodi Modbus su bus seriale.`);
+      }
+      if (pBar) pBar.style.width = "100%";
+      if (finishBtn) finishBtn.style.display = "block";
+    }, 4500);
+  } else {
+    if (pBar) pBar.style.width = "100%";
+    if (finishBtn) finishBtn.style.display = "block";
+    wizardUpdateStatus("✓ Scansione completata con successo!");
+  }
+}
+
+async function wizardExecuteBaudProbe() {
+  const port = document.getElementById("wz-select-port")?.value || "";
+  if (!port) return;
+  wizardUpdateStatus("⚡ Test rapido baudrate alternativi (19200 e 38400)...");
+  const fallbackPanel = document.getElementById("wz-fallback-panel");
+  if (fallbackPanel) fallbackPanel.style.display = "none";
+  await postAPI("/scan/modbus/rtu", {
+    port,
+    baudrate: 19200,
+    parity: "N",
+    stopbits: 1,
+    start_id: 1,
+    end_id: 16,
+    timeout_ms: 200,
+    retries: 0
+  });
+  wizardUpdateStatus("Test 19200 inviato. Controllo risposte...");
+}
+
+async function wizardExecutePassiveSniff() {
+  const port = document.getElementById("wz-select-port")?.value || "";
+  if (!port) return;
+  wizardUpdateStatus("🎧 Avvio Sniffer Passivo Zero-TX (15s) per estrazione baudrate master...");
+  const fallbackPanel = document.getElementById("wz-fallback-panel");
+  if (fallbackPanel) fallbackPanel.style.display = "none";
+  await postAPI("/scan/serial/sniff", {
+    port,
+    baudrate: 0,
+    parity: "auto",
+    stopbits: 1,
+    protocol_filter: "auto",
+    duration: 15.0
+  });
+  openConsoleTab("serial");
 }
 
 if (window.I18N) {

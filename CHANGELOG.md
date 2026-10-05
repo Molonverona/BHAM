@@ -3,6 +3,34 @@
 Formato basato su [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versioni [SemVer](https://semver.org/lang/it/).
 Le note della sezione corrispondente alla versione vengono pubblicate automaticamente nella GitHub Release.
 
+## [0.9.0] – 2026-10-05
+
+### Aggiunto
+- **BACS IP Scanner Avanzato & OUI Hardware Recognition (`scanners/ip_scanner.py`, `core/oui_lookup.py`)**:
+  - Scansione asincrona parallela ad alta concorrenza (semaphoring a 50 task concorrenti) di subnet CIDR e range IP (`192.168.1.0/24`, `10.0.0.1-50`).
+  - Database integrato IEEE OUI con oltre 100 produttori BACS, HVAC, PLC e Building Automation (Schneider, Siemens, Honeywell, Carel, WAGO, Beckhoff, Moxa, Tridium, Belimo, ABB, Carlo Gavazzi, Danfoss, Phoenix Contact, Johnson Controls, ecc.) con lookup prefisso O(1) e normalizzazione formati MAC (`:` e `-`).
+  - Risoluzione dei nomi host multi-livello con fallback automatico: reverse DNS PTR e query NetBIOS Name Service (UDP 137 RFC 1002).
+  - Port scanner selettivo per servizi di automazione edificio: Modbus TCP (502), BACnet/IP (47808), KNXnet/IP (3671), Web GUI HTTP/HTTPS (80, 443, 8080, 8443), Niagara Fox (1911) e MQTT (1883).
+  - Endpoint REST dedicati `POST /api/v1/scan/ip` e `GET /api/v1/network/oui/{mac}`.
+- **BACS Discovery Wizard (Commissioning Guidato d'Impianto)**:
+  - Modale interattivo in 4 passaggi per il collaudo rapido di nuovi impianti di campo:
+    1. *Rilevamento Hardware*: scansione automatica porte seriali RS485 (chipset Moxa, FTDI, CH340) e schede di rete LAN/WLAN con rilevamento IP e subnet.
+    2. *Configurazione Bus Seriale*: selezione baudrate e parità con Adaptive Fallback (se 9600 8N1 fallisce, attiva automaticamente scansione a matrice o 15s di Zero-TX sniffer passivo).
+    3. *Scansione Multi-Protocollo*: esecuzione combinata o selettiva di Modbus RTU, Modbus TCP, BACnet/IP, KNXnet/IP e BACS IP Scanner.
+    4. *Riepilogo & Azioni*: report sintetico dei nodi censiti con link immediati a Mappe Topologiche, Report Excel/PDF ed esportazione sessione.
+- **"1-Click Device Lens" & Modbus Auto-Profile Mapping**:
+  - Modale di ispezione tecnica per ciascun host IP o nodo di campo rilevato.
+  - Ricerca mirata manuali/datasheet in 1-Click con query contestualizzata su produttore e modello.
+  - Mappatura istantanea profili Modbus industriali su slave e controller rilevati.
+- **Blocco Scrittura Safe Mode Permanentemente Non Disattivabile**:
+  - Architettura di sicurezza rigorosa: Safe Mode è permanentemente attivo e non può essere disabilitato o bypassato globalmente da configurazione, env o API.
+  - Sblocco esclusivamente temporizzato con tracciamento obbligatorio dell'identità dell'operatore, codice commessa/ordine di lavoro e finestra temporale con auto-scadenza e disarmo immediato.
+  - Verifica totale nel motore di forzatura fisica `field_tools.py` per Modbus RTU/TCP e BACnet presentValue override.
+- **Reportistica Avanzata Excel & PDF con Sezione IP Hosts & OUI**:
+  - Foglio Excel dedicato `"BACS IP Hosts"` con IP, MAC, Costruttore OUI, Hostname NetBIOS, Servizi BACS e latenza ms.
+  - Tabella PDF Section 4 arricchita con vendor OUI, hostname e servizi di automazione edificio.
+  - Grafo topologico SVG con etichette produttore OUI e pulsante diretto Device Lens nell'Inspector.
+
 ## [0.8.5] – 2026-10-03
 
 ### Aggiunto

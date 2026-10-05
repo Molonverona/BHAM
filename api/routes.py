@@ -33,6 +33,7 @@ from api.schemas import (
     FC43Response,
     HardwareSelfTestResponse,
     HealthResponse,
+    IPScanRequest,
     KNXIPScanRequest,
     MapsImportResponse,
     ModbusQuickReadRequest,
@@ -44,6 +45,7 @@ from api.schemas import (
     ModbusSmartScanResponse,
     ModbusTCPScanRequest,
     NetworkInterfacesResponse,
+    OUILookupResponse,
     RestoreSessionResponse,
     SaveCustomProfileRequest,
     SaveSessionRequest,
@@ -269,6 +271,22 @@ async def start_arp_sniff(req: ARPSniffRequest) -> dict:
 
 
 @router.post(
+    "/scan/ip",
+    tags=["scans"],
+    response_model=ScanActionResponse,
+    summary="Avvia scansione attiva subnet BACS IP",
+    description="Sonda la subnet o range CIDR specificato per identificare tutti gli host IP attivi, estrarre il MAC address, determinare il Vendor OUI (Schneider, Siemens, Honeywell, ecc.), risolvere hostname e testare porte e servizi BACS/IoT (502, 47808, 3671, 80, 443, 8080, 8443, 1911, 1883).",
+)
+async def start_ip_scan(req: IPScanRequest) -> dict:
+    from scanners.ip_scanner import IPScanner
+    session = state.new_session(Protocol.UNKNOWN, req.model_dump())
+    scanner = IPScanner(session_id=session.id)
+    scanner.reset_abort()
+    asyncio.create_task(scanner.scan(req))
+    return {"session_id": session.id, "status": "started"}
+
+
+@router.post(
     "/scan/abort",
     tags=["scans"],
     response_model=ScanAbortResponse,
@@ -457,6 +475,23 @@ async def get_network_interfaces() -> dict:
         "single_iface_mode": suggest_single_iface(ifaces),
         "lan_ips":          get_host_lan_ips(),
         "port":             settings.port,
+    }
+
+
+@router.get(
+    "/network/oui/{mac}",
+    tags=["setup"],
+    response_model=OUILookupResponse,
+    summary="Risolve il produttore/vendor dal MAC address",
+    description="Interroga il database OUI IEEE integrato per identificare il produttore del controller o apparato di rete (es. Schneider Electric, Siemens, Carel, WAGO, Beckhoff, Moxa, Tridium).",
+)
+async def lookup_oui(mac: str) -> dict:
+    from core.oui_lookup import format_mac_colon, get_vendor_by_mac
+    vendor = get_vendor_by_mac(mac)
+    return {
+        "mac": format_mac_colon(mac),
+        "vendor": vendor,
+        "recognized": vendor is not None,
     }
 
 

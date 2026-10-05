@@ -520,10 +520,14 @@ class AppState:
             # ARP Hosts
             for ip, host in self.ip_hosts.items():
                 nid = f"node:dev:arp:{ip.replace('.', '_')}"
+                vendor_str = getattr(host, "vendor", "") or ""
+                sublabel = vendor_str if vendor_str else (host.hostname or host.mac or "Host L2")
+                if vendor_str and host.hostname:
+                    sublabel = f"{vendor_str} ({host.hostname})"
                 nodes.append({
                     "id": nid,
                     "label": host.ip,
-                    "sublabel": host.hostname or host.mac or "Host L2",
+                    "sublabel": sublabel,
                     "category": "device",
                     "protocol": "arp",
                     "status": "active",
@@ -531,7 +535,10 @@ class AppState:
                     "metrics": {
                         "ip": host.ip,
                         "mac": host.mac,
+                        "vendor": vendor_str or "Generico",
                         "hostname": host.hostname,
+                        "services": getattr(host, "services", []),
+                        "response_time_ms": getattr(host, "response_time_ms", None),
                     },
                     "data": host.model_dump(mode="json"),
                 })
