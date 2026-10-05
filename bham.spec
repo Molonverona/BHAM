@@ -52,7 +52,9 @@ hiddenimports = [
     'core.audit_journal',
     'core.safe_mode',
     'core.profile_manager',
+    'core.oui_lookup',
     'scanners.field_tools',
+    'scanners.ip_scanner',
     'api.schemas',
 ]
 
