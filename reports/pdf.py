@@ -594,6 +594,79 @@ def generate_pdf(filepath: str) -> str:
         t_objs.setStyle(TableStyle(t_objs_style))
         elements.append(t_objs)
 
+    # ── 8. Verbale di Collaudo e Conformità As-Built ─────────────────────────
+    all_devs_count = len(state.modbus_devices) + len(state.bacnet_devices) + len(state.knx_devices)
+    if all_devs_count > 0:
+        elements.append(Spacer(1, 16))
+        elements.append(Paragraph("8. Verbale di Collaudo e Conformità d'Impianto (As-Built)", h2_style))
+
+        checklist_rows = [[
+            Paragraph("Protocollo", tbl_hdr_style),
+            Paragraph("Identificativo / Modello", tbl_hdr_style),
+            Paragraph("Indirizzo / IP", tbl_hdr_style),
+            Paragraph("Esito Collaudo", tbl_hdr_style),
+            Paragraph("Note di Cantiere / Perizia", tbl_hdr_style),
+        ]]
+
+        def _fmt_status(st: Any) -> tuple[str, str]:
+            if st == "ok":
+                return "CONFORME (OK)", "#16A34A"
+            if st == "warning":
+                return "CON RISERVA", "#D97706"
+            if st == "failed":
+                return "NON CONFORME", "#DC2626"
+            return "NON TESTATO", "#64748B"
+
+        for d in sorted(state.modbus_devices.values(), key=lambda x: x.slave_id):
+            st_text, st_col = _fmt_status(d.commissioning_status)
+            ep = f"{d.ip}:{d.tcp_port}" if d.ip else (d.serial_params.port if d.serial_params else f"RTU ID {d.slave_id}")
+            name = f"{d.vendor_name or 'Modbus'} {d.product_name or ''} (ID {d.slave_id})".strip()
+            checklist_rows.append([
+                Paragraph("Modbus", tbl_cell_style),
+                Paragraph(name, tbl_cell_bold),
+                Paragraph(ep, tbl_cell_center),
+                Paragraph(f"<font color='{st_col}'><b>{st_text}</b></font>", tbl_cell_center),
+                Paragraph(d.commissioning_notes or "—", tbl_cell_style),
+            ])
+
+        for d in sorted(state.bacnet_devices.values(), key=lambda x: x.device_id):
+            st_text, st_col = _fmt_status(d.commissioning_status)
+            name = f"{d.vendor_name or 'BACnet'} {d.model_name or ''} (ID {d.device_id})".strip()
+            checklist_rows.append([
+                Paragraph("BACnet/IP", tbl_cell_style),
+                Paragraph(name, tbl_cell_bold),
+                Paragraph(d.address, tbl_cell_center),
+                Paragraph(f"<font color='{st_col}'><b>{st_text}</b></font>", tbl_cell_center),
+                Paragraph(d.commissioning_notes or "—", tbl_cell_style),
+            ])
+
+        for k in sorted(state.knx_devices.values(), key=lambda x: x.individual_address):
+            st_text, st_col = _fmt_status(k.commissioning_status)
+            name = f"{k.device_name or 'KNX Device'} ({k.individual_address})".strip()
+            checklist_rows.append([
+                Paragraph("KNXnet/IP", tbl_cell_style),
+                Paragraph(name, tbl_cell_bold),
+                Paragraph(k.ip_address, tbl_cell_center),
+                Paragraph(f"<font color='{st_col}'><b>{st_text}</b></font>", tbl_cell_center),
+                Paragraph(k.commissioning_notes or "—", tbl_cell_style),
+            ])
+
+        col_w_check = [70, 160, 95, 95, 95]
+        t_check = Table(checklist_rows, colWidths=col_w_check, repeatRows=1)
+        t_check_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F766E")),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]
+        for i in range(1, len(checklist_rows)):
+            if i % 2 == 0:
+                t_check_style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#F0FDFA")))
+        t_check.setStyle(TableStyle(t_check_style))
+        elements.append(t_check)
+
     # Compilazione documento con il canvas personalizzato
     doc.build(elements, canvasmaker=NumberedCanvas)
     return filepath

@@ -515,4 +515,69 @@ class ApplyProfileResponse(BaseModel):
     points: list[dict[str, Any]] = Field(default_factory=list, description="Elenco punti mappati")
 
 
+# ── Benchmark & Stress Test ───────────────────────────────────────────────────
+
+class ModbusBenchmarkRequest(BaseModel):
+    protocol: str = Field("rtu", description="'rtu' o 'tcp'")
+    port: Optional[str] = Field(None, description="Dispositivo porta seriale (per RTU)")
+    baudrate: int = Field(9600, description="Baudrate seriale")
+    parity: str = Field("N", description="Parità ('N', 'E', 'O')")
+    stopbits: int = Field(1, description="Stop bits")
+    ip: Optional[str] = Field(None, description="Indirizzo IPv4 target (per TCP)")
+    tcp_port: int = Field(502, description="Porta Modbus TCP")
+    slave_id: int = Field(1, description="Slave ID o Unit ID da testare")
+    address: int = Field(0, description="Offset registro di test")
+    count: int = Field(1, description="Numero di registri per lettura")
+    iterations: int = Field(20, description="Numero di campionamenti consecutivi (5..100)")
+    timeout: float = Field(0.5, description="Timeout per singola richiesta (s)")
+
+
+class ModbusBenchmarkResponse(BaseModel):
+    success: bool = True
+    protocol: str
+    target: dict[str, Any]
+    iterations: int
+    success_count: int
+    fail_count: int
+    packet_error_rate_pct: float
+    min_latency_ms: float
+    max_latency_ms: float
+    avg_latency_ms: float
+    jitter_ms: float
+    rating: str               # EXCELLENT, GOOD, DEGRADED, CRITICAL
+    rating_label: str         # ECCELLENTE, BUONO, DEGRADATO, CRITICO
+    diagnosis: str
+    latencies: list[float]
+    errors: list[str]
+    total_elapsed_ms: float
+
+
+# ── Commissioning Checklist ───────────────────────────────────────────────────
+
+class DeviceCommissioningRequest(BaseModel):
+    protocol: str = Field(..., description="'modbus', 'bacnet', 'knx', 'ip'")
+    identifier: str = Field(..., description="Slave ID, Device ID, indirizzo o IP")
+    status: str = Field(..., description="'ok', 'warning', 'failed', 'pending'")
+    notes: Optional[str] = Field(None, description="Note tecniche di collaudo cantiere")
+    commissioned_by: Optional[str] = Field(None, description="Nome del collaudatore")
+
+
+class DeviceCommissioningResponse(BaseModel):
+    success: bool = True
+    protocol: str
+    identifier: str
+    status: str
+    notes: Optional[str] = None
+    commissioned_by: Optional[str] = None
+    timestamp: str
+
+
+# ── QR Code LAN Access ────────────────────────────────────────────────────────
+
+class QRCodeResponse(BaseModel):
+    url: str
+    svg: str
+
+
+
 

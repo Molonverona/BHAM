@@ -26,7 +26,10 @@ const MANUAL_DATA = {
       { id: "profiles", title: "16. Libreria Profili Modbus Industriali" },
       { id: "safemode", title: "17. Blocco Sicurezza Manovre (Safe Mode)" },
       { id: "audit", title: "18. Registro Manovre Certificato (WAL)" },
-      { id: "standalone", title: "19. Standalone (Portable/Install) & SignPath" }
+      { id: "standalone", title: "19. Standalone (Portable/Install) & SignPath" },
+      { id: "watch_list", title: "20. Live Watch List & Polling Registri" },
+      { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
+      { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Accesso Mobile QR" }
     ],
     content: {
       intro: `
@@ -429,6 +432,64 @@ const MANUAL_DATA = {
           <li><strong>Firma Digitale Windows (SignPath):</strong> Integrazione CI/CD con <code>SignPath/github-action-submit-signing-request@v2</code> per la firma autenticata dei binari Windows.</li>
           <li><strong>Firma Digitale Autonoma Linux (GPG):</strong> Script <code>./scripts/sign_linux.sh</code> per la firma autonoma locale di <code>.deb</code>, <code>.tar.gz</code> e <code>SHA256SUMS.asc</code> con la propria chiave GPG.</li>
         </ul>
+      `,
+      watch_list: `
+        <h3>20. Live Watch List &amp; Polling Registri</h3>
+        <p>La <strong>Live Watch List</strong> consente il monitoraggio continuo in tempo reale di registri Modbus selezionati (Holding e Input Registers) durante le prove di taratura, il bilanciamento idronico o la diagnostica di anomalie dinamiche.</p>
+
+        <h4>Funzionalità Principali:</h4>
+        <ul>
+          <li><strong>Aggiunta Rapida Punti:</strong> Inserimento diretto dei registri dalla tabella registri dello slave o dal modale di ispezione cliccando sull'icona dell'occhio <code>👁️</code>.</li>
+          <li><strong>Intervallo di Polling Adattivo:</strong> Frequenza configurabile a <strong>500ms</strong>, <strong>1s</strong>, <strong>2s</strong> o <strong>5s</strong> con query Modbus mirata e non invasiva sul bus.</li>
+          <li><strong>Evidenziazione Cromatica dei Delta:</strong> I valori che subiscono variazioni vengono evidenziati all'istante con transizioni cromatiche (verde per incremento, arancione per decremento/variazione), facilitando l'individuazione di fluttuazioni rapide.</li>
+          <li><strong>Feedback Acustico (Web Audio Buzzer):</strong> Segnalatore sonoro sintetizzato via browser (Web Audio API) che emette un tono discreto ad ogni variazione di valore registrata, consentendo all'operatore di lavorare con le mani sul quadro elettrico senza dover fissare il monitor.</li>
+          <li><strong>Esportazione Log CSV:</strong> Download con un click dell'intero storico dei campionamenti registrati con timestamp millisecondo, Slave ID, Indirizzo e Valore numerico per analisi trend in Excel.</li>
+        </ul>
+      `,
+      rs485_benchmark: `
+        <h3>21. RS485 Stress Test &amp; Latency Benchmark</h3>
+        <p>Strumento diagnostico fisico del canale di trasmissione seriale RS485 per verificare la qualità della linea, l'assenza di riflessioni d'onda e la stabilità del baudrate prima del rilascio definitivo dell'impianto.</p>
+
+        <h4>Parametri del Benchmark:</h4>
+        <ul>
+          <li><strong>Raffiche di Stress Calibrate:</strong> Invio di sequenze consecutive di richieste Modbus (50, 100 o 200 campioni) a frequenza controllata su nodi sentinella o attivi.</li>
+          <li><strong>Metriche Misurate in Tempo Reale:</strong>
+            <ul>
+              <li><strong>Packet Error Rate (PER %):</strong> Percentuale di pacchetti persi o con timeout sul totale trasmesso.</li>
+              <li><strong>Round-Trip Time (RTT):</strong> Latenza minima, media e massima espressa in millisecondi (ms).</li>
+              <li><strong>Jitter di Trasmissione:</strong> Variazione statistica del tempo di risposta della linea fisica.</li>
+              <li><strong>CRC Corrotti:</strong> Conteggio frame scartati per checksum errato (indice primario di disturbi elettromagnetici).</li>
+            </ul>
+          </li>
+          <li><strong>Diagnostica Fisica Guidata:</strong> L'algoritmo analizza la distribuzione degli errori ed emette raccomandazioni immediate:
+            <ul>
+              <li><em>Jitter elevato / CRC Fail isolati:</em> Possibile assenza di terminazione di linea da 120 Ω su uno o entrambi i capi del bus.</li>
+              <li><em>Timeout casuali distribuiti:</em> Possibili interferenze generate da inverter o cavi di potenza posati nello stesso canale.</li>
+              <li><em>PER &gt; 50%:</em> Doppino troppo lungo per la velocità impostata o polarità A/B degradata.</li>
+            </ul>
+          </li>
+          <li><strong>Baudrate Ottimale Consigliato:</strong> Suggerisce la velocità massima consigliata per garantire un PER &lt; 0.5% in servizio continuo.</li>
+        </ul>
+      `,
+      bms_export_mobile: `
+        <h3>22. BMS/SCADA Multi-Vendor Tag Exporter &amp; Accesso Mobile QR</h3>
+        <p>BHAM accelera la fase di messa in servizio esportando l'inventario dei punti d'impianto direttamente nei formati nativi dei principali supervisori BMS di mercato e fornendo accesso mobile hands-free sul campo.</p>
+
+        <h4>Esportatore Tag Multi-Vendor (<code>/api/v1/export/tags/{format}</code>):</h4>
+        <ul>
+          <li><strong>Tridium Niagara 4:</strong> Genera file XML conforme per l'importazione diretta nei driver Modbus Async Network e BACnet Device Points di Niagara Workbench, preservando tipi di punto, indirizzi e conversioni.</li>
+          <li><strong>Siemens Desigo CC:</strong> File CSV strutturato secondo la gerarchia standard di importazione Desigo (Identifier, DP_Type, Address, Description, Engineering Units).</li>
+          <li><strong>Schneider EcoStruxure Building Operation (EBO):</strong> Tabella CSV formattata per l'importazione massiva di Device e I/O points in EcoStruxure WorkStation.</li>
+          <li><strong>BACnet CSV Universale:</strong> Tabella standard contenente Object Identifier, Object Name, Object Type, Present Value, Description e Engineering Units.</li>
+        </ul>
+
+        <h4>Accesso Mobile Hands-Free (QR Code LAN Pairing):</h4>
+        <ul>
+          <li><strong>Generazione Vettoriale SVG:</strong> Cliccando sul pulsante 📱 QR Code nella barra di stato o nel Centro Impostazioni, BHAM genera istantaneamente un QR Code vettoriale puro (senza dipendenze esterne o connessione Internet).</li>
+          <li><strong>Riconoscimento IP LAN Automatico:</strong> Il QR Code codifica l'URL effettivo dell'interfaccia di rete selezionata (es. <code>http://192.168.1.50:8765</code>).</li>
+          <li><strong>Puntamento Istantaneo da Tablet/Smartphone:</strong> Il tecnico inquadra il QR con la fotocamera del tablet da cantiere e si connette alla dashboard completa via Wi-Fi senza digitare indirizzi IP.</li>
+          <li><strong>Sintesi Sonora Web Audio API:</strong> Notifiche e conferme vocali/sonore generate interamente nel browser senza necessità di cuffie cablate o file audio pesanti.</li>
+        </ul>
       `
     }
   },
@@ -453,7 +514,10 @@ const MANUAL_DATA = {
       { id: "profiles", title: "16. Industrial Modbus Profiles Library" },
       { id: "safemode", title: "17. Safe Mode Interlock" },
       { id: "audit", title: "18. Crash-Proof Audit Journal (WAL)" },
-      { id: "standalone", title: "19. Standalone Packaging & SignPath" }
+      { id: "standalone", title: "19. Standalone Packaging & SignPath" },
+      { id: "watch_list", title: "20. Live Watch List & Register Polling" },
+      { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
+      { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Mobile QR LAN Access" }
     ],
     content: {
       intro: `
@@ -856,6 +920,64 @@ const MANUAL_DATA = {
           <li><strong>Windows Code Signing (SignPath):</strong> CI/CD workflow utilizing <code>SignPath/github-action-submit-signing-request@v2</code> for trusted digital signature of Windows binaries.</li>
           <li><strong>Autonomous Linux Signing (GPG):</strong> Dedicated <code>./scripts/sign_linux.sh</code> tool to locally sign <code>.deb</code>, <code>.tar.gz</code>, and <code>SHA256SUMS.asc</code> with personal or corporate GPG keys.</li>
         </ul>
+      `,
+      watch_list: `
+        <h3>20. Live Watch List &amp; Register Polling</h3>
+        <p>The <strong>Live Watch List</strong> provides real-time periodic polling of critical Modbus registers (Holding &amp; Input Registers) during commissioning, balancing, or troubleshooting variable dynamics.</p>
+
+        <h4>Key Capabilities:</h4>
+        <ul>
+          <li><strong>1-Click Watch Binding:</strong> Add points directly from the Slave Register Map or Inspector table by clicking the watch icon <code>👁️</code>.</li>
+          <li><strong>Adaptive Polling Intervals:</strong> User-selectable sampling periods (<strong>500ms</strong>, <strong>1s</strong>, <strong>2s</strong>, or <strong>5s</strong>) with non-intrusive lightweight single-register queries.</li>
+          <li><strong>Color-Coded Delta Highlighting:</strong> Register values that change between poll cycles flash with smooth visual transitions (green for increments, amber for decrements/updates), making subtle field fluctuations stand out immediately.</li>
+          <li><strong>Hands-Free Web Audio Buzzer:</strong> An in-browser synthesized acoustic chime (Web Audio API) emits an audible click whenever a monitored register changes, allowing engineers to manipulate valves or actuators without looking at the laptop screen.</li>
+          <li><strong>CSV Sampling Log Export:</strong> 1-click export of the timestamped sampling log (ISO timestamp, Slave ID, Register, and Value) for spreadsheet charting and trend analysis.</li>
+        </ul>
+      `,
+      rs485_benchmark: `
+        <h3>21. RS485 Stress Test &amp; Latency Benchmark</h3>
+        <p>A physical-layer RS485 diagnostic benchmark designed to verify serial bus integrity, detect signal reflections, and evaluate baudrate stability before client handover.</p>
+
+        <h4>Benchmark Metrics:</h4>
+        <ul>
+          <li><strong>Calibrated Stress Bursts:</strong> Rapid sequential query bursts (50, 100, or 200 packets) dispatched at controlled intervals towards designated slave addresses.</li>
+          <li><strong>Real-Time Physical Metrics:</strong>
+            <ul>
+              <li><strong>Packet Error Rate (PER %):</strong> Percentage of dropped packets or timeouts relative to total requests.</li>
+              <li><strong>Round-Trip Latency (RTT):</strong> Minimum, average, and maximum response times in milliseconds (ms).</li>
+              <li><strong>Transmission Jitter:</strong> Statistical variation in response latency indicating line instability.</li>
+              <li><strong>CRC Corruptions:</strong> Count of packets received with invalid checksums (direct indicator of electrical EMI noise).</li>
+            </ul>
+          </li>
+          <li><strong>Automated Physical Layer Diagnostics:</strong>
+            <ul>
+              <li><em>High Jitter / Sporadic CRC Failures:</em> Missing 120 Ω end-of-line termination resistors causing wave reflections.</li>
+              <li><em>Periodic Timeouts:</em> Inverter EMI noise or adjacent high-voltage power conduits.</li>
+              <li><em>PER &gt; 50%:</em> Excessive cable length for the configured baudrate or degraded differential polarity.</li>
+            </ul>
+          </li>
+          <li><strong>Optimal Baudrate Recommendation:</strong> Analytical algorithm recommending the maximum safe baudrate for continuous zero-error operation.</li>
+        </ul>
+      `,
+      bms_export_mobile: `
+        <h3>22. BMS/SCADA Multi-Vendor Tag Exporter &amp; Mobile QR Access</h3>
+        <p>BHAM bridges the gap between field commissioning and building supervision systems by generating native import files for leading BMS/SCADA platforms and offering instant mobile access.</p>
+
+        <h4>Multi-Vendor Tag Exporter (<code>/api/v1/export/tags/{format}</code>):</h4>
+        <ul>
+          <li><strong>Tridium Niagara 4:</strong> Conforming XML files ready for direct import into Niagara Workbench Modbus Async Network and BACnet Device point folders, preserving point types, addresses, and scaling factors.</li>
+          <li><strong>Siemens Desigo CC:</strong> Hierarchical CSV file formatted to standard Desigo CC engineering import specifications (Identifier, DP_Type, Address, Description, Units).</li>
+          <li><strong>Schneider EcoStruxure Building Operation (EBO):</strong> CSV tables optimized for bulk import into EcoStruxure WorkStation device managers.</li>
+          <li><strong>Universal BACnet CSV:</strong> Tabular export containing Object Identifier, Object Name, Object Type, Present Value, Description, and Engineering Units.</li>
+        </ul>
+
+        <h4>Hands-Free Mobile Access (QR Code LAN Pairing):</h4>
+        <ul>
+          <li><strong>Pure SVG Vector QR Generation:</strong> Clicking the 📱 QR Code button in the status bar or Settings modal renders an instant vector QR code with zero external web dependencies.</li>
+          <li><strong>Automatic Local LAN IP Resolution:</strong> The QR code embeds the live IP and port of the active network interface (e.g., <code>http://192.168.1.50:8765</code>).</li>
+          <li><strong>Instant Mobile Pairing:</strong> Field engineers scan the QR code with a phone or tablet to open the complete diagnostic dashboard over local Wi-Fi without manual IP typing.</li>
+          <li><strong>Zero-Asset Web Audio API:</strong> Synthesized audio notifications and tone verification enable eyes-free and hands-free testing in tight electrical panels.</li>
+        </ul>
       `
     }
   },
@@ -880,7 +1002,10 @@ const MANUAL_DATA = {
       { id: "profiles", title: "16. Biblioteca Perfiles Modbus Industriales" },
       { id: "safemode", title: "17. Bloqueo de Seguridad (Safe Mode)" },
       { id: "audit", title: "18. Registro de Maniobras Certificado (WAL)" },
-      { id: "standalone", title: "19. Empaquetado Standalone & SignPath" }
+      { id: "standalone", title: "19. Empaquetado Standalone & SignPath" },
+      { id: "watch_list", title: "20. Monitorización en Vivo (Watch List)" },
+      { id: "rs485_benchmark", title: "21. Test de Estrés RS485 & Benchmark de Latencia" },
+      { id: "bms_export_mobile", title: "22. Exportador BMS/SCADA & Acceso Móvil QR" }
     ],
     content: {
       intro: `
@@ -1224,6 +1349,64 @@ const MANUAL_DATA = {
           <li><strong>Modo Instalado:</strong> Emplea directorios estándar del sistema operativo (<code>%LOCALAPPDATA%\\BHAM</code> en Windows y <code>~/.local/share/bham</code> en Linux).</li>
           <li><strong>Firma Digital Windows (SignPath):</strong> Integración en GitHub Actions con <code>SignPath/github-action-submit-signing-request@v2</code> para firma autenticada de binarios.</li>
           <li><strong>Firma Digital Autónoma Linux (GPG):</strong> Herramienta <code>./scripts/sign_linux.sh</code> para firmar localmente los paquetes <code>.deb</code>, <code>.tar.gz</code> y <code>SHA256SUMS.asc</code> con su clave GPG.</li>
+        </ul>
+      `,
+      watch_list: `
+        <h3>20. Monitorización en Vivo (Watch List) &amp; Polling</h3>
+        <p>La <strong>Watch List en Vivo</strong> permite la supervisión continua y en tiempo real de registros Modbus seleccionados (Holding e Input Registers) durante tareas de equilibrado hidráulico, calibración de sensores o diagnóstico de transitorios.</p>
+
+        <h4>Funcionalidades Principales:</h4>
+        <ul>
+          <li><strong>Asignación en 1-Clic:</strong> Agregue puntos directamente desde el mapa de registros del esclavo o inspector pulsando el icono del ojo <code>👁️</code>.</li>
+          <li><strong>Intervalos de Muestreo Adaptativos:</strong> Periodos seleccionables de <strong>500ms</strong>, <strong>1s</strong>, <strong>2s</strong> o <strong>5s</strong> con consultas ligeras no invasivas sobre el bus.</li>
+          <li><strong>Resaltado Cromático de Deltas:</strong> Los valores que sufren cambios se iluminan dinámicamente (verde para incrementos, naranja para variaciones), facilitando la detección de oscilaciones.</li>
+          <li><strong>Avisador Acústico (Web Audio API):</strong> Tono sonoro generado por el navegador cada vez que cambia un registro vigilado, permitiendo trabajar en el cuadro eléctrico sin mirar la pantalla.</li>
+          <li><strong>Exportación de Muestras a CSV:</strong> Descarga inmediata del registro cronológico con marcas temporales en milisegundos para gráficos y tendencias.</li>
+        </ul>
+      `,
+      rs485_benchmark: `
+        <h3>21. Test de Estrés RS485 &amp; Benchmark de Latencia</h3>
+        <p>Herramienta de diagnóstico de capa física para verificar la integridad del bus serie RS485, detectar reflexiones de onda y evaluar la estabilidad de la velocidad antes de la entrega final.</p>
+
+        <h4>Parámetros de Medición:</h4>
+        <ul>
+          <li><strong>Ráfagas de Estrés Calibradas:</strong> Envío de secuencias continuas de peticiones Modbus (50, 100 o 200 tramas) a frecuencia controlada sobre esclavos activos.</li>
+          <li><strong>Métricas Físicas en Tiempo Real:</strong>
+            <ul>
+              <li><strong>Packet Error Rate (PER %):</strong> Porcentaje de paquetes perdidos o con timeout sobre el total.</li>
+              <li><strong>Tiempo de Ida y Vuelta (RTT):</strong> Latencia mínima, media y máxima en milisegundos (ms).</li>
+              <li><strong>Jitter de Línea:</strong> Variación temporal de la respuesta que evidencia ruido o inestabilidad.</li>
+              <li><strong>Fallos CRC:</strong> Tramas descartadas por suma de comprobación errónea (indicio directo de EMI o cables sin apantallar).</li>
+            </ul>
+          </li>
+          <li><strong>Diagnóstico Físico Guiado:</strong>
+            <ul>
+              <li><em>Jitter elevado / Fallos CRC esporádicos:</em> Ausencia de resistencias de terminación de 120 Ω en los extremos del bus.</li>
+              <li><em>Timeouts frecuentes:</em> Interferencias por variadores de frecuencia o cables de potencia adyacentes.</li>
+              <li><em>PER &gt; 50%:</em> Longitud excesiva de cable para el baudrate fijado o polaridad A/B defectuosa.</li>
+            </ul>
+          </li>
+          <li><strong>Recomendación de Baudrate Óptimo:</strong> Algoritmo analítico que indica la velocidad máxima aconsejada para operación continua sin errores.</li>
+        </ul>
+      `,
+      bms_export_mobile: `
+        <h3>22. Exportador BMS/SCADA Multi-Fabricante &amp; Acceso Móvil QR</h3>
+        <p>BHAM agiliza la integración en sistemas de supervisión exportando el inventario de puntos a los formatos nativos de las plataformas líderes BMS y ofreciendo acceso móvil en campo.</p>
+
+        <h4>Exportador de Puntos BMS (<code>/api/v1/export/tags/{format}</code>):</h4>
+        <ul>
+          <li><strong>Tridium Niagara 4:</strong> Archivo XML compatible para importación en controladores Niagara Workbench (Modbus Async Network y BACnet Device Points).</li>
+          <li><strong>Siemens Desigo CC:</strong> Archivo CSV formateado según la jerarquía estándar de importación de ingeniería Desigo CC.</li>
+          <li><strong>Schneider EcoStruxure Building Operation (EBO):</strong> Tablas CSV optimizadas para la creación masiva de dispositivos y puntos en EcoStruxure WorkStation.</li>
+          <li><strong>BACnet CSV Estándar:</strong> Tabla universal con Object Identifier, Object Name, Object Type, Present Value, Description y Unidades de Ingeniería.</li>
+        </ul>
+
+        <h4>Acceso Móvil en Obra con Código QR (LAN Pairing):</h4>
+        <ul>
+          <li><strong>Generación Vectorial SVG:</strong> Al pulsar el icono 📱 QR Code en la barra de estado o Ajustes, se genera de forma instantánea un código QR vectorial sin depender de servicios web externos.</li>
+          <li><strong>Detección Automática de IP Local:</strong> El código QR codifica la dirección IP real de la tarjeta de red seleccionada (ej. <code>http://192.168.1.50:8765</code>).</li>
+          <li><strong>Emparejamiento Instantáneo:</strong> El técnico escanea el código con su teléfono o tableta y accede a la interfaz completa por Wi-Fi sin escribir la IP a mano.</li>
+          <li><strong>Síntesis Sonora Web Audio API:</strong> Notificaciones y confirmaciones acústicas generadas en el navegador para pruebas a manos libres.</li>
         </ul>
       `
     }

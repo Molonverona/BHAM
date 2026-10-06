@@ -85,9 +85,39 @@ class AuditJournal:
         except Exception as exc:
             log.error("Errore lettura Registro Manovre: %s", exc)
 
+    def _refresh_last_entry_from_disk(self) -> None:
+        """Syncs the latest hash and counter directly from disk to prevent stale chaining."""
+        if not self._path.exists() or self._path.stat().st_size == 0:
+            self._last_hash = GENESIS_HASH
+            self._entry_counter = 0
+            return
+
+        try:
+            with open(self._path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                buffer_size = min(8192, size)
+                f.seek(-buffer_size, os.SEEK_END)
+                lines = f.read().splitlines()
+                for line in reversed(lines):
+                    line_str = line.decode("utf-8", errors="ignore").strip()
+                    if line_str:
+                        entry = json.loads(line_str)
+                        if "entry_hash" in entry:
+                            self._last_hash = entry["entry_hash"]
+                        if "entry_id" in entry and entry["entry_id"].startswith("JNL-"):
+                            try:
+                                self._entry_counter = int(entry["entry_id"].split("-")[1])
+                            except ValueError:
+                                pass
+                        break
+        except Exception as exc:
+            log.warning("Impossibile sincronizzare ultimo hash da disco: %s", exc)
+
     def _append_entry(self, entry: dict[str, Any]) -> dict[str, Any]:
         """Atomically appends an entry to the journal file with os.fsync."""
         with self._lock:
+            self._refresh_last_entry_from_disk()
             self._entry_counter += 1
             entry_id = f"JNL-{self._entry_counter:06d}"
             t_epoch = time.time()

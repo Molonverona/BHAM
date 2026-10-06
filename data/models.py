@@ -109,6 +109,10 @@ class ModbusDevice(BaseModel):
     product_name: Optional[str] = None
     model_name: Optional[str] = None
     device_description: Optional[str] = None
+    commissioning_status: Optional[str] = None     # "ok" | "warning" | "failed" | "pending"
+    commissioning_notes: Optional[str] = None
+    commissioned_by: Optional[str] = None
+    commissioned_at: Optional[datetime] = None
 
 
 class BACnetDevice(BaseModel):
@@ -126,6 +130,10 @@ class BACnetDevice(BaseModel):
     routed_via: Optional[str] = None     # es. "192.168.10.1:47808"
     discovered_at: datetime = Field(default_factory=utc_now)
     tags: list[str] = Field(default_factory=list)
+    commissioning_status: Optional[str] = None
+    commissioning_notes: Optional[str] = None
+    commissioned_by: Optional[str] = None
+    commissioned_at: Optional[datetime] = None
 
 
 class KNXDevice(BaseModel):
@@ -141,6 +149,10 @@ class KNXDevice(BaseModel):
     project_id: Optional[int] = None
     discovered_at: datetime = Field(default_factory=utc_now)
     tags: list[str] = Field(default_factory=list)
+    commissioning_status: Optional[str] = None
+    commissioning_notes: Optional[str] = None
+    commissioned_by: Optional[str] = None
+    commissioned_at: Optional[datetime] = None
 
 
 class IPHost(BaseModel):
@@ -156,6 +168,10 @@ class IPHost(BaseModel):
     first_seen: datetime = Field(default_factory=utc_now)
     last_seen: datetime = Field(default_factory=utc_now)
     protocol_hints: list[Protocol] = Field(default_factory=list)
+    commissioning_status: Optional[str] = None
+    commissioning_notes: Optional[str] = None
+    commissioned_by: Optional[str] = None
+    commissioned_at: Optional[datetime] = None
 
 
 # ── Scan Session ─────────────────────────────────────────────────────────────

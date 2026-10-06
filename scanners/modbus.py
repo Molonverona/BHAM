@@ -387,23 +387,36 @@ class ModbusScanner(BaseScanner):
         log = self._log.getChild("tcp")
         state.update_session(self.session_id, status=ScanStatus.RUNNING, progress_pct=0.0)
 
-        # Espandi CIDR subnet se presenti
-        from ipaddress import ip_network, ip_address
+        # Espandi CIDR subnet, range (es. 192.168.1.10-50) e singoli IP
+        from scanners.ip_scanner import parse_target_ips
         expanded_hosts: list[str] = []
         for host_spec in req.hosts:
-            try:
-                net = ip_network(host_spec, strict=False)
-                if net.num_addresses == 1:
-                    expanded_hosts.append(host_spec)
-                else:
-                    expanded_hosts.extend(str(ip) for ip in net.hosts())
-            except ValueError:
-                expanded_hosts.append(host_spec)
+            h_clean = host_spec.strip()
+            if not h_clean:
+                continue
+            ips = parse_target_ips(h_clean)
+            if ips:
+                expanded_hosts.extend(ips)
+            else:
+                expanded_hosts.append(h_clean)
+
+        # Deduplica preservando l'ordine
+        seen = set()
+        deduped_hosts: list[str] = []
+        for h in expanded_hosts:
+            if h not in seen:
+                seen.add(h)
+                deduped_hosts.append(h)
+        expanded_hosts = deduped_hosts
 
         target_ports = parse_modbus_tcp_ports(req.tcp_ports or getattr(req, "tcp_port", 502))
         port_desc = ", ".join(str(p) for p in target_ports)
         targets = [(h, p) for h in expanded_hosts for p in target_ports]
         total = len(targets)
+        if total == 0:
+            log.warning("Nessun host valido specificato per la scansione Modbus TCP.")
+            state.finish_session(self.session_id, ScanStatus.COMPLETED)
+            return
         log.info("═══ Modbus TCP scan START – %d target(s) across %d host(s) on port(s) %s ═══",
                  total, len(req.hosts), port_desc)
 

@@ -261,10 +261,30 @@ def get_local_lan_ips() -> list[str]:
     return sorted(ips)
 
 
+def find_installed_browser() -> str | None:
+    """Restituisce il percorso dell'eseguibile del browser installato su Linux."""
+    candidates = [
+        "firefox",
+        "google-chrome-stable",
+        "google-chrome",
+        "chromium-browser",
+        "chromium",
+        "brave-browser",
+        "microsoft-edge",
+        "epiphany",
+        "x-www-browser",
+    ]
+    for c in candidates:
+        path = shutil.which(c)
+        if path:
+            return path
+    return None
+
+
 def open_browser_when_ready(url: str, port: int = 8765, timeout: float = 12.0) -> None:
     """
     Attende che il server HTTP sia in ascolto su localhost:port,
-    quindi apre automaticamente il browser predefinito sul client locale.
+    quindi apre automaticamente il browser sul client locale.
     Non blocca l'esecuzione e gestisce ambienti headless (es. SSH / Raspberry headless).
     """
     import threading
@@ -278,18 +298,42 @@ def open_browser_when_ready(url: str, port: int = 8765, timeout: float = 12.0) -
             return
 
         start_time = time.time()
+        ready = False
         while time.time() - start_time < timeout:
             time.sleep(0.3)
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=0.3):
+                    ready = True
                     break
             except (OSError, ConnectionRefusedError):
                 continue
 
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
+        if not ready:
+            return
+
+        # Tentativo 1: su Linux, esecuzione diretta del binario browser rilevato
+        # per aggirare associazioni MIME corrotte o browser predefiniti mancanti (es. xdg-open che punta a Chrome disinstallato)
+        opened = False
+        if platform.system() == "Linux":
+            browser_bin = find_installed_browser()
+            if browser_bin:
+                try:
+                    subprocess.Popen(
+                        [browser_bin, url],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                    opened = True
+                except Exception:
+                    pass
+
+        # Tentativo 2: modulo webbrowser standard Python
+        if not opened:
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()

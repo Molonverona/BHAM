@@ -71,6 +71,12 @@ def list_serial_ports() -> list[dict]:
     result: list[dict] = []
 
     for p in comports():
+        # Su Linux, escludi le porte virtuali/stub della scheda madre /dev/ttyS0..ttyS31 se prive di hardware reale
+        if os_type == "linux" and p.device.startswith("/dev/ttyS"):
+            desc = (p.description or "").lower()
+            if (not desc or desc == "n/a") and not _is_rs485_likely(p):
+                continue
+
         entry = {
             "port":         p.device,
             "description":  p.description or "",

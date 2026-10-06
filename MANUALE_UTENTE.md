@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v0.9.0)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.0.0)
 
 ---
 
@@ -15,6 +15,10 @@ Consente l'inventario rapido, l'identificazione hardware, l'arricchimento dei re
 - **Mappa Topologica d'Impianto Interattiva (Network Graph)**
 - **Intelligence & Session Diff ("Prima vs Dopo")** (Confronto deterministico baseline vs collaudo corrente)
 - **Reporting As-Built 2.0** (Cartella Excel a 8 fogli e PDF vettoriale con diagramma gerarchico)
+- **Live Watch List & Polling Registri** (Monitoraggio live registri critici, transizioni cromatiche e buzzer audio)
+- **RS485 Stress Test & Latency Benchmark** (Benchmark fisico, misurazione PER %, jitter e qualità linea)
+- **BMS/SCADA Multi-Vendor Tag Exporter** (Esportazione Tridium Niagara 4, Siemens Desigo CC, Schneider EcoStruxure, BACnet CSV)
+- **Accesso Mobile Hands-Free & Pairing QR Code** (QR code vettoriale LAN e sintesi acustica Web Audio API)
 
 ### Architettura
 - **Backend:** Python 3.12, FastAPI, WebSocket streaming a bassa latenza, protocolli nativi asincroni (`pymodbus`, `bacpypes3`, `scapy`).
@@ -436,14 +440,14 @@ BHAM rileva dinamicamente il contesto di esecuzione:
 
 ### 19.2 Installer Windows Inno Setup (`installer/bham.iss`)
 - Script di compilazione per Inno Setup 6:
-  - Genera l'installer x64 `bham-setup-0.8.0.exe`.
+  - Genera l'installer x64 `bham-setup-1.0.0.exe`.
   - Icona applicativa dedicata, creazione collegamenti nel Menu Start e sul Desktop.
   - Registrazione pulita nel Pannello di Controllo / App di Windows per una disinstallazione sicura senza file residui.
 
 ### 19.3 Integrazione Firma Digitale SignPath (Code Signing Windows)
 Per prevenire gli avvisi bloccanti di Microsoft SmartScreen o falsi positivi degli antivirus sui laptop aziendali:
 - La pipeline di CI/CD (`.github/workflows/release.yml`) integra l'azione ufficiale `SignPath/github-action-submit-signing-request@v2`.
-- Sia l'eseguibile compilato `bham.exe` sia l'installer Inno Setup `bham-setup-0.8.0.exe` vengono sottomessi a SignPath per la firma crittografica con certificato attendibile prima della pubblicazione nella GitHub Release.
+- Sia l'eseguibile compilato `bham.exe` sia l'installer Inno Setup `bham-setup-1.0.0.exe` vengono sottomessi a SignPath per la firma crittografica con certificato attendibile prima della pubblicazione nella GitHub Release.
 
 ### 19.4 Firma Digitale Autonoma su Linux (GPG & dpkg-sig)
 Mentre per Windows la firma è automatizzata con SignPath, per i pacchetti e rilasci Linux la firma crittografica viene gestita in piena autonomia tramite chiave GPG locale:
@@ -458,6 +462,54 @@ Mentre per Windows la firma è automatizzata con SignPath, per i pacchetti e ril
   gpg --verify SHA256SUMS.asc
   sha256sum --check SHA256SUMS
   ```
+
+---
+
+## 20. Live Watch List & Polling Registri Modbus
+Durante le fasi di avviamento, taratura dei servocomandi, bilanciamento idraulico o ricerca guasti intermittenti, è indispensabile poter monitorare con continuità uno o più registri critici senza dover scansionare ripetutamente l'intero bus.
+
+### 20.1 Funzionalità della Watch List
+- **Aggiunta Punti in 1-Click:** Dalla vista Registri dello Slave Inspector, cliccando sull'icona dell'occhio `👁️` accanto a qualsiasi Holding Register (FC03) o Input Register (FC04), il punto viene aggiunto istantaneamente alla Watch List.
+- **Frequenza di Campionamento Regolabile:** L'operatore può impostare la cadenza di polling su **500 ms**, **1 s**, **2 s** o **5 s**. Il polling viene eseguito con richieste mirate a singolo registro, minimizzando l'occupazione del bus.
+- **Evidenziazione Cromatica dei Delta (Live Pulse):** Quando un registro cambia valore tra due cicli successivi, la riga si illumina temporaneamente con una transizione cromatica fluida (verde per incrementi, ambra/arancione per decrementi e variazioni generiche), rendendo evidenti anche minime fluttuazioni.
+- **Feedback Acustico Hands-Free (Web Audio Buzzer):** Attivando l'icona dell'altoparlante, il browser emette un segnale acustico sintetizzato ad ogni variazione rilevata. Questo consente al tecnico di calibrare trasmettitori di pressione o valvole fisiche a bordo quadro senza dover volgere lo sguardo allo schermo.
+- **Esportazione Log Campionamenti in CSV:** Cliccando sul pulsante *Esporta CSV*, BHAM genera un file tabellare contenente l'intera sequenza temporale dei campionamenti registrati con data, ora millisecondale, Slave ID, indirizzo registro e valore numerico.
+
+---
+
+## 21. RS485 Stress Test & Latency Benchmark
+Per collaudare l'affidabilità fisica di una dorsale seriale RS485 prima della consegna al cliente o all'integratore BMS, BHAM include un motore di stress test e benchmarking statistico.
+
+### 21.1 Metriche del Benchmark Fisico
+- **Raffiche di Pacchetti Calibrate:** Invio controllato di raffiche di richieste Modbus (50, 100 o 200 pacchetti) verso uno o più nodi della linea.
+- **Packet Error Rate (PER %):** Rapporto percentuale tra pacchetti non risposti o scartati per errore e pacchetti totali inviati.
+- **Latenza di Linea (RTT - Round Trip Time):** Misurazione precisa della latenza minima, media e massima in millisecondi (ms).
+- **Jitter di Trasmissione:** Deviazione statistica dei tempi di risposta, sintomo di instabilità della linea o carichi anomali del processore slave.
+- **Errori CRC di Checksum:** Rilevamento frame con checksum corrotto, parametro chiave per quantificare i disturbi elettromagnetici (EMI) indotti da cavi di potenza paralleli o inverter.
+
+### 21.2 Diagnostica Fisica Automatica & Raccomandazioni
+L'algoritmo analizza i risultati del test ed emette diagnosi automatiche:
+- *Jitter elevato / CRC isolati:* Presumibile assenza della resistenza di terminazione da 120 Ω su uno o entrambi i capi del bus (riflessioni RF).
+- *PER > 50% ad alta velocità:* Tratta di cavo troppo lunga per il baudrate selezionato o polarità D+/D- invertita.
+- *Baudrate Ottimale Consigliato:* Il sistema indica la massima velocità baudrate alla quale il bus opera con PER < 0.5%, garantendo la massima stabilità in servizio continuo.
+
+---
+
+## 22. BMS/SCADA Multi-Vendor Tag Exporter & Accesso Mobile QR
+Per abbattere drasticamente i tempi di integrazione nei sistemi di supervisione centrale (SCADA / BMS), BHAM genera file di esportazione pronti all'uso per i software leader di mercato e consente l'accesso rapido da tablet e smartphone via rete locale.
+
+### 22.1 Esportazione Tag Multi-Vendor (`/api/v1/export/tags/{format}`)
+Dal menu Esporta, è possibile generare e scaricare con un click:
+- **Tridium Niagara 4 (XML):** Schema XML conforme per l'importazione diretta nella cartella punti del driver Modbus Async Network e BACnet Device Points di Niagara Workbench. I tipi di punto (Numeric Point, Boolean Point), indirizzi e fattori di scala vengono mappati nativamente.
+- **Siemens Desigo CC (CSV):** Tracciato CSV gerarchico conforme agli standard di importazione ingegneristica Desigo CC (Identifier, DP_Type, Address, Description, Engineering Units).
+- **Schneider EcoStruxure Building Operation (CSV):** Formato tabellare per importazione massiva di Device e I/O points in EcoStruxure WorkStation.
+- **BACnet CSV Universale:** Tabella completa contenente Object Identifier, Object Name, Object Type, Present Value, Description ed Engineering Units per qualsiasi piattaforma di terze parti.
+
+### 22.2 Accesso Mobile Hands-Free con QR Code LAN
+- **Generazione Vettoriale SVG Offline:** Cliccando sull'icona 📱 QR Code nella barra di stato, BHAM produce un codice QR vettoriale SVG calcolato interamente dal server locale, senza richiedere connettività a Internet.
+- **Risoluzione IP di Rete Locale:** Il QR Code codifica l'indirizzo IP e la porta della scheda di rete selezionata (es. `http://192.168.1.50:8765`).
+- **Accoppiamento Immediato con Tablet da Campo:** Il tecnico inquadra il codice QR con lo smartphone o il tablet collegato alla rete Wi-Fi del cantiere o dell'access point d'impianto: la console di collaudo si apre istantaneamente a schermo intero nel browser del dispositivo mobile.
+
 
 
 

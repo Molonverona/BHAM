@@ -380,6 +380,26 @@ class TestCustomPorts(unittest.TestCase):
         self.assertEqual(parse_modbus_tcp_ports("502-504"), [502, 503, 504])
         self.assertEqual(parse_modbus_tcp_ports([502, 503]), [502, 503])
 
+    def test_modbus_tcp_host_target_expansion(self):
+        from scanners.ip_scanner import parse_target_ips
+        # Test compact range syntax (.10-15)
+        ips_compact = parse_target_ips("192.168.1.10-15")
+        self.assertEqual(len(ips_compact), 6)
+        self.assertEqual(ips_compact[0], "192.168.1.10")
+        self.assertEqual(ips_compact[-1], "192.168.1.15")
+
+        # Test full range syntax (192.168.1.10-192.168.1.12)
+        ips_full = parse_target_ips("192.168.1.10-192.168.1.12")
+        self.assertEqual(ips_full, ["192.168.1.10", "192.168.1.11", "192.168.1.12"])
+
+        # Test CIDR subnet syntax (/30)
+        ips_cidr = parse_target_ips("192.168.1.0/30")
+        self.assertEqual(ips_cidr, ["192.168.1.1", "192.168.1.2"])
+
+        # Test single IP
+        ips_single = parse_target_ips("10.0.0.1")
+        self.assertEqual(ips_single, ["10.0.0.1"])
+
     def test_scan_trigger_models_and_endpoints(self):
         async def _test():
             # Modbus TCP with custom ports
@@ -1587,6 +1607,164 @@ class TestEnterpriseV08Routes(unittest.TestCase):
             self.assertEqual(apply_res["slave_id"], 12)
 
         asyncio.run(_run())
+
+
+class TestBACSFieldMasterV13(unittest.TestCase):
+    def setUp(self):
+        state.clear()
+
+    def test_qr_svg_generation(self):
+        from core.qr_svg import generate_qr_svg
+        svg = generate_qr_svg("http://192.168.1.100:8765")
+        self.assertIn("<svg", svg)
+        self.assertIn("</svg>", svg)
+        self.assertIn("path d=", svg)
+        self.assertIn("viewBox=", svg)
+
+    def test_tag_exporter_all_formats(self):
+        from core.tag_exporter import export_scada_tags
+        dev = ModbusDevice(slave_id=1, protocol=Protocol.MODBUS_RTU, vendor_name="Schneider Electric", model_name="iEM3150")
+        dev.registers = {
+            "3000": {"address": 3000, "label": "Voltage_L1_N", "unit": "V", "scale": 0.1, "type": "holding"}
+        }
+        state.upsert_modbus(dev)
+
+        bn = BACnetDevice(device_id=1001, address="192.168.1.50:47808", vendor_name="Johnson Controls", model_name="FX-PCG")
+        bn.object_list = [
+            {"object_type": "analogInput", "instance": 1, "object_name": "Room_Temp", "units": "degreesCelsius"}
+        ]
+        state.upsert_bacnet(bn)
+
+        # 1. Standard SCADA CSV
+        content_s, media_s, fname_s = export_scada_tags(format_type="standard_csv")
+        self.assertTrue(media_s.startswith("text/csv"))
+        self.assertTrue(fname_s.endswith(".csv"))
+        self.assertIn("Tag_Name", content_s)
+        self.assertIn("Voltage_L1_N", content_s)
+        self.assertIn("Room_Temp", content_s)
+
+        # 2. Niagara 4 CSV
+        content_n, media_n, fname_n = export_scada_tags(format_type="niagara_csv")
+        self.assertTrue(media_n.startswith("text/csv"))
+        self.assertIn("Name,Address,RegType", content_n)
+        self.assertIn("Voltage_L1_N", content_n)
+        self.assertIn("Holding", content_n)
+
+        # 3. JSON Dictionary
+        content_j, media_j, fname_j = export_scada_tags(format_type="json")
+        self.assertEqual(media_j, "application/json")
+        parsed = json.loads(content_j)
+        self.assertIn("points", parsed)
+        self.assertEqual(parsed["total_points"], 2)
+
+    def test_modbus_benchmark(self):
+        from scanners.field_tools import modbus_benchmark
+        res = asyncio.run(modbus_benchmark(
+            protocol="rtu",
+            port="/dev/ttyUSB0",
+            slave_id=1,
+            iterations=10,
+            timeout=0.1,
+        ))
+        self.assertTrue(res["success"])
+        self.assertEqual(res["iterations"], 10)
+        self.assertIn("packet_error_rate_pct", res)
+        self.assertIn("avg_latency_ms", res)
+        self.assertIn("rating", res)
+        self.assertIn("diagnosis", res)
+        self.assertEqual(len(res["latencies"]), 10)
+
+    def test_commissioning_status_workflow(self):
+        state.upsert_modbus(ModbusDevice(slave_id=10, protocol=Protocol.MODBUS_RTU))
+        ok = state.update_device_commissioning("modbus", "10", "ok", "Cablaggio testato OK", "Tech Alpha")
+        self.assertTrue(ok)
+        dev = [d for d in state.modbus_devices.values() if d.slave_id == 10][0]
+        self.assertEqual(dev.commissioning_status, "ok")
+        self.assertEqual(dev.commissioning_notes, "Cablaggio testato OK")
+        self.assertEqual(dev.commissioned_by, "Tech Alpha")
+        self.assertIsNotNone(dev.commissioned_at)
+
+        # Non-existing device
+        self.assertFalse(state.update_device_commissioning("modbus", "999", "ok"))
+
+    def test_field_master_api_routes(self):
+        from api import routes, schemas
+        async def _run_routes():
+            state.upsert_modbus(ModbusDevice(slave_id=10, protocol=Protocol.MODBUS_RTU))
+
+            # Benchmark
+            bench_req = schemas.ModbusBenchmarkRequest(
+                protocol="rtu",
+                port="/dev/ttyUSB0",
+                slave_id=1,
+                iterations=5,
+                timeout=0.1,
+            )
+            bench_res = await routes.modbus_benchmark_endpoint(bench_req)
+            self.assertTrue(bench_res["success"])
+            self.assertEqual(bench_res["iterations"], 5)
+
+            # QR Code
+            qr_res = await routes.get_network_qr_code(url="http://10.0.0.1:8765")
+            self.assertEqual(qr_res["url"], "http://10.0.0.1:8765")
+            self.assertIn("<svg", qr_res["svg"])
+
+            # Export tags
+            tag_res = await routes.export_tags_endpoint(format="standard_csv")
+            self.assertTrue(tag_res.media_type.startswith("text/csv"))
+
+            # Commissioning status
+            comm_req = schemas.DeviceCommissioningRequest(
+                protocol="modbus",
+                identifier="10",
+                status="warning",
+                notes="Resistenza 120 ohm mancante",
+                commissioned_by="Inspector Beta",
+            )
+            comm_res = await routes.update_device_commissioning_endpoint(comm_req)
+            self.assertTrue(comm_res["success"])
+            self.assertEqual(comm_res["status"], "warning")
+            self.assertEqual(comm_res["notes"], "Resistenza 120 ohm mancante")
+
+        asyncio.run(_run_routes())
+
+    def test_reporting_includes_commissioning(self):
+        from reports.pdf import generate_pdf
+        from reports.excel import generate_excel
+
+        state.upsert_modbus(ModbusDevice(
+            slave_id=1,
+            protocol=Protocol.MODBUS_RTU,
+            vendor_name="Carel",
+            commissioning_status="ok",
+            commissioning_notes="Test collaudo superato",
+        ))
+        state.upsert_bacnet(BACnetDevice(
+            device_id=500,
+            address="192.168.1.50",
+            vendor_name="Honeywell",
+            commissioning_status="warning",
+            commissioning_notes="Firmware obsoleto",
+        ))
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
+            pdf_path = tf.name
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tf:
+            xlsx_path = tf.name
+
+        try:
+            generate_pdf(pdf_path)
+            self.assertTrue(os.path.exists(pdf_path))
+            self.assertGreater(os.path.getsize(pdf_path), 1000)
+
+            generate_excel(xlsx_path)
+            self.assertTrue(os.path.exists(xlsx_path))
+            self.assertGreater(os.path.getsize(xlsx_path), 1000)
+        finally:
+            if os.path.exists(pdf_path):
+                os.unlink(pdf_path)
+            if os.path.exists(xlsx_path):
+                os.unlink(xlsx_path)
 
 
 if __name__ == "__main__":

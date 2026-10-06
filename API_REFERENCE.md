@@ -1,5 +1,5 @@
 # BHAM – REST & WebSocket API Reference
-**Version:** 0.9.0  
+**Version:** 1.0.0 (Stable Release)  
 **Base URL:** `http://<host>:8765/api/v1`  
 **WebSocket URL:** `ws://<host>:8765/api/v1/ws`  
 **Interactive Documentation:** [Swagger UI](http://localhost:8765/docs) | [ReDoc](http://localhost:8765/redoc)
@@ -26,6 +26,10 @@
 17. [Safe Mode Interlock ("Safety Write Barrier")](#17-safe-mode-interlock-safety-write-barrier)
 18. [Crash-Proof Audit Journal (WAL & SHA-256)](#18-crash-proof-audit-journal-wal--sha-256)
 19. [Modbus Profiles Library & Custom Manager](#19-modbus-profiles-library--custom-manager)
+20. [RS485 Bus Benchmark & Stress Test](#20-rs485-bus-benchmark--stress-test)
+21. [SCADA & BMS Multi-Vendor Tag Exporter](#21-scada--bms-multi-vendor-tag-exporter)
+22. [Device Commissioning State & As-Built Checklist](#22-device-commissioning-state--as-built-checklist)
+23. [Mobile QR Code LAN Access](#23-mobile-qr-code-lan-access)
 
 ---
 
@@ -1153,5 +1157,114 @@ Provides built-in and user-customizable Modbus register structures with point na
     "message": "Applicato profilo 'Schneider Acti9 iEM3150' a slave #1 (11 registri mappati)"
   }
   ```
+
+---
+
+## 20. RS485 Bus Benchmark & Stress Test
+
+### `POST /api/v1/tools/modbus/benchmark` (or `/api/v1/modbus/benchmark`)
+Executes calibrated sequential query bursts to evaluate physical transmission quality, packet loss, jitter, and response latency.
+
+- **Request Body (`ModbusBenchmarkRequest`):**
+  ```json
+  {
+    "protocol": "rtu",
+    "port": "/dev/ttyUSB0",
+    "baudrate": 9600,
+    "parity": "N",
+    "stopbits": 1,
+    "slave_id": 1,
+    "address": 0,
+    "count": 1,
+    "iterations": 20,
+    "timeout": 0.5
+  }
+  ```
+- **Response (`ModbusBenchmarkResponse`):**
+  ```json
+  {
+    "success": true,
+    "protocol": "rtu",
+    "target": { "port": "/dev/ttyUSB0", "baudrate": 9600, "slave_id": 1 },
+    "iterations": 20,
+    "success_count": 20,
+    "fail_count": 0,
+    "packet_error_rate_pct": 0.0,
+    "min_latency_ms": 14.2,
+    "max_latency_ms": 19.8,
+    "avg_latency_ms": 16.5,
+    "jitter_ms": 2.1,
+    "rating": "EXCELLENT",
+    "rating_label": "ECCELLENTE",
+    "diagnosis": "Linea RS485 stabile e priva di disturbi. Latenza ottimale.",
+    "latencies": [16.2, 15.8, 14.2],
+    "errors": [],
+    "total_elapsed_ms": 330.4
+  }
+  ```
+
+---
+
+## 21. SCADA & BMS Multi-Vendor Tag Exporter
+
+### `GET /api/v1/export/tags`
+Exports the discovered device points and registers directly into native supervisory import formats.
+
+- **Query Parameters:**
+  - `format`: (string, optional, default `"standard_csv"`)
+    - `"standard_csv"`: General SCADA CSV format.
+    - `"niagara_csv"`: Tridium Niagara 4 Modbus Async / BACnet point dictionary XML/CSV.
+    - `"json"`: Raw JSON Tag Dictionary.
+- **Response:**
+  - Content-Type: `text/csv; charset=utf-8` or `application/json`
+  - Headers: `Content-Disposition: attachment; filename="bham_tags_export_<date>.<ext>"`
+
+---
+
+## 22. Device Commissioning State & As-Built Checklist
+
+### `POST /api/v1/device/commissioning-status`
+Updates official field commissioning sign-off status and engineer notes for as-built reporting.
+
+- **Request Body (`DeviceCommissioningRequest`):**
+  ```json
+  {
+    "protocol": "modbus",
+    "identifier": "1",
+    "status": "ok",
+    "notes": "Taratura termostato verificata a bordo quadro",
+    "commissioned_by": "Ing. Rossi"
+  }
+  ```
+- **Response (`DeviceCommissioningResponse`):**
+  ```json
+  {
+    "success": true,
+    "protocol": "modbus",
+    "identifier": "1",
+    "status": "ok",
+    "notes": "Taratura termostato verificata a bordo quadro",
+    "commissioned_by": "Ing. Rossi",
+    "timestamp": "2026-10-06T20:30:00Z"
+  }
+  ```
+
+---
+
+## 23. Mobile QR Code LAN Access
+
+### `GET /api/v1/network/qr-code`
+Generates an offline, vector-based SVG QR Code encoding the active local LAN URL for 1-click mobile and tablet pairing.
+
+- **Query Parameters:**
+  - `url`: (string, optional) Target URL override. When omitted, auto-resolves the host's primary LAN IP and configured port (`http://<LAN_IP>:8765`).
+- **Response (`QRCodeResponse`):**
+  ```json
+  {
+    "url": "http://192.168.1.50:8765",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" ...>...</svg>"
+  }
+  ```
+
 
 

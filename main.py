@@ -13,6 +13,12 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+# Auto-reexec inside the virtual environment if run directly with system python
+if sys.prefix == getattr(sys, "base_prefix", sys.prefix):
+    _venv_py = Path(__file__).resolve().parent / ".venv" / ("bin/python3" if os.name != "nt" else "Scripts/python.exe")
+    if _venv_py.exists():
+        os.execv(str(_venv_py), [str(_venv_py)] + sys.argv)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +54,11 @@ async def lifespan(app: FastAPI):
     logger.info("Listening on http://localhost:%d  –  WS at ws://localhost:%d/api/v1/ws", settings.port, settings.port)
     for ip in lan_ips:
         logger.info("LAN Remote Access: http://%s:%d", ip, settings.port)
+
+    # Apertura automatica del browser all'avvio (se non disabilitata con BHAM_NO_BROWSER=1)
+    if not os.environ.get("BHAM_NO_BROWSER"):
+        from bham import open_browser_when_ready
+        open_browser_when_ready(f"http://localhost:{settings.port}", port=settings.port)
 
     # Avvio eventuale modalità simulatore virtuale (Demo Mode)
     if "--demo" in sys.argv or os.environ.get("BHAM_DEMO", "").lower() in ("1", "true", "yes"):

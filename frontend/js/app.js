@@ -1,3 +1,203 @@
+
+// ── Rapid Scan Modal & Protocol Channel Drawers ──────────────────────────────
+function openRapidScanModal() {
+  const modal = document.getElementById("modal-rapid-scan");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  // Sync active Modbus TCP hosts and port into rapid modal
+  const curHosts = document.getElementById("tcp-hosts")?.value ||
+                   document.getElementById("cfg-tcp-hosts")?.value ||
+                   "192.168.1.0/24";
+  const curPort = document.getElementById("tcp-port")?.value ||
+                  document.getElementById("cfg-modbus-tcp-port")?.value ||
+                  "502";
+  const rHosts = document.getElementById("rapid-tcp-hosts");
+  if (rHosts) rHosts.value = curHosts;
+  const rPort = document.getElementById("rapid-tcp-port");
+  if (rPort) rPort.value = curPort;
+  updateTcpTargetPreview(curHosts, curPort);
+  toggleRapidTcpSection();
+}
+
+function closeRapidScanModal() {
+  document.getElementById("modal-rapid-scan")?.classList.add("hidden");
+}
+
+function toggleRapidTcpSection() {
+  const chk = document.getElementById("scan-inc-tcp");
+  const box = document.getElementById("rapid-tcp-config-box");
+  if (box && chk) {
+    box.style.opacity = chk.checked ? "1" : "0.45";
+    box.style.pointerEvents = chk.checked ? "auto" : "none";
+  }
+}
+
+function executeRapidScanFromModal() {
+  const incRtu = document.getElementById("scan-inc-rtu")?.checked ?? true;
+  const incTcp = document.getElementById("scan-inc-tcp")?.checked ?? true;
+  const incBacnet = document.getElementById("scan-inc-bacnet")?.checked ?? true;
+  const incKnx = document.getElementById("scan-inc-knx")?.checked ?? true;
+  const incArp = document.getElementById("scan-inc-arp")?.checked ?? true;
+
+  // Sync rapid modal tcp-hosts back to sidebar and settings
+  const rapidHosts = document.getElementById("rapid-tcp-hosts")?.value.trim();
+  if (rapidHosts) {
+    syncTcpHostsFromInput(rapidHosts);
+  }
+  const rapidPort = document.getElementById("rapid-tcp-port")?.value.trim();
+  if (rapidPort) {
+    syncTcpPortFromInput(rapidPort);
+  }
+
+  closeRapidScanModal();
+
+  const selectedList = [];
+  if (incRtu) selectedList.push("Modbus RTU");
+  if (incTcp) selectedList.push("Modbus TCP");
+  if (incBacnet) selectedList.push("BACnet/IP");
+  if (incKnx) selectedList.push("KNXnet/IP");
+  if (incArp) selectedList.push("ARP/IP LAN");
+
+  if (!selectedList.length) {
+    showToast("Seleziona almeno un protocollo da scansionare.", "warning");
+    return;
+  }
+
+  log("================================================================");
+  log(`[NET] AVVIO SCANSIONE CONGIUNTA: ${selectedList.join(" + ")}`);
+  log("================================================================");
+
+  let delay = 0;
+  if (incRtu) {
+    setTimeout(startRTU, delay);
+    delay += 800;
+  }
+  if (incTcp) {
+    setTimeout(startTCP, delay);
+    delay += 800;
+  }
+  if (incBacnet) {
+    setTimeout(startBACnet, delay);
+    delay += 800;
+  }
+  if (incKnx) {
+    setTimeout(startKNX, delay);
+    delay += 800;
+  }
+  if (incArp) {
+    setTimeout(startARP, delay);
+  }
+}
+
+function toggleChannelDrawer(proto) {
+  const drawer = document.getElementById(`drawer-channel-${proto}`);
+  if (drawer) {
+    drawer.classList.toggle("hidden");
+  }
+}
+
+// ── IP Calculation & Host Parsing Helpers ─────────────────────────────────────
+function parseHostsList(raw) {
+  if (!raw) return [];
+  return raw
+    .split(/[\n,;]+/)
+    .map(h => h.trim())
+    .filter(Boolean);
+}
+
+function calculateEstimatedIpCount(rawStr) {
+  if (!rawStr) return 0;
+  const items = rawStr.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+  let total = 0;
+  for (const item of items) {
+    if (item.includes("/")) {
+      const parts = item.split("/");
+      const prefix = parseInt(parts[1], 10);
+      if (!isNaN(prefix) && prefix >= 0 && prefix <= 32) {
+        total += Math.min(Math.max(Math.pow(2, 32 - prefix) - 2, 1), 1024);
+      } else {
+        total += 1;
+      }
+    } else if (item.includes("-")) {
+      const parts = item.split("-");
+      const startStr = parts[0].trim();
+      const endStr = parts[1].trim();
+      const startParts = startStr.split(".");
+      if (startParts.length === 4) {
+        const startLast = parseInt(startParts[3], 10);
+        let endLast = parseInt(endStr, 10);
+        if (endStr.includes(".")) {
+          endLast = parseInt(endStr.split(".")[3], 10);
+        }
+        if (!isNaN(startLast) && !isNaN(endLast) && endLast >= startLast) {
+          total += (endLast - startLast + 1);
+        } else {
+          total += 1;
+        }
+      } else {
+        total += 1;
+      }
+    } else {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+function updateTcpTargetPreview(rawHosts, portVal) {
+  const hosts = rawHosts || document.getElementById("tcp-hosts")?.value || document.getElementById("cfg-tcp-hosts")?.value || "192.168.1.0/24";
+  const port = portVal || document.getElementById("tcp-port")?.value || document.getElementById("cfg-modbus-tcp-port")?.value || "502";
+  const count = calculateEstimatedIpCount(hosts);
+  const countStr = count === 1 ? "1 IP" : `${count} IP`;
+
+  const previewVal = document.getElementById("tcp-target-preview-val");
+  if (previewVal) {
+    const specs = hosts.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+    if (specs.length > 1) {
+      previewVal.textContent = `${specs[0]} (+${specs.length - 1})`;
+    } else {
+      previewVal.textContent = specs[0] || "192.168.1.0/24";
+    }
+  }
+
+  const portValEl = document.getElementById("tcp-port-preview-val");
+  if (portValEl) portValEl.textContent = `:${port}`;
+
+  const b1 = document.getElementById("tcp-hosts-count-badge");
+  if (b1) b1.textContent = countStr;
+  const b2 = document.getElementById("rapid-tcp-count-badge");
+  if (b2) b2.textContent = `${countStr} stimati`;
+  const b3 = document.getElementById("cfg-tcp-hosts-count");
+  if (b3) b3.textContent = countStr;
+}
+
+function syncTcpHostsFromInput(val) {
+  const clean = (val || "").trim();
+  const inp1 = document.getElementById("tcp-hosts");
+  if (inp1 && inp1.value !== val) inp1.value = val;
+  const inp2 = document.getElementById("cfg-tcp-hosts");
+  if (inp2 && inp2.value !== val) inp2.value = val;
+  const inp3 = document.getElementById("rapid-tcp-hosts");
+  if (inp3 && inp3.value !== val) inp3.value = val;
+
+  updateTcpTargetPreview(val, document.getElementById("tcp-port")?.value);
+  updateChipActive("chips-tcp-hosts", clean);
+  localStorage.setItem("bham-tcp-hosts", val);
+}
+
+function syncTcpPortFromInput(val) {
+  const clean = (val || "").trim();
+  const p1 = document.getElementById("tcp-port");
+  if (p1 && p1.value !== val) p1.value = val;
+  const p2 = document.getElementById("cfg-modbus-tcp-port");
+  if (p2 && p2.value !== val) p2.value = val;
+  const p3 = document.getElementById("rapid-tcp-port");
+  if (p3 && p3.value !== val) p3.value = val;
+
+  updateTcpTargetPreview(document.getElementById("tcp-hosts")?.value, clean);
+  updateChipActive("chips-tcp-port", clean);
+  localStorage.setItem("bham-tcp-port", val);
+}
 /**
  * BHAM Frontend – Industrial Telemetry Controller v0.3
  * Features:
@@ -149,9 +349,16 @@ function handleEvent(msg) {
       } else if (msg.protocol === "knx") {
         upsertKNXDevice(msg.device);
       }
+      if (window.BhamAudio) BhamAudio.playDeviceFound();
       break;
     case "host_found":
       upsertHostDevice(msg.host);
+      if (window.BhamAudio) BhamAudio.playDeviceFound();
+      break;
+    case "device_commissioning_updated":
+      if (typeof handleCommissioningUpdated === "function") {
+        handleCommissioningUpdated(msg);
+      }
       break;
     case "session_update":
       updateTelemetryProgress(msg.session);
@@ -163,6 +370,7 @@ function handleEvent(msg) {
       if (msg.health) handleBusHealth(msg.health);
       break;
     case "hardware_disconnect":
+      if (window.BhamAudio) BhamAudio.playWarning();
       showToast(window.t ? window.t("hw_disconnect_alert") : `Disconnessione hardware rilevata su ${msg.port || 'porta seriale'}`, "error");
       log(`[WARN] [SERIAL] Disconnessione hardware su ${msg.port || 'porta seriale'}: ${msg.error || 'Dispositivo rimosso'}`, "WARNING");
       break;
@@ -348,9 +556,13 @@ function updateTelemetryProgress(session) {
     }
   } else if (status === "completed") {
     clearInterval(scanTimerInterval);
+    const wasRunning = scanStartTime !== null;
     scanStartTime = null;
     if (pSum) pSum.textContent = t("status_completed", { n: found, pct: pct });
     resetAllRackLeds();
+    if (wasRunning && window.BhamAudio) {
+      BhamAudio.playScanComplete();
+    }
   } else if (status === "aborted") {
     clearInterval(scanTimerInterval);
     scanStartTime = null;
@@ -531,6 +743,27 @@ window.sortDeviceTable = function(table, colIndex, dataType = 'string') {
   rows.forEach(row => tbody.appendChild(row));
 };
 
+function renderCommissioningPill(d, proto) {
+  const status = d.commissioning_status || "pending";
+  let label = "⚪ Da testare";
+  let cls = "bham-comm-pill-pending";
+  if (status === "ok") {
+    label = "🟢 Conforme";
+    cls = "bham-comm-pill-ok";
+  } else if (status === "warning") {
+    label = "🟡 Riserva";
+    cls = "bham-comm-pill-warn";
+  } else if (status === "failed") {
+    label = "🔴 Non Conf.";
+    cls = "bham-comm-pill-fail";
+  }
+  const id = proto === "modbus" ? d.slave_id : (proto === "bacnet" ? d.device_id : (proto === "knx" ? d.individual_address : d.ip));
+  const rawName = d.vendor_name || d.device_name || d.hostname || `ID ${id}`;
+  const devName = escapeHtml(rawName).replace(/'/g, "\\'");
+  const notesAttr = d.commissioning_notes ? ` title="${escapeHtml(d.commissioning_notes)}"` : ' title="Clicca per registrare il collaudo As-Built"';
+  return `<td><button type="button" onclick="openCommissioningModal('${proto}', '${id}', '${devName}')" class="bham-comm-pill ${cls}" style="cursor:pointer;border:none"${notesAttr}>${label}</button></td>`;
+}
+
 function renderModbusTable() {
   const tb = document.getElementById("modbus-table");
   if (!tb) return;
@@ -556,6 +789,7 @@ function renderModbusTable() {
         <td class="cell-mono cell-latency">${ms}</td>
         <td class="cell-text-main">${vendor}</td>
         <td><span class="bham-status-badge bham-status-online"><span class="bham-status-dot"></span>Online</span></td>
+        ${renderCommissioningPill(d, 'modbus')}
         <td><button type="button" onclick="inspectModbusSlave(${d.slave_id})" class="bham-table-action-btn">${detailsTxt}</button></td>
       </tr>
     `;
@@ -585,6 +819,7 @@ function renderBACnetTable() {
         <td class="cell-text-muted">${d.model_name || "—"}</td>
         <td class="cell-mono cell-text-dim">${fw}</td>
         <td class="cell-mono cell-text-main" style="font-weight:600">${objCount}</td>
+        ${renderCommissioningPill(d, 'bacnet')}
         <td><button type="button" onclick="inspectBACnetDevice(${d.device_id})" class="bham-table-action-btn">🔍 Oggetti</button></td>
       </tr>
     `;
@@ -609,6 +844,7 @@ function renderKNXTable() {
         <td class="cell-mono cell-text-dim">${k.serial_number || "—"}</td>
         <td class="cell-mono cell-text-dim">${k.mac_address || "—"}</td>
         <td><span class="bham-badge-proto proto-knx">${k.medium || "TP1"}</span></td>
+        ${renderCommissioningPill(k, 'knx')}
       </tr>
     `;
   }).join("");
@@ -624,7 +860,7 @@ function renderHostsTable() {
   });
 
   if (!rows.length) {
-    tb.innerHTML = `<tr><td colspan="7" class="cell-text-dim" style="text-align:center;padding:16px">Nessun host IP rilevato. Avvia la scansione subnet BACS o lo sniffer ARP.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="8" class="cell-text-dim" style="text-align:center;padding:16px">Nessun host IP rilevato. Avvia la scansione subnet BACS o lo sniffer ARP.</td></tr>`;
     return;
   }
 
@@ -667,6 +903,7 @@ function renderHostsTable() {
         <td class="cell-mono cell-text-main">${hostLabel}</td>
         <td>${servicesHtml}</td>
         <td class="cell-mono cell-text-dim">${latency}</td>
+        ${renderCommissioningPill(h, 'hosts')}
         <td>
           <button onclick="openDeviceLens('${h.ip}')" class="bham-action-btn-sm" style="color:var(--bham-modbus);font-weight:600" title="Apri 1-Click Device Lens">🔍 Lens</button>
         </td>
@@ -758,6 +995,8 @@ function updateCounts() {
     const t = window.t || ((k, p) => k);
     pSum.textContent = t("status_ready", { n: total });
   }
+
+  updateCommissioningSummaryBadge();
 
   // Refresh active filter and empty state visibility
   setProtocolFilter(currentFilter);
@@ -1279,13 +1518,13 @@ const SCAN_PROFILES = {
   hvac_std: {
     label: "HVAC Standard",
     badge: "HVAC Std",
-    rtuSlow: 0.50,
+    rtuSlow: 0.40,
     rtuFast: 0.12,
     baud: "9600",
     parity: "N",
     stop: "1",
-    idRange: "1 - 247",
-    timeoutMs: 500,
+    idRange: "1 - 32",
+    timeoutMs: 400,
     tcpPort: "502",
     bacnetPort: "BAC0",
     knxPort: "3671",
@@ -1321,20 +1560,29 @@ const SCAN_PROFILES = {
   deep_slow: {
     label: "Ricerca Approfondita (Bus Lento)",
     badge: "Deep Slow",
-    rtuSlow: 1.20,
-    rtuFast: 0.35,
+    rtuSlow: 1.00,
+    rtuFast: 0.25,
     baud: "9600",
     parity: "N",
     stop: "1",
     idRange: "1 - 247",
-    timeoutMs: 1200,
-    tcpPort: "502",
-    bacnetPort: "BAC0",
+    timeoutMs: 800,
+    tcpPort: "502, 503, 5020",
+    bacnetPort: "BAC0..3",
     knxPort: "3671",
   },
 };
 
 function applyQuickProfile(profileKey) {
+  // Update visual archetype cards active state
+  document.querySelectorAll(".bham-archetype-btn").forEach(btn => {
+    if (btn.getAttribute("data-archetype") === profileKey) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
   if (profileKey === "custom" || !SCAN_PROFILES[profileKey]) {
     const b = document.getElementById("quick-profile-badge");
     if (b) b.textContent = "Custom";
@@ -1354,8 +1602,15 @@ function applyQuickProfile(profileKey) {
 
   const rtuRange = document.getElementById("rtu-id-range");
   if (rtuRange) rtuRange.value = prof.idRange;
+  const cfgRtuRange = document.getElementById("cfg-rtu-id-range");
+  if (cfgRtuRange) cfgRtuRange.value = prof.idRange;
+  updateChipActive("chips-rtu-range", prof.idRange);
+
   const rtuTimeout = document.getElementById("rtu-timeout");
   if (rtuTimeout) rtuTimeout.value = prof.timeoutMs;
+  const cfgRtuTimeout = document.getElementById("cfg-rtu-timeout");
+  if (cfgRtuTimeout) cfgRtuTimeout.value = prof.timeoutMs;
+  updateChipActive("chips-rtu-timeout", String(prof.timeoutMs));
 
   const cfgSlow = document.getElementById("cfg-rtu-slow");
   if (cfgSlow) cfgSlow.value = prof.rtuSlow;
@@ -1368,16 +1623,355 @@ function applyQuickProfile(profileKey) {
   const setupStop = document.getElementById("setup-stop");
   if (setupStop) setupStop.value = prof.stop;
 
+  if (prof.tcpHosts) syncTcpHostsFromInput(prof.tcpHosts);
   if (prof.tcpPort) setTcpPortPreset(prof.tcpPort);
   if (prof.bacnetPort) setBacnetPortPreset(prof.bacnetPort);
   if (prof.knxPort) setKnxPortPreset(prof.knxPort);
+  if (prof.knxTimeout) {
+    const kt = document.getElementById("cfg-knx-timeout");
+    if (kt) kt.value = prof.knxTimeout;
+  }
+  if (prof.ipSubnet) setIpScannerSubnetPreset(prof.ipSubnet);
 
   localStorage.setItem("bham-selected-profile", profileKey);
-  log(`[PROFILE] Applicato profilo d'impianto: ${prof.label} (${prof.baud} ${prof.parity}8${prof.stop}, timeout=${prof.timeoutMs}ms)`);
+  log(`[PROFILE] Applicato profilo d'impianto: ${prof.label} (${prof.baud} 8${prof.parity}${prof.stop}, timeout=${prof.timeoutMs}ms)`);
+}
+
+function selectScanArchetype(profileKey) {
+  applyQuickProfile(profileKey);
+  const p = SCAN_PROFILES[profileKey];
+  if (p) {
+    showToast(`Profilo impostato: ${p.label}`, "info");
+  }
 }
 
 function applyScanPreset(val) {
-  applyQuickProfile(val);
+  selectScanArchetype(val);
+}
+
+// ── Custom Scan Profiles Manager (Save, Apply, Export, Import) ──────────────
+
+const CUSTOM_PROFILES_STORAGE_KEY = "bham-custom-scan-profiles";
+
+function getCustomScanProfiles() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PROFILES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    console.warn("Failed to load custom profiles:", e);
+    return {};
+  }
+}
+
+function saveCustomScanProfiles(profiles) {
+  try {
+    localStorage.setItem(CUSTOM_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+  } catch (e) {
+    console.error("Failed to save custom profiles:", e);
+  }
+}
+
+function openSaveCustomProfileModal() {
+  const m = document.getElementById("modal-save-custom-profile");
+  if (!m) return;
+  const nameInp = document.getElementById("custom-prof-name");
+  if (nameInp) nameInp.value = "";
+  const descInp = document.getElementById("custom-prof-desc");
+  if (descInp) descInp.value = "";
+  m.classList.remove("hidden");
+}
+
+function closeSaveCustomProfileModal() {
+  document.getElementById("modal-save-custom-profile")?.classList.add("hidden");
+}
+
+function confirmSaveCustomProfile() {
+  const nameInp = document.getElementById("custom-prof-name");
+  const descInp = document.getElementById("custom-prof-desc");
+  const name = nameInp?.value.trim();
+  if (!name) {
+    showToast("Inserisci un nome per il profilo", "warning");
+    return;
+  }
+  const desc = descInp?.value.trim() || "Profilo personalizzato d'impianto";
+  const key = "custom_" + Date.now();
+
+  // Snapshot current active parameters
+  const prof = {
+    id: key,
+    label: name,
+    desc: desc,
+    badge: name.slice(0, 10),
+    isCustom: true,
+    rtuSlow: parseFloat(document.getElementById("cfg-rtu-slow")?.value) || 0.40,
+    rtuFast: parseFloat(document.getElementById("cfg-rtu-fast")?.value) || 0.12,
+    baud: document.getElementById("setup-baud")?.value || "9600",
+    parity: document.getElementById("setup-parity")?.value || "N",
+    stop: document.getElementById("setup-stop")?.value || "1",
+    idRange: document.getElementById("cfg-rtu-id-range")?.value || "1 - 32",
+    timeoutMs: parseInt(document.getElementById("cfg-rtu-timeout")?.value) || 400,
+    tcpHosts: document.getElementById("cfg-tcp-hosts")?.value || "192.168.1.1",
+    tcpPort: document.getElementById("cfg-modbus-tcp-port")?.value || "502",
+    bacnetPort: document.getElementById("cfg-bacnet-port")?.value || "BAC0",
+    knxPort: document.getElementById("cfg-knx-port")?.value || "3671",
+    knxTimeout: parseFloat(document.getElementById("cfg-knx-timeout")?.value) || 3.5,
+    ipSubnet: document.getElementById("cfg-ipscan-subnet")?.value || "192.168.1.0/24",
+    createdAt: new Date().toISOString()
+  };
+
+  const all = getCustomScanProfiles();
+  all[key] = prof;
+  saveCustomScanProfiles(all);
+
+  // Register in runtime SCAN_PROFILES
+  SCAN_PROFILES[key] = prof;
+
+  closeSaveCustomProfileModal();
+  renderCustomProfilesList();
+  showToast(`Profilo "${name}" salvato con successo!`, "success");
+  log(`[PROFILE] Nuovo profilo personalizzato creato: ${name}`);
+}
+
+function renderCustomProfilesList() {
+  const container = document.getElementById("custom-profiles-container");
+  const customProfs = getCustomScanProfiles();
+  const keys = Object.keys(customProfs);
+
+  // Sync to runtime SCAN_PROFILES and dropdown select
+  keys.forEach(k => {
+    SCAN_PROFILES[k] = customProfs[k];
+  });
+
+  // Update cfg-scan-preset and quick-profile-select dropdowns
+  [document.getElementById("cfg-scan-preset"), document.getElementById("quick-profile-select")].forEach(sel => {
+    if (!sel) return;
+    Array.from(sel.options).forEach(opt => {
+      if (opt.value.startsWith("custom_")) opt.remove();
+    });
+    keys.forEach(k => {
+      const p = customProfs[k];
+      const opt = document.createElement("option");
+      opt.value = k;
+      opt.textContent = `⭐ ${p.label} (${p.baud} 8${p.parity}${p.stop})`;
+      sel.appendChild(opt);
+    });
+  });
+
+  if (!container) return;
+  if (!keys.length) {
+    container.innerHTML = `<span class="mono text-dim" style="font-size:11px;grid-column:1/-1">Nessun profilo personalizzato salvato. Clicca su "Salva Come Profilo" per registrare i parametri correnti.</span>`;
+    return;
+  }
+
+  container.innerHTML = keys.map(k => {
+    const p = customProfs[k];
+    return `
+      <div class="bham-custom-profile-card">
+        <div class="bham-custom-profile-name">
+          <span>⭐ ${escapeHtml(p.label)}</span>
+        </div>
+        <div class="bham-custom-profile-desc">${escapeHtml(p.desc)}</div>
+        <div class="bham-custom-profile-tags">${p.baud} 8${p.parity}${p.stop} • ID ${escapeHtml(p.idRange)} • :${escapeHtml(p.tcpPort)}</div>
+        <div class="bham-custom-profile-actions">
+          <button type="button" class="bham-btn-chip active" style="font-size:10px;padding:2px 6px" onclick="applyQuickProfile('${k}')">Applica</button>
+          <button type="button" class="bham-btn-chip" style="font-size:10px;padding:2px 6px" onclick="exportSingleCustomProfile('${k}')" title="Esporta solo questo profilo">Esporta</button>
+          <button type="button" class="bham-btn-chip" style="font-size:10px;padding:2px 6px;color:#f87171" onclick="deleteCustomProfile('${k}')" title="Elimina profilo">✕</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function deleteCustomProfile(key) {
+  const all = getCustomScanProfiles();
+  if (!all[key]) return;
+  const name = all[key].label;
+  if (!confirm(`Sei sicuro di voler eliminare il profilo "${name}"?`)) return;
+  delete all[key];
+  delete SCAN_PROFILES[key];
+  saveCustomScanProfiles(all);
+  renderCustomProfilesList();
+  showToast(`Profilo "${name}" eliminato.`, "info");
+}
+
+function exportCustomProfilesJSON() {
+  const all = getCustomScanProfiles();
+  const blob = new Blob([JSON.stringify(all, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `BHAM_Profili_Custom_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("File profili esportato!", "success");
+}
+
+function exportSingleCustomProfile(key) {
+  const all = getCustomScanProfiles();
+  if (!all[key]) return;
+  const single = { [key]: all[key] };
+  const blob = new Blob([JSON.stringify(single, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `BHAM_Profilo_${all[key].label.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importCustomProfilesFile(event) {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (typeof data !== "object") throw new Error("Formato non valido");
+      const current = getCustomScanProfiles();
+      let count = 0;
+      Object.keys(data).forEach(k => {
+        const item = data[k];
+        if (item && item.label) {
+          current[k] = item;
+          SCAN_PROFILES[k] = item;
+          count++;
+        }
+      });
+      saveCustomScanProfiles(current);
+      renderCustomProfilesList();
+      showToast(`Importati ${count} profili personalizzati!`, "success");
+    } catch (err) {
+      showToast(`Errore nell'importazione: ${err.message}`, "error");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = "";
+}
+
+function updateChipActive(containerId, matchVal) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const matchStr = String(matchVal).trim().toLowerCase();
+  container.querySelectorAll(".bham-btn-chip").forEach(btn => {
+    const val = (btn.getAttribute("data-val") || btn.textContent || "").trim().toLowerCase();
+    if (val === matchStr || val.startsWith(matchStr + " ") || matchStr.startsWith(val)) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+function setRtuRangePreset(val) {
+  const inp = document.getElementById("cfg-rtu-id-range");
+  if (inp) inp.value = val;
+  const side = document.getElementById("rtu-id-range");
+  if (side) side.value = val;
+  updateChipActive("chips-rtu-range", val);
+}
+
+function setRtuTimeoutPreset(val) {
+  const inp = document.getElementById("cfg-rtu-timeout");
+  if (inp) inp.value = val;
+  const side = document.getElementById("rtu-timeout");
+  if (side) side.value = val;
+  updateChipActive("chips-rtu-timeout", String(val));
+}
+
+function setRtuSerialPreset(baud, parity, stop) {
+  const b = document.getElementById("setup-baud");
+  if (b) b.value = String(baud);
+  const p = document.getElementById("setup-parity");
+  if (p) p.value = parity;
+  const s = document.getElementById("setup-stop");
+  if (s) s.value = String(stop);
+  updateChipActive("chips-rtu-serial", `${baud} 8${parity}${stop}`);
+  showToast(`Seriale impostata: ${baud} 8${parity}${stop}`, "info");
+}
+
+function setRtuTuningPreset(slow, fast, spy) {
+  const sl = document.getElementById("cfg-rtu-slow");
+  if (sl) sl.value = slow;
+  const fa = document.getElementById("cfg-rtu-fast");
+  if (fa) fa.value = fast;
+  const sp = document.getElementById("cfg-spy-ids");
+  if (sp && spy) sp.value = spy;
+  updateChipActive("chips-rtu-tuning", `${slow}/${fast}`);
+  showToast(`Accordatore impostato: ${slow}s / ${fast}s`, "info");
+}
+
+function setTcpHostPreset(val) {
+  syncTcpHostsFromInput(val);
+  updateChipActive("chips-tcp-hosts", val);
+}
+
+function setKnxMulticastPreset(val) {
+  const inp = document.getElementById("cfg-knx-multi");
+  if (inp) inp.value = val;
+  updateChipActive("chips-knx-multi", val);
+}
+
+function setKnxTimeoutPreset(val) {
+  const inp = document.getElementById("cfg-knx-timeout");
+  if (inp) inp.value = val;
+  updateChipActive("chips-knx-timeout", String(val));
+}
+
+function setIpScannerSubnetPreset(val) {
+  const inp = document.getElementById("cfg-ipscan-subnet");
+  if (inp) inp.value = val;
+  const side = document.getElementById("ipscan-subnet");
+  if (side) side.value = val;
+  updateChipActive("chips-ipscan-subnet", val);
+}
+
+function setIpScannerPortsPreset(val) {
+  const inp = document.getElementById("cfg-ipscan-ports");
+  if (inp) inp.value = val;
+  const side = document.getElementById("ipscan-ports");
+  if (side) side.value = val;
+  updateChipActive("chips-ipscan-ports", val);
+}
+
+function setIpScannerConcurrencyPreset(val) {
+  const inp = document.getElementById("cfg-ipscan-concurrency");
+  if (inp) inp.value = val;
+  const side = document.getElementById("ipscan-concurrency");
+  if (side) side.value = val;
+  updateChipActive("chips-ipscan-concurrency", String(val));
+}
+
+function setArpDurationPreset(val) {
+  const inp = document.getElementById("cfg-arp-dur");
+  if (inp) inp.value = val;
+  const side = document.getElementById("arp-dur");
+  if (side) side.value = val;
+  updateChipActive("chips-arp-dur", String(val));
+}
+
+function setSnifferPreset(proto, baud, parity, dur) {
+  const p = document.getElementById("serial-sniff-proto");
+  if (p) p.value = proto;
+  const b = document.getElementById("serial-sniff-baud");
+  if (b) b.value = String(baud);
+  const pr = document.getElementById("serial-sniff-parity");
+  if (pr) pr.value = parity;
+  const d = document.getElementById("serial-sniff-dur");
+  if (d) d.value = String(dur);
+  updateChipActive("chips-sniffer", `${proto}_${baud}`);
+  showToast(`Preset Sniffer: ${proto} ${baud || 'Auto'} ${parity}`, "info");
+}
+
+function useActiveIfaceForProtocol(proto) {
+  const activeIf = document.getElementById("active-iface-badge")?.textContent?.trim() || "eth0";
+  if (proto === "bacnet") {
+    const el = document.getElementById("cfg-bacnet-iface");
+    if (el) el.value = activeIf;
+  } else if (proto === "knx") {
+    const el = document.getElementById("cfg-knx-iface");
+    if (el) el.value = activeIf;
+  }
+  showToast(`Interfaccia ${proto.toUpperCase()} impostata a ${activeIf}`, "info");
 }
 
 // ── Hardware Quick Self-Test ────────────────────────────────────────────────
@@ -1454,11 +2048,9 @@ function updateTcpPortHint(val) {
 }
 
 function setTcpPortPreset(val) {
-  const input = document.getElementById("tcp-port");
-  if (input) {
-    input.value = val;
-    updateTcpPortHint(val);
-  }
+  syncTcpPortFromInput(val);
+  updateTcpPortHint(val);
+  updateChipActive("chips-tcp-port", val);
 }
 
 function updateBacnetPortHint(val) {
@@ -1487,6 +2079,11 @@ function setBacnetPortPreset(val) {
     input.value = val;
     updateBacnetPortHint(val);
   }
+  const cfg = document.getElementById("cfg-bacnet-port");
+  if (cfg) {
+    cfg.value = val;
+  }
+  updateChipActive("chips-bacnet-port", val);
 }
 
 function updateKnxPortHint(val) {
@@ -1502,16 +2099,31 @@ function setKnxPortPreset(val) {
     input.value = val;
     updateKnxPortHint(val);
   }
+  const cfg = document.getElementById("cfg-knx-port");
+  if (cfg) {
+    cfg.value = val;
+  }
+  updateChipActive("chips-knx-port", val);
 }
 
 function startTCP() {
-  const hosts = document.getElementById("tcp-hosts")?.value
-    .split("\n").map(h => h.trim()).filter(Boolean) || [];
-  if (!hosts.length) { log("[WARN] Inserisci almeno un host Modbus TCP."); return; }
-  const portVal = document.getElementById("tcp-port")?.value.trim() || "502";
+  const hostsVal = document.getElementById("tcp-hosts")?.value ||
+                   document.getElementById("cfg-tcp-hosts")?.value ||
+                   document.getElementById("rapid-tcp-hosts")?.value ||
+                   localStorage.getItem("bham-tcp-hosts") || "";
+  const hosts = parseHostsList(hostsVal);
+  if (!hosts.length) {
+    log("[WARN] Inserisci almeno un host Modbus TCP (es. 192.168.1.0/24 o 192.168.1.10-50).");
+    showToast("Nessun IP impostato per Modbus TCP", "warning");
+    return;
+  }
+  const portVal = document.getElementById("tcp-port")?.value?.trim() ||
+                  document.getElementById("cfg-modbus-tcp-port")?.value?.trim() ||
+                  document.getElementById("rapid-tcp-port")?.value?.trim() || "502";
+  const estCount = calculateEstimatedIpCount(hostsVal);
   openConsoleTab("log");
   setRackLed("tcp", "scanning");
-  log(`[MODBUS] Avvio scansione TCP su ${hosts.length} target (porta/e: ${portVal})...`);
+  log(`[MODBUS] Avvio scansione TCP su ${hosts.length} specifica/e (~${estCount} IP, porta/e: ${portVal}). Target: ${hosts.slice(0, 3).join(", ")}${hosts.length > 3 ? "..." : ""}...`);
   postAPI("/scan/modbus/tcp", { hosts, tcp_port: portVal });
 }
 
@@ -1654,7 +2266,7 @@ async function inspectModbusSlave(slaveId) {
 
   // Fetch mapped registers from BACS Help
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:8px">Caricamento registri...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:8px">Caricamento registri...</td></tr>`;
     try {
       const res = await fetch(`${API}/maps/${slaveId}`);
       if (res.ok) {
@@ -1668,16 +2280,19 @@ async function inspectModbusSlave(slaveId) {
               <td class="cell-text-main">${p.label} <span class="text-dim">${p.description ? '– ' + p.description : ''}</span></td>
               <td class="cell-mono cell-text-main">${p.unit || '—'}</td>
               <td class="cell-mono text-dim">${p.scale || 1.0}</td>
+              <td style="text-align:right">
+                <button type="button" onclick="WatchListManager.addModbusPoint(${slaveId}, ${p.register}, '${p.register_type}', null, '${escapeHtml(p.label).replace(/'/g, "\\'")}', '${escapeHtml(p.unit || '').replace(/'/g, "\\'")}', ${p.scale || 1.0})" class="bham-action-btn-sm" style="color:var(--bham-modbus);font-weight:600" title="Aggiungi alla Watch List">📈 Segui</button>
+              </td>
             </tr>
           `).join("");
         } else {
-          tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:8px">Nessun punto mappato per questo slave.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:8px">Nessun punto mappato per questo slave.</td></tr>`;
         }
       } else {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:8px">Nessuna mappa BACS Help registrata per lo Slave #${slaveId}.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:8px">Nessuna mappa BACS Help registrata per lo Slave #${slaveId}.</td></tr>`;
       }
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-dim" style="text-align:center;padding:8px">Errore consultazione mappa: ${e.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:8px">Errore consultazione mappa: ${e.message}</td></tr>`;
     }
   }
 
@@ -1763,6 +2378,8 @@ function renderSmartRegisters(regList) {
       ? `<span class="cell-mono cell-latency" style="font-weight:600">${r.float32}</span>`
       : `<span class="text-dim">—</span>`;
 
+    const valToWatch = r.float32 !== null && r.float32 !== undefined ? r.float32 : (r.int16 ?? r.raw_dec);
+
     return `
       <tr>
         <td class="cell-mono color-modbus" style="font-weight:700">${r.address}</td>
@@ -1771,6 +2388,9 @@ function renderSmartRegisters(regList) {
         <td class="cell-mono text-dim">${r.raw_hex}</td>
         <td class="cell-mono cell-text-muted">${r.int16}</td>
         <td>${f32Html}</td>
+        <td style="text-align:right">
+          <button type="button" onclick="WatchListManager.addModbusPoint(${currentInspectedSlaveId}, ${r.address}, '${(r.type || 'holding').toLowerCase()}', ${valToWatch})" class="bham-action-btn-sm" style="color:var(--bham-modbus);font-weight:600" title="Aggiungi alla Watch List">📈 Segui</button>
+        </td>
       </tr>
     `;
   }).join("");
@@ -2248,18 +2868,30 @@ function closeToolsModal() {
 function switchToolTab(tab) {
   const btnMb = document.getElementById("btn-tool-tab-modbus");
   const btnBn = document.getElementById("btn-tool-tab-bacnet");
+  const btnBench = document.getElementById("btn-tool-tab-benchmark");
   const panMb = document.getElementById("panel-tool-modbus");
   const panBn = document.getElementById("panel-tool-bacnet");
+  const panBench = document.getElementById("panel-tool-benchmark");
+
+  btnMb?.classList.remove("active");
+  btnBn?.classList.remove("active");
+  btnBench?.classList.remove("active");
+  panMb?.classList.add("hidden");
+  panBn?.classList.add("hidden");
+  panBench?.classList.add("hidden");
 
   if (tab === "bacnet") {
-    btnMb?.classList.remove("active");
     btnBn?.classList.add("active");
-    panMb?.classList.add("hidden");
     panBn?.classList.remove("hidden");
+  } else if (tab === "benchmark") {
+    btnBench?.classList.add("active");
+    panBench?.classList.remove("hidden");
+    const portInp = document.getElementById("bench-port");
+    if (portInp && store.config?.serial_port) {
+      portInp.value = store.config.serial_port;
+    }
   } else {
-    btnBn?.classList.remove("active");
     btnMb?.classList.add("active");
-    panBn?.classList.add("hidden");
     panMb?.classList.remove("hidden");
   }
 }
@@ -2454,6 +3086,118 @@ async function executeToolBACnetRelinquish() {
   }
 }
 
+// ── Bus Stress Test & Latency Benchmark ───────────────────────────────────────
+
+function handleBenchProtoChange() {
+  const proto = document.getElementById("bench-proto")?.value || "rtu";
+  const portWrap = document.getElementById("bench-port-wrap");
+  const ipWrap = document.getElementById("bench-ip-wrap");
+  if (proto === "tcp") {
+    if (portWrap) portWrap.style.display = "none";
+    if (ipWrap) ipWrap.style.display = "";
+  } else {
+    if (portWrap) portWrap.style.display = "";
+    if (ipWrap) ipWrap.style.display = "none";
+  }
+}
+
+async function executeBusBenchmark() {
+  const btn = document.getElementById("btn-run-benchmark");
+  const proto = document.getElementById("bench-proto")?.value || "rtu";
+  const port = document.getElementById("bench-port")?.value || (store.config?.serial_port || "/dev/ttyUSB0");
+  const ip = document.getElementById("bench-ip")?.value || "";
+  const slaveId = parseInt(document.getElementById("bench-slave")?.value || "1") || 1;
+  const iterations = parseInt(document.getElementById("bench-iterations")?.value || "25") || 25;
+
+  if (proto === "tcp" && !ip) {
+    showToast("Inserisci un indirizzo IP host per il test Modbus TCP", "warning");
+    return;
+  }
+
+  const origTxt = btn ? btn.textContent : "⚡ Avvia Stress Test Linea";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Stress Test in corso...";
+  }
+
+  try {
+    const payload = {
+      protocol: proto,
+      port: port,
+      ip: ip,
+      slave_id: slaveId,
+      iterations: iterations
+    };
+    const res = await postAPI("/tools/modbus/benchmark", payload);
+    const box = document.getElementById("bench-results-box");
+    if (box) box.style.display = "block";
+
+    // Rating badge
+    const badge = document.getElementById("bench-rating-badge");
+    const rLabel = res.rating_label || res.rating || "BUONO";
+    const rKey = (res.rating || "").toLowerCase();
+    if (badge) {
+      badge.className = "bham-rating-badge";
+      if (rKey.includes("excellent") || rKey.includes("eccellente")) badge.classList.add("bham-rating-excellent");
+      else if (rKey.includes("good") || rKey.includes("buono")) badge.classList.add("bham-rating-good");
+      else if (rKey.includes("degraded") || rKey.includes("degradato")) badge.classList.add("bham-rating-degraded");
+      else badge.classList.add("bham-rating-critical");
+      badge.textContent = rLabel.toUpperCase();
+    }
+
+    // Boxes
+    const ferPct = res.packet_error_rate_pct !== undefined ? res.packet_error_rate_pct : (res.fer_percent ?? 0.0);
+    const failFrames = res.fail_count !== undefined ? res.fail_count : (res.failed_frames ?? 0);
+    const totFrames = res.iterations !== undefined ? res.iterations : (res.total_frames ?? 0);
+    const ferEl = document.getElementById("bench-fer-val");
+    if (ferEl) ferEl.textContent = `${ferPct.toFixed(1)}% (${failFrames}/${totFrames})`;
+
+    const avgEl = document.getElementById("bench-avg-val");
+    if (avgEl) avgEl.textContent = `${(res.avg_latency_ms ?? 0).toFixed(1)} ms`;
+
+    const minmaxEl = document.getElementById("bench-minmax-val");
+    if (minmaxEl) minmaxEl.textContent = `${(res.min_latency_ms ?? 0).toFixed(1)} / ${(res.max_latency_ms ?? 0).toFixed(1)} ms`;
+
+    const jitEl = document.getElementById("bench-jitter-val");
+    if (jitEl) jitEl.textContent = `±${(res.jitter_ms ?? 0).toFixed(2)} ms`;
+
+    const diagEl = document.getElementById("bench-diagnosis-text");
+    if (diagEl) diagEl.textContent = res.diagnosis || "Test completato.";
+
+    // Histogram
+    const chart = document.getElementById("bench-latency-chart");
+    const latList = res.latencies || res.latencies_ms || [];
+    if (chart && latList.length) {
+      const maxLat = Math.max(...latList, 50);
+      chart.innerHTML = latList.map((lat, idx) => {
+        const heightPct = Math.max(8, Math.min(100, Math.round((lat / maxLat) * 100)));
+        let barColor = "var(--bham-modbus)";
+        if (lat <= 0) barColor = "#ef4444";
+        else if (lat > 150) barColor = "#ea580c";
+        else if (lat > 70) barColor = "#f59e0b";
+        return `<div class="bham-latency-bar" style="height:${heightPct}%;background:${barColor}" title="Frame #${idx+1}: ${lat.toFixed(1)} ms"></div>`;
+      }).join("");
+    }
+
+    if (ferPct === 0) {
+      if (window.BhamAudio) BhamAudio.playScanComplete();
+    } else {
+      if (window.BhamAudio) BhamAudio.playWarning();
+    }
+
+    const isGood = rKey.includes("excellent") || rKey.includes("eccellente") || rKey.includes("good") || rKey.includes("buono");
+    showToast(`Stress test completato: Bus ${rLabel.toUpperCase()}`, isGood ? "success" : "warning");
+  } catch (e) {
+    showToast(`Errore stress test: ${e.message}`, "error");
+    if (window.BhamAudio) BhamAudio.playWarning();
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origTxt;
+    }
+  }
+}
+
 // ── Unified Settings Modal (Centro Impostazioni) ───────────────────────────────
 
 function openSettingsModal(defaultTab = "hw") {
@@ -2461,6 +3205,9 @@ function openSettingsModal(defaultTab = "hw") {
   switchSettingsTab(defaultTab);
   scanSerialPorts();
   scanNetworkIfaces();
+  const curPort = document.getElementById("setup-port")?.value || "ttyUSB0";
+  const quickPortEl = document.getElementById("rtu-quick-port");
+  if (quickPortEl) quickPortEl.textContent = curPort;
 }
 
 function closeSettingsModal() {
@@ -2468,7 +3215,7 @@ function closeSettingsModal() {
 }
 
 function switchSettingsTab(tabName) {
-  const tabs = ["hw", "scan", "appearance", "sessions", "maps"];
+  const tabs = ["hw", "scan", "appearance", "sessions", "maps", "security"];
   tabs.forEach(t => {
     const btn = document.getElementById(`tab-btn-${t}`);
     const panel = document.getElementById(`panel-settings-${t}`);
@@ -2493,21 +3240,39 @@ function saveScanParameters() {
   const fast = parseFloat(document.getElementById("cfg-rtu-fast")?.value) || 0.12;
   const spy = document.getElementById("cfg-spy-ids")?.value.trim() || "1, 2, 10";
   const knxTimeout = parseFloat(document.getElementById("cfg-knx-timeout")?.value) || 3.5;
+  const knxMulti = document.getElementById("cfg-knx-multi")?.value.trim() || "224.0.23.12";
   const arpDur = parseFloat(document.getElementById("cfg-arp-dur")?.value) || 30;
   const tcpPort = document.getElementById("cfg-modbus-tcp-port")?.value.trim() || "502";
+  const tcpHosts = document.getElementById("cfg-tcp-hosts")?.value.trim() || "";
   const bacnetPort = document.getElementById("cfg-bacnet-port")?.value.trim() || "BAC0";
+  const bacnetIface = document.getElementById("cfg-bacnet-iface")?.value.trim() || "eth0";
   const knxPort = document.getElementById("cfg-knx-port")?.value.trim() || "3671";
+  const knxIface = document.getElementById("cfg-knx-iface")?.value.trim() || "eth0";
+  const rtuRange = document.getElementById("cfg-rtu-id-range")?.value.trim() || "1 - 32";
+  const rtuTimeout = parseInt(document.getElementById("cfg-rtu-timeout")?.value, 10) || 400;
+  const ipSubnet = document.getElementById("cfg-ipscan-subnet")?.value.trim() || "192.168.1.0/24";
+  const ipPorts = document.getElementById("cfg-ipscan-ports")?.value.trim() || "502,47808,3671,80,443";
+  const ipConcurrency = parseInt(document.getElementById("cfg-ipscan-concurrency")?.value, 10) || 50;
 
   localStorage.setItem("bham-scan-params", JSON.stringify({
-    slow, fast, spy, knxTimeout, arpDur, tcpPort, bacnetPort, knxPort
+    slow, fast, spy, knxTimeout, knxMulti, arpDur, tcpPort, tcpHosts,
+    bacnetPort, bacnetIface, knxPort, knxIface, rtuRange, rtuTimeout,
+    ipSubnet, ipPorts, ipConcurrency
   }));
 
   // Sync to sidebar protocol cards
+  if (rtuRange) setRtuRangePreset(rtuRange);
+  if (rtuTimeout) setRtuTimeoutPreset(rtuTimeout);
   if (tcpPort) setTcpPortPreset(tcpPort);
+  if (tcpHosts) setTcpHostPreset(tcpHosts);
   if (bacnetPort) setBacnetPortPreset(bacnetPort);
   if (knxPort) setKnxPortPreset(knxPort);
+  if (ipSubnet) setIpScannerSubnetPreset(ipSubnet);
+  if (ipPorts) setIpScannerPortsPreset(ipPorts);
+  if (ipConcurrency) setIpScannerConcurrencyPreset(ipConcurrency);
 
-  log(`[OK] Parametri di scansione aggiornati: RTU Slow=${slow}s, Fast=${fast}s, KNX=${knxTimeout}s, TCP=${tcpPort}, BACnet=${bacnetPort}`);
+  showToast("Parametri protocolli salvati e applicati!", "success");
+  log(`[OK] Parametri di scansione aggiornati: RTU range=${rtuRange}, timeout=${rtuTimeout}ms, TCP=${tcpPort}, BACnet=${bacnetPort}, KNX=${knxPort}`);
   closeSettingsModal();
 }
 
@@ -2785,10 +3550,28 @@ async function clearBacsMaps() {
   refreshMapsStatus();
 }
 
-// ── Interactive Field Manual & Help Modal ──────────────────────────────────────
+// ── Interactive Field Manual, Quick Assistant & Calculators ────────────────────
+
+function toggleEmptyTips() {
+  const box = document.getElementById("empty-tips-box");
+  const content = document.getElementById("empty-tips-content");
+  const chev = document.getElementById("empty-tips-chevron");
+  if (!box || !content) return;
+  const isHidden = content.classList.contains("hidden");
+  if (isHidden) {
+    content.classList.remove("hidden");
+    box.classList.add("open");
+    if (chev) chev.textContent = "▲ Chiudi verifiche";
+  } else {
+    content.classList.add("hidden");
+    box.classList.remove("open");
+    if (chev) chev.textContent = "▼ Espandi 4 verifiche";
+  }
+}
 
 function openHelpModal() {
   document.getElementById("help-overlay")?.classList.remove("hidden");
+  switchHelpTab("quick");
   if (typeof renderManualContent === "function") {
     renderManualContent();
   }
@@ -2796,6 +3579,240 @@ function openHelpModal() {
 
 function closeHelpModal() {
   document.getElementById("help-overlay")?.classList.add("hidden");
+}
+
+function switchHelpTab(tab) {
+  const btnQuick = document.getElementById("btn-help-tab-quick");
+  const btnManual = document.getElementById("btn-help-tab-manual");
+  const btnCalcs = document.getElementById("btn-help-tab-calcs");
+  const panQuick = document.getElementById("help-panel-quick");
+  const panManual = document.getElementById("help-panel-manual");
+  const panCalcs = document.getElementById("help-panel-calcs");
+
+  btnQuick?.classList.remove("active");
+  btnManual?.classList.remove("active");
+  btnCalcs?.classList.remove("active");
+  panQuick?.classList.add("hidden");
+  panManual?.classList.add("hidden");
+  panCalcs?.classList.add("hidden");
+
+  if (tab === "calcs") {
+    btnCalcs?.classList.add("active");
+    panCalcs?.classList.remove("hidden");
+    runRs485Calc();
+    runModbusExceptionCalc();
+    runSubnetCalc();
+  } else if (tab === "manual") {
+    btnManual?.classList.add("active");
+    panManual?.classList.remove("hidden");
+  } else {
+    btnQuick?.classList.add("active");
+    panQuick?.classList.remove("hidden");
+  }
+}
+
+function openHelpTopic(topic) {
+  openHelpModal();
+  if (topic === "modbus_rtu" || topic === "modbus_tcp" || topic === "bacnet" || topic === "knx" || topic === "troubleshoot") {
+    switchHelpTab("quick");
+    const searchInp = document.getElementById("help-quick-search");
+    if (searchInp) {
+      if (topic === "modbus_rtu") searchInp.value = "rtu";
+      else if (topic === "modbus_tcp") searchInp.value = "tcp";
+      else if (topic === "bacnet") searchInp.value = "bacnet";
+      else if (topic === "knx") searchInp.value = "knx";
+      else searchInp.value = "";
+      filterHelpFaq(searchInp.value);
+    }
+  } else {
+    switchHelpTab("manual");
+    if (typeof selectChapter === "function") {
+      selectChapter(topic);
+    }
+  }
+}
+
+function filterHelpFaq(query) {
+  const q = (query || "").toLowerCase().trim();
+  document.querySelectorAll(".bham-trouble-item").forEach(el => {
+    const kw = (el.getAttribute("data-faq-keywords") || "").toLowerCase();
+    const text = el.textContent.toLowerCase();
+    if (!q || kw.includes(q) || text.includes(q)) {
+      el.style.display = "";
+      if (q) {
+        const body = el.querySelector(".faq-body");
+        if (body) body.classList.remove("hidden");
+        const chev = el.querySelector(".faq-chevron");
+        if (chev) chev.textContent = "▲";
+      }
+    } else {
+      el.style.display = "none";
+    }
+  });
+}
+
+function toggleFaqAccordion(toggleEl) {
+  const container = toggleEl.closest(".bham-trouble-item");
+  if (!container) return;
+  const body = container.querySelector(".faq-body");
+  const chev = container.querySelector(".faq-chevron");
+  if (!body) return;
+  const isHidden = body.classList.contains("hidden");
+  if (isHidden) {
+    body.classList.remove("hidden");
+    if (chev) chev.textContent = "▲";
+  } else {
+    body.classList.add("hidden");
+    if (chev) chev.textContent = "▼";
+  }
+}
+
+// ── Field Calculators Engine ──────────────────────────────────────────────────
+
+function runRs485Calc() {
+  const input = document.getElementById("calc-rs485-meters");
+  const res = document.getElementById("calc-rs485-result");
+  if (!input || !res) return;
+  const meters = Math.max(1, parseInt(input.value) || 100);
+  let maxBaud = 115200;
+  let termNote = "Consigliata terminazione 120Ω su entrambi i capi.";
+  let delay = (meters * 0.005).toFixed(2);
+
+  if (meters > 1000) {
+    maxBaud = 9600;
+    termNote = "OBBLIGATORIA terminazione 120Ω 1/4W su entrambi i capi. Cavo AWG24 twistato e schermato con bias di polarizzazione.";
+  } else if (meters > 600) {
+    maxBaud = 19200;
+    termNote = "OBBLIGATORIA terminazione 120Ω. Evitare assolutamente diramazioni a stella superiori a 1 metro.";
+  } else if (meters > 250) {
+    maxBaud = 38400;
+    termNote = "Terminazione 120Ω fortemente raccomandata.";
+  } else if (meters > 100) {
+    maxBaud = 57600;
+  } else {
+    maxBaud = 115200;
+  }
+
+  res.innerHTML = `
+    <div><strong>Metri:</strong> ${meters} m | <strong>Baudrate Max Consigliato:</strong> <span class="color-modbus" style="font-weight:700">${maxBaud} bps</span></div>
+    <div><strong>Ritardo Propagazione Bus:</strong> ~${delay} µs | <strong>Terminazione:</strong> ${termNote}</div>
+  `;
+}
+
+const MODBUS_EXCEPTIONS_MAP = {
+  "01": { name: "Illegal Function", desc: "La funzione richiesta (es. FC03/FC04/FC06) non è supportata o non è implementata nel firmware dello slave.", fix: "Verifica se il dispositivo supporta registri Holding (FC03) o solo Input (FC04)." },
+  "02": { name: "Illegal Data Address", desc: "L'indirizzo di registro richiesto non esiste o è al di fuori dell'intervallo valido.", fix: "Verifica la base di indirizzamento (offset 0 vs offset 1, es. 40001 vs 40000). Consulta la mappa registri BACS Help." },
+  "03": { name: "Illegal Data Value", desc: "Il valore scritto o il numero di registri richiesti supera il limite consentito.", fix: "Verifica che il valore rientri nel range min/max o riduci il blocco di lettura (massimo 10-20 registri alla volta)." },
+  "04": { name: "Slave Device Failure", desc: "Errore irreversibile interno nel dispositivo slave durante l'elaborazione del comando.", fix: "Verifica l'alimentazione dello slave, la presenza di allarmi hardware o prova a riavviare la periferica." },
+  "05": { name: "Acknowledge", desc: "Lo slave ha accettato il comando ma richiede tempo esteso per completare l'operazione.", fix: "Aumenta il timeout di risposta in BHAM (es. 800ms) ed evita interrogazioni frequenti." },
+  "06": { name: "Slave Device Busy", desc: "Lo slave è attualmente occupato con un'altra operazione e non può rispondere.", fix: "Riduci la frequenza di polling o attendi qualche secondo prima di ritrasmettere." },
+  "0A": { name: "Gateway Path Unavailable", desc: "Il convertitore Ethernet-RS485 è attivo ma non riesce a comunicare con il bus seriale a valle.", fix: "Verifica il cavo seriale collegato al convertitore Moxa/Seneca e che il baudrate coincida." },
+  "0B": { name: "Gateway Target Failed", desc: "Il dispositivo seriale di destinazione a valle del gateway non ha risposto entro il timeout.", fix: "Verifica che lo Slave ID coincida con lo Unit ID e che la periferica seriale sia accesa." },
+};
+
+function runModbusExceptionCalc() {
+  const input = document.getElementById("calc-modbus-code");
+  const res = document.getElementById("calc-modbus-result");
+  if (!input || !res) return;
+  const raw = input.value.trim().toUpperCase().padStart(2, "0");
+  const entry = MODBUS_EXCEPTIONS_MAP[raw];
+  if (entry) {
+    res.innerHTML = `
+      <div><strong class="color-modbus">Codice 0x${raw}: ${entry.name}</strong></div>
+      <div style="margin:2px 0"><em>${entry.desc}</em></div>
+      <div style="color:var(--bham-text-dim)">💡 <strong>Cosa fare:</strong> ${entry.fix}</div>
+    `;
+  } else {
+    res.innerHTML = `<div>Codice 0x${raw}: Errore non standard o specifico del costruttore. Controlla il manuale dell'apparato.</div>`;
+  }
+}
+
+function setModbusExceptionCode(code) {
+  const inp = document.getElementById("calc-modbus-code");
+  if (inp) {
+    inp.value = code;
+    runModbusExceptionCalc();
+  }
+}
+
+function runSubnetCalc() {
+  const inp = document.getElementById("calc-subnet-input");
+  const res = document.getElementById("calc-subnet-result");
+  if (!inp || !res) return;
+  const raw = inp.value.trim();
+  const parts = raw.split("/");
+  const ip = parts[0];
+  const cidr = parseInt(parts[1]) || 24;
+
+  if (cidr < 1 || cidr > 32) {
+    res.textContent = "CIDR non valido (usa un valore tra /8 e /32).";
+    return;
+  }
+
+  const maskNum = -1 << (32 - cidr);
+  const maskStr = [
+    (maskNum >>> 24) & 255,
+    (maskNum >>> 16) & 255,
+    (maskNum >>> 8) & 255,
+    maskNum & 255
+  ].join(".");
+
+  const octets = ip.split(".").map(Number);
+  if (octets.length !== 4 || octets.some(o => isNaN(o) || o < 0 || o > 255)) {
+    res.textContent = "Formato IP non valido (es. 192.168.1.0/24).";
+    return;
+  }
+
+  const ipNum = ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0;
+  const netNum = (ipNum & maskNum) >>> 0;
+  const bcastNum = (netNum | (~maskNum)) >>> 0;
+  const hostsCount = cidr >= 31 ? (cidr === 32 ? 1 : 2) : Math.max(0, (1 << (32 - cidr)) - 2);
+
+  const numToIp = (num) => [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join(".");
+  const netStr = numToIp(netNum);
+  const firstHost = cidr >= 31 ? netStr : numToIp(netNum + 1);
+  const lastHost = cidr >= 31 ? numToIp(bcastNum) : numToIp(bcastNum - 1);
+  const bcastStr = numToIp(bcastNum);
+
+  res.innerHTML = `
+    <div><strong>Rete:</strong> ${netStr}/${cidr} | <strong>Netmask:</strong> ${maskStr}</div>
+    <div><strong>Range Utile:</strong> ${firstHost} ➔ ${lastHost} | <strong>Host Utili:</strong> <span class="color-network" style="font-weight:700">${hostsCount}</span></div>
+    <div><strong>Broadcast:</strong> ${bcastStr}</div>
+  `;
+}
+
+// ── UI Customization & Report Settings ─────────────────────────────────────────
+
+function applyUiDensity(density) {
+  if (density === "compact") {
+    document.body.classList.add("bham-density-compact");
+    document.getElementById("density-btn-compact")?.classList.add("active");
+    document.getElementById("density-btn-comfortable")?.classList.remove("active");
+    localStorage.setItem("bham-ui-density", "compact");
+  } else {
+    document.body.classList.remove("bham-density-compact");
+    document.getElementById("density-btn-comfortable")?.classList.add("active");
+    document.getElementById("density-btn-compact")?.classList.remove("active");
+    localStorage.setItem("bham-ui-density", "comfortable");
+  }
+}
+
+function saveReportConfig() {
+  const tech = document.getElementById("cfg-report-technician")?.value.trim() || "";
+  const comp = document.getElementById("cfg-report-company")?.value.trim() || "";
+  const notes = document.getElementById("cfg-report-notes")?.value.trim() || "";
+  localStorage.setItem("bham-report-technician", tech);
+  localStorage.setItem("bham-report-company", comp);
+  localStorage.setItem("bham-report-notes", notes);
+}
+
+function loadReportConfig() {
+  const tech = localStorage.getItem("bham-report-technician") || "";
+  const comp = localStorage.getItem("bham-report-company") || "";
+  const notes = localStorage.getItem("bham-report-notes") || "";
+  if (tech && document.getElementById("cfg-report-technician")) document.getElementById("cfg-report-technician").value = tech;
+  if (comp && document.getElementById("cfg-report-company")) document.getElementById("cfg-report-company").value = comp;
+  if (notes && document.getElementById("cfg-report-notes")) document.getElementById("cfg-report-notes").value = notes;
 }
 
 // ── Keyboard Shortcuts (F1 for Help, Esc to close modals) ──────────────────────
@@ -2808,6 +3825,7 @@ window.addEventListener("keydown", (e) => {
     closeSettingsModal();
     closeHelpModal();
     closeSaveModal();
+    closeSaveCustomProfileModal();
     closeSlaveModal();
     closeTopologyInspector();
   }
@@ -3636,19 +4654,63 @@ function loadSavedScanParams() {
       if (p.fast && document.getElementById("cfg-rtu-fast")) document.getElementById("cfg-rtu-fast").value = p.fast;
       if (p.spy && document.getElementById("cfg-spy-ids")) document.getElementById("cfg-spy-ids").value = p.spy;
       if (p.knxTimeout && document.getElementById("cfg-knx-timeout")) document.getElementById("cfg-knx-timeout").value = p.knxTimeout;
+      if (p.knxMulti && document.getElementById("cfg-knx-multi")) document.getElementById("cfg-knx-multi").value = p.knxMulti;
       if (p.arpDur && document.getElementById("cfg-arp-dur")) document.getElementById("cfg-arp-dur").value = p.arpDur;
+      if (p.rtuRange) {
+        if (document.getElementById("cfg-rtu-id-range")) document.getElementById("cfg-rtu-id-range").value = p.rtuRange;
+        setRtuRangePreset(p.rtuRange);
+      }
+      if (p.rtuTimeout) {
+        if (document.getElementById("cfg-rtu-timeout")) document.getElementById("cfg-rtu-timeout").value = p.rtuTimeout;
+        setRtuTimeoutPreset(p.rtuTimeout);
+      }
       if (p.tcpPort) {
         if (document.getElementById("cfg-modbus-tcp-port")) document.getElementById("cfg-modbus-tcp-port").value = p.tcpPort;
         setTcpPortPreset(p.tcpPort);
+      }
+      if (p.tcpHosts) {
+        if (document.getElementById("cfg-tcp-hosts")) document.getElementById("cfg-tcp-hosts").value = p.tcpHosts;
+        setTcpHostPreset(p.tcpHosts);
       }
       if (p.bacnetPort) {
         if (document.getElementById("cfg-bacnet-port")) document.getElementById("cfg-bacnet-port").value = p.bacnetPort;
         setBacnetPortPreset(p.bacnetPort);
       }
+      if (p.bacnetIface && document.getElementById("cfg-bacnet-iface")) {
+        document.getElementById("cfg-bacnet-iface").value = p.bacnetIface;
+      }
       if (p.knxPort) {
         if (document.getElementById("cfg-knx-port")) document.getElementById("cfg-knx-port").value = p.knxPort;
         setKnxPortPreset(p.knxPort);
       }
+      if (p.knxIface && document.getElementById("cfg-knx-iface")) {
+        document.getElementById("cfg-knx-iface").value = p.knxIface;
+      }
+      if (p.ipSubnet) {
+        if (document.getElementById("cfg-ipscan-subnet")) document.getElementById("cfg-ipscan-subnet").value = p.ipSubnet;
+        setIpScannerSubnetPreset(p.ipSubnet);
+      }
+      if (p.ipPorts) {
+        if (document.getElementById("cfg-ipscan-ports")) document.getElementById("cfg-ipscan-ports").value = p.ipPorts;
+        setIpScannerPortsPreset(p.ipPorts);
+      }
+      if (p.ipConcurrency) {
+        if (document.getElementById("cfg-ipscan-concurrency")) document.getElementById("cfg-ipscan-concurrency").value = p.ipConcurrency;
+        setIpScannerConcurrencyPreset(p.ipConcurrency);
+      }
+    }
+
+    const savedTcpHosts = localStorage.getItem("bham-tcp-hosts");
+    if (savedTcpHosts) {
+      syncTcpHostsFromInput(savedTcpHosts);
+    } else {
+      const initialHosts = document.getElementById("tcp-hosts")?.value || document.getElementById("cfg-tcp-hosts")?.value || "192.168.1.1";
+      const initialPort = document.getElementById("tcp-port")?.value || document.getElementById("cfg-modbus-tcp-port")?.value || "502";
+      updateTcpTargetPreview(initialHosts, initialPort);
+    }
+    const savedTcpPort = localStorage.getItem("bham-tcp-port");
+    if (savedTcpPort) {
+      syncTcpPortFromInput(savedTcpPort);
     }
 
     const savedProf = localStorage.getItem("bham-selected-profile");
@@ -3669,6 +4731,12 @@ function loadSavedScanParams() {
     if (savedView === "topology") {
       switchMainView("topology");
     }
+
+    // Custom Profiles, UI density & report settings
+    renderCustomProfilesList();
+    loadReportConfig();
+    const savedDensity = localStorage.getItem("bham-ui-density") || "comfortable";
+    applyUiDensity(savedDensity);
   } catch (e) {
     console.warn("Failed to load saved scan params:", e);
   }
@@ -4975,11 +6043,648 @@ async function wizardExecutePassiveSniff() {
   openConsoleTab("serial");
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// BHAM AUDIO FEEDBACK (Web Audio API Synthesizer)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const BhamAudio = {
+  ctx: null,
+  enabled: localStorage.getItem("bham-audio-enabled") !== "false",
+
+  init() {
+    if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume();
+    }
+  },
+
+  playTone(freq, duration = 0.12, type = "sine", delay = 0, gainLevel = 0.12) {
+    if (!this.enabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const startTime = this.ctx.currentTime + delay;
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(gainLevel, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    } catch (e) {
+      console.warn("Audio feedback error:", e);
+    }
+  },
+
+  playDeviceFound() {
+    // Pleasant dual chime: 587 Hz (D5) -> 880 Hz (A5)
+    this.playTone(587.33, 0.10, "sine", 0, 0.12);
+    this.playTone(880.00, 0.22, "sine", 0.09, 0.15);
+  },
+
+  playScanComplete() {
+    // Four-tone fanfare: C5, E5, G5, C6
+    this.playTone(523.25, 0.12, "triangle", 0, 0.12);
+    this.playTone(659.25, 0.12, "triangle", 0.10, 0.12);
+    this.playTone(784.00, 0.14, "triangle", 0.20, 0.12);
+    this.playTone(1046.50, 0.35, "triangle", 0.32, 0.16);
+  },
+
+  playWarning() {
+    // Low warning buzzer
+    this.playTone(220, 0.18, "sawtooth", 0, 0.08);
+    this.playTone(174.6, 0.25, "sawtooth", 0.15, 0.08);
+  },
+
+  toggle() {
+    this.enabled = !this.enabled;
+    localStorage.setItem("bham-audio-enabled", this.enabled ? "true" : "false");
+    this.updateUI();
+    if (this.enabled) {
+      this.playTone(880, 0.1, "sine");
+    }
+    showToast(this.enabled ? "Feedback audio attivato 🔊" : "Feedback audio disattivato 🔇", "info", 2000);
+  },
+
+  updateUI() {
+    const icon = document.getElementById("audio-icon");
+    if (icon) icon.textContent = this.enabled ? "🔊" : "🔇";
+  }
+};
+
+function toggleAudioFeedback() {
+  BhamAudio.toggle();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MOBILE & TABLET QR CODE ACCESS MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+
+let currentMobileQrUrl = "";
+
+async function openMobileQrModal() {
+  const modal = document.getElementById("modal-mobile-qr");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  const wrap = document.getElementById("mobile-qr-svg-wrap");
+  const txt = document.getElementById("mobile-qr-url-text");
+  if (wrap) wrap.innerHTML = `<span class="text-dim">Generazione codice QR LAN...</span>`;
+  try {
+    const hasLanHost = location.hostname && location.hostname !== "localhost" && location.hostname !== "127.0.0.1";
+    const query = hasLanHost ? `?url=${encodeURIComponent(location.protocol + "//" + location.host)}` : "";
+    const resp = await fetch(`${API}/network/qr-code${query}`);
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status} - Impossibile generare QR`);
+    }
+    const res = await resp.json();
+    if (res && res.svg) {
+      currentMobileQrUrl = res.url;
+      if (wrap) wrap.innerHTML = res.svg;
+      if (txt) txt.textContent = res.url;
+    } else {
+      if (wrap) wrap.innerHTML = `<span class="text-dim" style="color:#ef4444">Impossibile generare il QR code</span>`;
+    }
+  } catch (e) {
+    if (wrap) wrap.innerHTML = `<span class="text-dim" style="color:#ef4444">Errore di connessione: ${escapeHtml(e.message)}</span>`;
+  }
+}
+
+function closeMobileQrModal() {
+  document.getElementById("modal-mobile-qr")?.classList.add("hidden");
+}
+
+function copyMobileQrUrl() {
+  const url = currentMobileQrUrl || document.getElementById("mobile-qr-url-text")?.textContent;
+  if (!url) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      showToast("URL copiato negli appunti!", "success");
+    }).catch(() => {
+      prompt("Copia l'indirizzo per il tablet:", url);
+    });
+  } else {
+    prompt("Copia l'indirizzo per il tablet:", url);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BMS & SCADA TAG EXPORT DROPDOWN
+// ══════════════════════════════════════════════════════════════════════════════
+
+function toggleTagsExportMenu(evt) {
+  if (evt) evt.stopPropagation();
+  const menu = document.getElementById("tags-export-menu");
+  if (menu) {
+    menu.classList.toggle("hidden");
+  }
+}
+
+document.addEventListener("click", (evt) => {
+  const menu = document.getElementById("tags-export-menu");
+  const btn = document.getElementById("btn-export-tags-scada");
+  if (menu && !menu.classList.contains("hidden")) {
+    if (!menu.contains(evt.target) && !btn?.contains(evt.target)) {
+      menu.classList.add("hidden");
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIVE WATCH LIST & TRENDS MONITOR
+// ══════════════════════════════════════════════════════════════════════════════
+
+const WatchListManager = {
+  points: [],
+  intervalMs: 1000,
+  timer: null,
+  running: true,
+  cycleCount: 0,
+
+  init() {
+    try {
+      const saved = localStorage.getItem("bham-watchlist");
+      if (saved) {
+        this.points = JSON.parse(saved);
+      }
+    } catch (e) {
+      this.points = [];
+    }
+    this.updateBadge();
+  },
+
+  save() {
+    try {
+      const toSave = this.points.map(p => ({
+        id: p.id,
+        protocol: p.protocol,
+        slave_id: p.slave_id,
+        address: p.address,
+        reg_type: p.reg_type,
+        label: p.label,
+        unit: p.unit,
+        scale: p.scale,
+        ip: p.ip,
+        port: p.port
+      }));
+      localStorage.setItem("bham-watchlist", JSON.stringify(toSave));
+    } catch (e) {}
+    this.updateBadge();
+  },
+
+  updateBadge() {
+    const badge = document.getElementById("watchlist-count");
+    if (!badge) return;
+    const count = this.points.length;
+    badge.textContent = count;
+    badge.classList.toggle("hidden", count === 0);
+  },
+
+  openModal() {
+    const modal = document.getElementById("modal-watchlist");
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    this.renderTable();
+    this.startPolling();
+  },
+
+  closeModal() {
+    document.getElementById("modal-watchlist")?.classList.add("hidden");
+  },
+
+  setFreq(ms) {
+    this.intervalMs = ms;
+    [1000, 2000, 5000].forEach(f => {
+      const btn = document.getElementById(`wl-freq-${f / 1000}`);
+      btn?.classList.toggle("active", f === ms);
+    });
+    if (this.running) {
+      this.stopPolling();
+      this.startPolling();
+    }
+  },
+
+  togglePolling() {
+    this.running = !this.running;
+    const btn = document.getElementById("btn-wl-toggle-poll");
+    const led = document.getElementById("wl-polling-status");
+    if (this.running) {
+      if (btn) btn.textContent = "⏸️ Pausa";
+      if (led) { led.className = "bham-led led-online"; led.title = "Polling attivo"; }
+      this.startPolling();
+    } else {
+      if (btn) btn.textContent = "▶️ Riprendi";
+      if (led) { led.className = "bham-led led-offline"; led.title = "Polling in pausa"; }
+      this.stopPolling();
+    }
+  },
+
+  startPolling() {
+    if (this.timer) clearInterval(this.timer);
+    if (!this.running) return;
+    this.timer = setInterval(() => this.pollCycle(), this.intervalMs);
+    this.pollCycle();
+  },
+
+  stopPolling() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  },
+
+  addModbusPoint(slaveId, address, regType = "holding", initialVal = null, label = null, unit = null, scale = 1.0, ip = null, port = null) {
+    const id = `mb-${slaveId}-${regType}-${address}`;
+    const existing = this.points.find(p => p.id === id);
+    if (existing) {
+      showToast(`Punto Modbus #${slaveId}:${address} già presente nella Watch List`, "info");
+      return;
+    }
+    const newPt = {
+      id,
+      protocol: ip ? "modbus_tcp" : "modbus_rtu",
+      slave_id: parseInt(slaveId),
+      address: parseInt(address),
+      reg_type: (regType || "holding").toLowerCase(),
+      label: label || `Registro ${address}`,
+      unit: unit || "",
+      scale: parseFloat(scale) || 1.0,
+      ip: ip || "",
+      port: port || 502,
+      lastVal: initialVal !== null ? initialVal : null,
+      lastDelta: null,
+      min: initialVal !== null ? initialVal : null,
+      max: initialVal !== null ? initialVal : null,
+      history: initialVal !== null ? [initialVal] : [],
+      lastUpdated: new Date().toLocaleTimeString()
+    };
+    this.points.push(newPt);
+    this.save();
+    showToast(`Punto #${slaveId}:${address} aggiunto alla Watch List`, "success");
+    if (!document.getElementById("modal-watchlist")?.classList.contains("hidden")) {
+      this.renderTable();
+    }
+  },
+
+  removePoint(id) {
+    this.points = this.points.filter(p => p.id !== id);
+    this.save();
+    this.renderTable();
+  },
+
+  clear() {
+    if (!this.points.length) return;
+    if (confirm("Vuoi rimuovere tutti i punti dalla Watch List?")) {
+      this.points = [];
+      this.save();
+      this.renderTable();
+    }
+  },
+
+  async pollCycle() {
+    if (!this.points.length) return;
+    this.cycleCount++;
+    const cycleLabel = document.getElementById("wl-cycle-count");
+    if (cycleLabel) cycleLabel.textContent = `${this.cycleCount} cicli`;
+
+    for (const pt of this.points) {
+      try {
+        let val = null;
+        if (pt.protocol.startsWith("modbus")) {
+          const fc = pt.reg_type === "input" ? 4 : (pt.reg_type === "coil" ? 1 : (pt.reg_type === "discrete" ? 2 : 3));
+          const reqBody = {
+            protocol: pt.ip ? "tcp" : "rtu",
+            port: store.config?.serial_port || "/dev/ttyUSB0",
+            ip: pt.ip || "",
+            slave_id: pt.slave_id,
+            function_code: fc,
+            address: pt.address,
+            count: 1
+          };
+          const res = await postAPI("/tools/modbus/read", reqBody);
+          if (res && res.registers && res.registers.length) {
+            val = res.registers[0] * pt.scale;
+          }
+        }
+        if (val !== null) {
+          if (pt.lastVal !== null) {
+            pt.lastDelta = Number((val - pt.lastVal).toFixed(2));
+          }
+          pt.lastVal = Number(val.toFixed(2));
+          pt.min = pt.min === null ? pt.lastVal : Math.min(pt.min, pt.lastVal);
+          pt.max = pt.max === null ? pt.lastVal : Math.max(pt.max, pt.lastVal);
+          pt.history.push(pt.lastVal);
+          if (pt.history.length > 25) pt.history.shift();
+          pt.lastUpdated = new Date().toLocaleTimeString();
+        }
+      } catch (e) {
+        // Silently handle read error during background polling
+      }
+    }
+
+    if (!document.getElementById("modal-watchlist")?.classList.contains("hidden")) {
+      this.renderTable();
+    }
+  },
+
+  renderSparkline(history) {
+    if (!history || history.length < 2) {
+      return `<svg class="bham-sparkline-svg" viewBox="0 0 100 24"><line x1="0" y1="12" x2="100" y2="12" stroke="var(--bham-border)" stroke-width="1" stroke-dasharray="2,2"/></svg>`;
+    }
+    const min = Math.min(...history);
+    const max = Math.max(...history);
+    const range = (max - min) || 1;
+    const w = 100;
+    const h = 24;
+    const pad = 3;
+    const step = w / (history.length - 1);
+    const pts = history.map((val, idx) => {
+      const x = (idx * step).toFixed(1);
+      const y = (h - pad - ((val - min) / range) * (h - pad * 2)).toFixed(1);
+      return `${x},${y}`;
+    }).join(" ");
+
+    return `<svg class="bham-sparkline-svg" viewBox="0 0 100 24">
+      <polyline fill="none" stroke="#10b981" stroke-width="2" points="${pts}" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  },
+
+  renderTable() {
+    const tbody = document.getElementById("watchlist-table-body");
+    if (!tbody) return;
+    if (!this.points.length) {
+      tbody.innerHTML = `<tr><td colspan="10" class="text-dim" style="text-align:center;padding:24px">Nessun punto nella Watch List. Clicca <b>➕ Aggiungi Punto</b> o usa il pulsante <b>📈 Segui</b> nell'Inspector di uno slave.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = this.points.map(pt => {
+      const valStr = pt.lastVal !== null ? `${pt.lastVal} ${pt.unit}`.trim() : "—";
+      const minStr = pt.min !== null ? `${pt.min}` : "—";
+      const maxStr = pt.max !== null ? `${pt.max}` : "—";
+      let deltaBadge = "—";
+      if (pt.lastDelta !== null) {
+        if (pt.lastDelta > 0) deltaBadge = `<span style="color:#10b981;font-weight:600">+${pt.lastDelta}</span>`;
+        else if (pt.lastDelta < 0) deltaBadge = `<span style="color:#ef4444;font-weight:600">${pt.lastDelta}</span>`;
+        else deltaBadge = `<span class="text-dim">0</span>`;
+      }
+      const sparkSvg = this.renderSparkline(pt.history);
+      return `
+        <tr>
+          <td><span class="bham-badge-proto ${pt.protocol.includes('tcp') ? 'proto-tcp' : 'proto-rtu'}">${pt.protocol.toUpperCase()}</span></td>
+          <td class="cell-mono cell-text-main">ID ${pt.slave_id}</td>
+          <td class="cell-text-main" style="font-weight:600">${escapeHtml(pt.label)}</td>
+          <td class="cell-mono text-dim">${pt.reg_type.toUpperCase()} #${pt.address}</td>
+          <td class="cell-mono bham-live-val">${valStr}</td>
+          <td class="cell-mono text-dim">${minStr}</td>
+          <td class="cell-mono text-dim">${maxStr}</td>
+          <td class="cell-mono">${deltaBadge}</td>
+          <td>${sparkSvg}</td>
+          <td style="text-align:center">
+            <button onclick="WatchListManager.removePoint('${pt.id}')" class="bham-action-btn-sm" style="color:#ef4444;background:none;border:none;cursor:pointer" title="Rimuovi da Watch List">✕</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  },
+
+  exportCSV() {
+    if (!this.points.length) {
+      showToast("Nessun punto da esportare nella Watch List.", "warning");
+      return;
+    }
+    const headers = ["ID", "Protocol", "Slave_ID", "Address", "Type", "Label", "Last_Value", "Unit", "Min", "Max", "Samples_Count", "Last_Updated"];
+    const rows = this.points.map(p => [
+      p.id,
+      p.protocol,
+      p.slave_id,
+      p.address,
+      p.reg_type,
+      `"${(p.label || '').replace(/"/g, '""')}"`,
+      p.lastVal !== null ? p.lastVal : "",
+      `"${p.unit || ''}"`,
+      p.min !== null ? p.min : "",
+      p.max !== null ? p.max : "",
+      p.history.length,
+      `"${p.lastUpdated || ''}"`
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `bham_watchlist_log_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+function openWatchListModal() {
+  WatchListManager.openModal();
+}
+
+function closeWatchListModal() {
+  WatchListManager.closeModal();
+}
+
+function setWatchListFreq(ms) {
+  WatchListManager.setFreq(ms);
+}
+
+function toggleWatchListPolling() {
+  WatchListManager.togglePolling();
+}
+
+function exportWatchListCSV() {
+  WatchListManager.exportCSV();
+}
+
+function clearWatchList() {
+  WatchListManager.clear();
+}
+
+function openAddWatchListPointPrompt() {
+  const slaveStr = prompt("Inserisci Modbus Slave ID (es. 1):", "1");
+  if (!slaveStr) return;
+  const slaveId = parseInt(slaveStr);
+  const addrStr = prompt("Inserisci Indirizzo Registro (es. 40001):", "40001");
+  if (!addrStr) return;
+  const addr = parseInt(addrStr);
+  const label = prompt("Etichetta / Descrizione (opzionale):", `Slave ${slaveId} Reg ${addr}`) || `Reg ${addr}`;
+  const unit = prompt("Unità di misura (opzionale, es. °C, bar, kW):", "") || "";
+  WatchListManager.addModbusPoint(slaveId, addr, "holding", null, label, unit, 1.0);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COMMISSIONING CHECKLIST & AS-BUILT STATUS HANDLERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+let currentCommTarget = null; // { protocol, id, label }
+
+function openCommissioningModal(protocol, deviceId, deviceLabel) {
+  currentCommTarget = { protocol, id: deviceId, label: deviceLabel };
+  const modal = document.getElementById("modal-commissioning-status");
+  const desc = document.getElementById("comm-target-desc");
+  const notes = document.getElementById("comm-notes-input");
+  if (!modal) return;
+
+  let dev = null;
+  if (protocol === "modbus") {
+    dev = store.modbus.find(d => String(d.slave_id) === String(deviceId));
+  } else if (protocol === "bacnet") {
+    dev = store.bacnet.find(d => String(d.device_id) === String(deviceId));
+  } else if (protocol === "knx") {
+    dev = store.knx.find(d => String(d.individual_address) === String(deviceId));
+  } else if (protocol === "hosts") {
+    dev = store.hosts.find(d => String(d.ip) === String(deviceId));
+  }
+
+  const currentStatus = dev?.commissioning_status || "pending";
+  const currentNotes = dev?.commissioning_notes || "";
+
+  if (desc) {
+    desc.innerHTML = `Dispositivo: <b>${escapeHtml(deviceLabel || deviceId)}</b> (${protocol.toUpperCase()})`;
+  }
+  if (notes) {
+    notes.value = currentNotes;
+  }
+
+  const radios = document.querySelectorAll("input[name='comm-status-radio']");
+  radios.forEach(r => {
+    r.checked = r.value === currentStatus;
+  });
+
+  modal.classList.remove("hidden");
+}
+
+function closeCommissioningModal() {
+  currentCommTarget = null;
+  document.getElementById("modal-commissioning-status")?.classList.add("hidden");
+}
+
+async function saveCommissioningStatus() {
+  if (!currentCommTarget) return;
+  const radios = document.querySelectorAll("input[name='comm-status-radio']");
+  let selectedStatus = "ok";
+  radios.forEach(r => {
+    if (r.checked) selectedStatus = r.value;
+  });
+  const notes = document.getElementById("comm-notes-input")?.value || "";
+
+  try {
+    const protoKey = currentCommTarget.protocol === "hosts" ? "ip" : currentCommTarget.protocol;
+    const payload = {
+      protocol: protoKey,
+      identifier: String(currentCommTarget.id),
+      status: selectedStatus,
+      notes: notes,
+      commissioned_by: "Field Technician"
+    };
+    const res = await postAPI("/device/commissioning-status", payload);
+    if (res && (res.success || res.ok)) {
+      showToast(`Stato collaudo aggiornato: ${selectedStatus.toUpperCase()}`, "success");
+      let dev = null;
+      if (currentCommTarget.protocol === "modbus") {
+        dev = store.modbus.find(d => String(d.slave_id) === String(currentCommTarget.id));
+        if (dev) { dev.commissioning_status = selectedStatus; dev.commissioning_notes = notes; }
+        renderModbusTable();
+      } else if (currentCommTarget.protocol === "bacnet") {
+        dev = store.bacnet.find(d => String(d.device_id) === String(currentCommTarget.id));
+        if (dev) { dev.commissioning_status = selectedStatus; dev.commissioning_notes = notes; }
+        renderBACnetTable();
+      } else if (currentCommTarget.protocol === "knx") {
+        dev = store.knx.find(d => String(d.individual_address) === String(currentCommTarget.id));
+        if (dev) { dev.commissioning_status = selectedStatus; dev.commissioning_notes = notes; }
+        renderKNXTable();
+      } else if (currentCommTarget.protocol === "hosts") {
+        dev = store.hosts.find(d => String(d.ip) === String(currentCommTarget.id));
+        if (dev) { dev.commissioning_status = selectedStatus; dev.commissioning_notes = notes; }
+        renderHostsTable();
+      }
+      updateCommissioningSummaryBadge();
+      closeCommissioningModal();
+    }
+  } catch (e) {
+    showToast(`Errore salvataggio collaudo: ${e.message}`, "error");
+  }
+}
+
+function handleCommissioningUpdated(msg) {
+  const { protocol, device_id, commissioning_status, commissioning_notes, commissioned_by, commissioned_at } = msg;
+  let dev = null;
+  if (protocol === "modbus") {
+    dev = store.modbus.find(d => String(d.slave_id) === String(device_id));
+    if (dev) {
+      dev.commissioning_status = commissioning_status;
+      dev.commissioning_notes = commissioning_notes;
+      dev.commissioned_by = commissioned_by;
+      dev.commissioned_at = commissioned_at;
+      renderModbusTable();
+    }
+  } else if (protocol === "bacnet") {
+    dev = store.bacnet.find(d => String(d.device_id) === String(device_id));
+    if (dev) {
+      dev.commissioning_status = commissioning_status;
+      dev.commissioning_notes = commissioning_notes;
+      dev.commissioned_by = commissioned_by;
+      dev.commissioned_at = commissioned_at;
+      renderBACnetTable();
+    }
+  } else if (protocol === "knx") {
+    dev = store.knx.find(d => String(d.individual_address) === String(device_id));
+    if (dev) {
+      dev.commissioning_status = commissioning_status;
+      dev.commissioning_notes = commissioning_notes;
+      dev.commissioned_by = commissioned_by;
+      dev.commissioned_at = commissioned_at;
+      renderKNXTable();
+    }
+  } else if (protocol === "hosts") {
+    dev = store.hosts.find(d => String(d.ip) === String(device_id));
+    if (dev) {
+      dev.commissioning_status = commissioning_status;
+      dev.commissioning_notes = commissioning_notes;
+      dev.commissioned_by = commissioned_by;
+      dev.commissioned_at = commissioned_at;
+      renderHostsTable();
+    }
+  }
+  updateCommissioningSummaryBadge();
+}
+
+function updateCommissioningSummaryBadge() {
+  const badge = document.getElementById("comm-summary-badge");
+  if (!badge) return;
+  const allDevices = [
+    ...(store.modbus || []),
+    ...(store.bacnet || []),
+    ...(store.knx || []),
+    ...(store.hosts || [])
+  ];
+  const total = allDevices.length;
+  if (total === 0) {
+    badge.textContent = "Collaudo: 0/0 (0%)";
+    badge.title = "Avanzamento Collaudo Funzionale As-Built: nessun dispositivo";
+    return;
+  }
+  const done = allDevices.filter(d => d.commissioning_status && d.commissioning_status !== "pending").length;
+  const pct = Math.round((done / total) * 100);
+  badge.textContent = `Collaudo: ${done}/${total} (${pct}%)`;
+  badge.title = `Avanzamento Collaudo Funzionale As-Built: ${done} su ${total} dispositivi collaudati (${pct}%)`;
+}
+
 if (window.I18N) {
   window.I18N.init();
 }
 loadSavedScanParams();
 connectWS();
+
+// Inizializza audio, watchlist e stato collaudo
+if (window.BhamAudio) BhamAudio.updateUI();
+if (window.WatchListManager) WatchListManager.init();
+updateCommissioningSummaryBadge();
 
 // Inizializza monitoraggio periodico Safe Mode
 setInterval(fetchSafeModeStatus, 10000);

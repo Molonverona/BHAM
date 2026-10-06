@@ -69,7 +69,7 @@ if [ "$(uname -s)" = "Linux" ]; then
     read -p "Avvio con sudo? (s/n): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Ss]$ ]]; then
-      exec sudo .venv/bin/python3 bham.py "$@"
+      exec sudo -E DISPLAY="${DISPLAY:-:0.0}" XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}" .venv/bin/python3 bham.py "$@"
     fi
   else
     echo "  ✅  Permessi OK (dialout + cap_net_raw)"

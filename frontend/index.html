@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BHAM – BACS Help Auto Mapper v0.9.0</title>
-  <link rel="stylesheet" href="css/main.css?v=0.9.0" />
+  <title>BHAM – BACS Help Auto Mapper v1.0.0</title>
+  <link rel="stylesheet" href="css/main.css?v=1.0.0" />
 </head>
 <body>
 
-  <!-- ── Header ────────────────────────────────────────────────────────── -->
+  <!-- ── Top Cockpit Header (Clean & Focused) ─────────────────────────── -->
   <header class="bham-header">
     <div class="bham-header-left">
       <span class="bham-brand">
@@ -17,7 +17,7 @@
         </svg>
         BHAM
       </span>
-      <span class="bham-version-badge" data-i18n="brand_sub">BACS Help Auto Mapper v0.9.0</span>
+      <span class="bham-version-badge" data-i18n="brand_sub">v1.0.0</span>
       <span id="ws-pill" class="bham-ws-pill disconnected">
         <span class="bham-ws-dot"></span> <span id="ws-pill-text">Connecting…</span>
       </span>
@@ -26,81 +26,63 @@
       </button>
     </div>
 
-    <div class="bham-header-right">
-      <!-- Master Scan & Abort -->
-      <button id="btn-rapid-scan" onclick="startRapidScan()" class="bham-btn-scan-rapid" data-i18n-title="rapid_scan_title" title="Avvia scansione sequenziale RTU + BACnet + KNX + ARP">
-        <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon></svg>
-        <span data-i18n="rapid_scan">AVVIA SCAN RAPIDO</span>
+    <!-- Center Primary Actions: Wizard, Scan Rapido, Abort -->
+    <div class="bham-header-center">
+      <!-- Wizard dedicato -->
+      <button id="btn-header-wizard" onclick="openWizardModal()" class="bham-btn-wizard-master" title="Procedura Guidata Impianto (BACS Discovery Wizard)">
+        <svg class="bham-svg" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor"></polygon></svg>
+        <span>WIZARD IMPIANTO</span>
       </button>
 
-      <button onclick="abortScan()" class="bham-btn-abort-scan" data-i18n-title="abort_scan_title" title="Arresta immediatamente tutte le scansioni attive">
+      <!-- Scan Rapido (Apre pop-up dedicato con impostazioni) -->
+      <button id="btn-rapid-scan" onclick="openRapidScanModal()" class="bham-btn-scan-rapid" data-i18n-title="rapid_scan_title" title="Apri configuratore e avvia scansione sequenziale">
+        <svg class="bham-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+        <span data-i18n="rapid_scan">AVVIA SCANSIONE</span>
+      </button>
+
+      <!-- Abort Emergency -->
+      <button id="btn-abort-scan" onclick="abortScan()" class="bham-btn-abort-scan" data-i18n-title="abort_scan_title" title="Arresta immediatamente tutte le scansioni attive">
         <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-        <span data-i18n="abort_scan">ABORT SCAN</span>
+        <span data-i18n="abort_scan">ABORT</span>
+      </button>
+    </div>
+
+    <!-- Right Utilities (Console, Watch List, Mobile QR, Audio, Impostazioni e Guida) -->
+    <div class="bham-header-right">
+      <!-- Live Watch List -->
+      <button id="btn-open-watchlist" onclick="openWatchListModal()" class="bham-header-btn" title="Sorveglianza continua e polling registri live">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+        <span>Watch List</span>
+        <span id="watchlist-count" class="bham-header-badge hidden">0</span>
       </button>
 
-      <!-- Utility Actions -->
-      <button id="btn-field-tools" onclick="openToolsModal()" class="bham-header-btn" title="Banco Prova: Modbus Quick Commander &amp; BACnet Point Commander">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        <span data-i18n="btn_field_tools">Banco Prova</span>
+      <!-- Mobile QR LAN -->
+      <button id="btn-mobile-qr" onclick="openMobileQrModal()" class="bham-header-btn" title="Accesso Rapido Smartphone/Tablet LAN via QR Code">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <span>QR LAN</span>
       </button>
 
-      <button id="btn-wizard" onclick="openWizardModal()" class="bham-header-btn bham-header-btn-wizard" style="background:linear-gradient(135deg,#0284c7,#2563eb);color:#fff;border-color:#38bdf8;font-weight:600" title="Procedura Guidata Impianto (BACS Discovery Wizard)">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor"></polygon></svg>
-        <span data-i18n="btn_wizard">Wizard Impianto</span>
+      <!-- Audio Feedback Toggle -->
+      <button id="btn-audio-toggle" onclick="toggleAudioFeedback()" class="bham-header-btn" title="Attiva/Disattiva suoni di cantiere (Web Audio API)">
+        <span id="audio-icon">🔊</span>
       </button>
 
-      <button id="btn-safe-mode" onclick="openSafeModeModal()" class="bham-header-btn bham-btn-safe-mode" title="Blocco Sicurezza Manovre di Scrittura (Safe Mode)">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-        <span id="safe-mode-badge-text" data-i18n="safe_mode_disarmed_badge">🛡️ Safe Mode: ATTIVO</span>
-      </button>
-
-      <button id="btn-audit-journal" onclick="openAuditModal()" class="bham-header-btn" title="Registro Manovre Certificato (Crash-Proof WAL)">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        <span data-i18n="btn_audit_journal">Registro Manovre</span>
-      </button>
-
-      <button id="btn-profiles" onclick="openProfilesModal()" class="bham-header-btn" title="Libreria Profili Modbus &amp; Strutture Registri">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-        <span data-i18n="btn_profiles_lib">Profili Modbus</span>
-      </button>
-
+      <!-- Console Toggle -->
       <button id="btn-header-console" onclick="toggleConsole()" class="bham-header-btn" title="Mostra/Nascondi Console Diagnostica e Sniffer">
         <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-        <span data-i18n="btn_toggle_console">Console &amp; Sniffer</span>
+        <span data-i18n="btn_toggle_console">Console</span>
       </button>
 
-      <button onclick="openSaveModal()" class="bham-header-btn" title="Salva sessione di collaudo">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-        <span data-i18n="save">Salva</span>
-      </button>
-
-      <button onclick="openSettingsModal('hw')" class="bham-header-btn" title="Impostazioni hardware, motori, sessioni e mappe">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <!-- Unified Settings Button -->
+      <button id="btn-settings" onclick="openSettingsModal('hw')" class="bham-header-btn bham-header-btn-settings" title="Centro Impostazioni e Configurazione Avanzata">
+        <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         <span data-i18n="settings">Impostazioni</span>
       </button>
 
-      <button onclick="openHelpModal()" class="bham-header-btn" title="Manuale operativo e guida di collaudo">
+      <button id="btn-help" onclick="openHelpModal()" class="bham-header-btn" title="Manuale operativo e guida di collaudo">
         <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-        <span data-i18n="help">Guida &amp; Manuale</span>
+        <span data-i18n="help">Guida</span>
       </button>
-
-      <!-- Language Selector -->
-      <div class="bham-lang-group" title="Seleziona Lingua">
-        <button class="bham-lang-btn active" data-lang="it" onclick="setAppLanguage('it')">IT</button>
-        <button class="bham-lang-btn" data-lang="en" onclick="setAppLanguage('en')">EN</button>
-        <button class="bham-lang-btn" data-lang="es" onclick="setAppLanguage('es')">ES</button>
-      </div>
-
-      <!-- Theme Switcher -->
-      <button id="theme-toggle-btn" onclick="toggleTheme()" class="bham-theme-toggle-btn" title="Alterna modalità Chiara / Scura">
-        <svg id="theme-icon-dark" class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-        <span id="theme-text">Chiaro</span>
-      </button>
-
-      <a href="/docs" target="_blank" class="bham-header-btn" title="Documentazione interattiva OpenAPI/Swagger">
-        <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-        <span data-i18n="api_docs">API / Docs</span>
-      </a>
     </div>
   </header>
 
@@ -111,7 +93,7 @@
         <span id="telemetry-icon">
           <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </span>
-        <span id="telemetry-summary">Pronto – 0 dispositivi attivi su campo</span>
+        <span id="telemetry-summary" data-i18n="status_ready">Pronto – 0 dispositivi attivi su campo</span>
       </div>
       <div class="bham-telemetry-time">
         <span data-i18n="scan_duration">Tempo scansione:</span> <span id="telemetry-duration">0.0s</span>
@@ -136,342 +118,249 @@
     </div>
   </div>
 
-  <!-- ── Main 3-Column Industrial Cockpit Workspace ─────────────────────── -->
+  <!-- ── Main Workspace ────────────────────────────────────────────────── -->
   <main class="bham-workspace" id="bham-workspace">
-
-    <!-- ── Column 1: Hardware Protocol Rack ─────────────────────────────── -->
+    <!-- ── Column 1: Protocol Scope Deck & Line Monitor ──────────────────── -->
     <aside class="bham-col-sidebar">
 
       <!-- Hidden compat elements for app.js backwards-compatibility -->
       <span id="side-site-val" class="hidden"></span>
       <span id="side-rs485-val" class="hidden"></span>
       <span id="side-nic-val" class="hidden"></span>
-      <!-- Quick Scan Profile Selector -->
-      <div class="bham-rack-card" style="padding:8px 10px;margin-bottom:8px;border-left:3px solid var(--bham-modbus)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:700;color:var(--bham-text-main);display:flex;align-items:center;gap:5px">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span data-i18n="quick_profile_title">Profilo Impianto</span>
-          </span>
-          <span id="quick-profile-badge" class="mono text-dim" style="font-size:10px">HVAC Std</span>
-        </div>
-        <select id="quick-profile-select" class="bham-select" onchange="applyQuickProfile(this.value)" style="font-size:11px;height:28px">
-          <option value="hvac_std" data-i18n="profile_hvac">HVAC Standard (Modbus 9600 8N1 + BACnet)</option>
-          <option value="energy_meters" data-i18n="profile_energy">Contatori Energia (Modbus 19200 8E1)</option>
-          <option value="dali_gw" data-i18n="profile_dali">Gateway Luce / DALI (Modbus 19200 8N1)</option>
-          <option value="deep_slow" data-i18n="profile_slow">Ricerca Approfondita (Bus Lento, 1-247)</option>
-          <option value="custom" data-i18n="profile_custom">Personalizzato (Manuale)</option>
-        </select>
+
+      <div class="bham-deck-header">
+        <span class="bham-deck-title" data-i18n="deck_title">CANALI &amp; MONITOR BUS</span>
+        <span class="bham-deck-sub" data-i18n="deck_sub">Stato canali e scansione mirata</span>
       </div>
 
-      <!-- Rack Unit 1: Modbus RTU (RS485) -->
-      <div class="bham-rack-card" id="rack-rtu">
-        <div class="bham-rack-header">
-          <div class="bham-rack-title-wrap">
-            <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
-            <span class="bham-rack-title color-modbus" data-i18n="modbus_rtu_title">Modbus RTU (RS485)</span>
-          </div>
-          <div class="bham-rack-status-right">
-            <span id="led-rtu" class="bham-led led-idle" title="Stato Canale RTU"></span>
-            <span id="rack-count-rtu" class="bham-rack-badge" title="Dispositivi Modbus RTU scoperti">0 dev</span>
-          </div>
-        </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="slave_id_range">Slave ID Range</label>
-            <input id="rtu-id-range" type="text" value="1 - 247" class="bham-input" />
-          </div>
-          <div>
-            <label class="bham-label" data-i18n="timeout_ms">Timeout (ms)</label>
-            <input id="rtu-timeout" type="number" value="500" class="bham-input" />
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
-          <span class="mono text-dim" style="font-size:10.5px">Porta: <span id="rtu-quick-port" class="color-modbus" style="font-weight:600">ttyUSB0</span></span>
-          <button onclick="startRTU()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 18px">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-            <span data-i18n="btn_start_rtu">Avvia RTU</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Rack Unit 2: Modbus TCP -->
-      <div class="bham-rack-card" id="rack-tcp">
-        <div class="bham-rack-header">
-          <div class="bham-rack-title-wrap">
-            <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-            <span class="bham-rack-title color-modbus" data-i18n="modbus_tcp_title">Modbus TCP</span>
-          </div>
-          <div class="bham-rack-status-right">
-            <span id="led-tcp" class="bham-led led-idle" title="Stato Canale TCP"></span>
-            <span id="rack-count-tcp" class="bham-rack-badge" title="Dispositivi Modbus TCP scoperti">0 dev</span>
-          </div>
-        </div>
-        <div>
-          <label class="bham-label" data-i18n="tcp_hosts_label">Host (uno per riga o CIDR)</label>
-          <textarea id="tcp-hosts" class="bham-textarea" rows="2" placeholder="192.168.1.1&#10;192.168.1.10-50">192.168.1.1
-192.168.1.10-50</textarea>
-        </div>
-        <div class="bham-field-row" style="margin-top:2px">
-          <div>
-            <label class="bham-label" data-i18n="tcp_port_label">Porta TCP</label>
-            <input id="tcp-port" type="text" value="502" class="bham-input" placeholder="502, 503, 5020" oninput="updateTcpPortHint(this.value)" />
-          </div>
-          <div style="display:none"><span id="tcp-port-hint">Port: 502</span></div>
-        </div>
-        <div class="bham-preset-pills">
-          <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('502')">502 (Std)</button>
-          <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('503')">503</button>
-          <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('5020')">5020</button>
-          <button type="button" class="bham-btn-chip" onclick="setTcpPortPreset('502, 503, 5020')">Multi</button>
-        </div>
-        <button onclick="startTCP()" class="bham-btn-action bham-btn-tcp" style="margin-top:2px">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-          <span data-i18n="btn_start_tcp">Avvia TCP</span>
-        </button>
-      </div>
-
-      <!-- Rack Unit 3: BACnet/IP -->
-      <div class="bham-rack-card" id="rack-bacnet">
-        <div class="bham-rack-header">
-          <div class="bham-rack-title-wrap">
-            <svg class="bham-svg-sm color-bacnet" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line></svg>
-            <span class="bham-rack-title color-bacnet" data-i18n="bacnet_title">BACnet/IP</span>
-          </div>
-          <div class="bham-rack-status-right">
-            <span id="led-bacnet" class="bham-led led-idle" title="Stato Canale BACnet"></span>
-            <span id="rack-count-bacnet" class="bham-rack-badge badge-bacnet" title="Dispositivi BACnet scoperti">0 dev</span>
-          </div>
-        </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="iface_label">Interfaccia</label>
-            <input id="bacnet-iface" type="text" value="eth0" class="bham-input" />
-          </div>
-          <div>
-            <label class="bham-label" data-i18n="bacnet_port_label">Porta / Simbolo</label>
-            <input id="bacnet-port" type="text" value="BAC0" class="bham-input" placeholder="BAC0, 47808" oninput="updateBacnetPortHint(this.value)" />
-          </div>
-        </div>
-        <div style="display:none"><span id="bacnet-port-hint">BAC0</span></div>
-        <div class="bham-preset-pills">
-          <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC0')">BAC0 (47808)</button>
-          <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC1')">BAC1</button>
-          <button type="button" class="bham-btn-chip" onclick="setBacnetPortPreset('BAC0..BAC3')">BAC0..3</button>
-        </div>
-
-        <!-- BBMD / Foreign Device Router Traversal Drawer -->
-        <div class="bbmd-config-box">
-          <div class="bbmd-config-header" onclick="toggleBBMDBox()" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin-top:6px; margin-bottom:4px;">
-            <span style="font-size:11px; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
-              <svg class="bham-svg-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-              <span data-i18n="bbmd_traversal_title">Router BBMD (Foreign Dev)</span>
-            </span>
-            <span id="bbmd-toggle-chevron" style="font-size:10px; color:var(--text-muted)">▶</span>
-          </div>
-          <div id="bbmd-fields-drawer" style="display:none; padding:6px; background:rgba(0,0,0,0.15); border:1px solid #334155; border-radius:4px; margin-bottom:6px;">
-            <div class="bham-field-row" style="margin-bottom:4px;">
-              <div style="flex:2">
-                <label class="bham-label" data-i18n="bbmd_ip_label">IP Router BBMD</label>
-                <input id="bbmd-ip" type="text" class="bham-input" placeholder="es. 192.168.10.1" />
-              </div>
-              <div style="flex:1">
-                <label class="bham-label" data-i18n="bbmd_port_label">Porta</label>
-                <input id="bbmd-port" type="text" value="47808" class="bham-input" />
-              </div>
+      <!-- Protocol Channels List with Accordion Extension -->
+      <div class="bham-channel-list">
+        <!-- Channel: Modbus RTU (RS485) -->
+        <div class="bham-channel-card" id="rack-rtu">
+          <div class="bham-channel-header">
+            <div class="bham-channel-title-wrap">
+              <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line></svg>
+              <span class="bham-channel-name color-modbus" data-i18n="modbus_rtu_title">Modbus RTU (RS485)</span>
             </div>
-            <div class="bham-field-row" style="align-items:center; margin-bottom:4px;">
+            <div class="bham-channel-meta">
+              <span id="led-rtu" class="bham-led led-idle" title="Stato Canale RTU"></span>
+              <span id="rack-count-rtu" class="bham-proto-count" title="Dispositivi RTU">0 dev</span>
+              <button type="button" class="bham-channel-gear-btn" onclick="toggleChannelDrawer('rtu')" title="Personalizza parametri RTU (Slave ID, Timeout, Porta)">⚙</button>
+            </div>
+          </div>
+          <button type="button" class="bham-channel-btn bham-channel-btn-modbus" onclick="startRTU()" title="Avvia Scansione solo RTU">
+            <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span>Avvia RTU</span>
+          </button>
+          <!-- Accordion Extension: Parametri RTU -->
+          <div id="drawer-channel-rtu" class="bham-channel-drawer hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+              <span class="bham-drawer-lbl" style="margin:0">Slave ID Range</span>
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="openHelpTopic('modbus_rtu')">💡 Guida</button>
+            </div>
+            <input id="rtu-id-range" type="text" value="1 - 247" class="bham-input-sm" />
+            <span class="bham-drawer-lbl">Timeout (ms)</span>
+            <input id="rtu-timeout" type="number" value="500" class="bham-input-sm" />
+          </div>
+        </div>
+
+        <!-- Channel: Modbus TCP -->
+        <div class="bham-channel-card" id="rack-tcp">
+          <div class="bham-channel-header">
+            <div class="bham-channel-title-wrap">
+              <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              <span class="bham-channel-name color-modbus" data-i18n="modbus_tcp_title">Modbus TCP</span>
+            </div>
+            <div class="bham-channel-meta">
+              <span id="led-tcp" class="bham-led led-idle" title="Stato Canale TCP"></span>
+              <span id="rack-count-tcp" class="bham-proto-count" title="Dispositivi TCP">0 dev</span>
+              <button type="button" class="bham-channel-gear-btn" onclick="toggleChannelDrawer('tcp')" title="Personalizza parametri TCP (Host, Porta)">⚙</button>
+            </div>
+          </div>
+          <!-- Live Target Preview Indicator -->
+          <div id="tcp-target-preview" class="bham-channel-target-preview" onclick="toggleChannelDrawer('tcp')" title="Clicca per espandere/modificare i target IP">
+            <span>🎯 Target: <strong id="tcp-target-preview-val">192.168.1.1</strong> <span id="tcp-port-preview-val">:502</span></span>
+            <span id="tcp-hosts-count-badge" class="bham-preview-count">1 IP</span>
+          </div>
+          <button type="button" class="bham-channel-btn bham-channel-btn-modbus" onclick="startTCP()" title="Avvia Scansione solo TCP">
+            <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span>Avvia TCP</span>
+          </button>
+          <!-- Accordion Extension: Parametri TCP -->
+          <div id="drawer-channel-tcp" class="bham-channel-drawer hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+              <span class="bham-drawer-lbl" style="margin:0">Target Host / IP</span>
+              <span class="mono text-dim" style="font-size:9.5px">CIDR o .10-50</span>
+            </div>
+            <textarea id="tcp-hosts" class="bham-input-sm" rows="3" style="width:100%;font-family:var(--font-mono, monospace);font-size:11px;resize:vertical;padding:4px 6px" placeholder="192.168.1.1&#10;192.168.1.0/24&#10;192.168.1.10-50" oninput="syncTcpHostsFromInput(this.value)">192.168.1.1</textarea>
+            
+            <div style="display:flex;gap:4px;margin:4px 0 6px 0;flex-wrap:wrap">
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="setTcpHostPreset('192.168.1.0/24')">/24</button>
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="setTcpHostPreset('192.168.1.10-50')">.10-50</button>
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="setTcpHostPreset('127.0.0.1')">127.0.0.1</button>
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="openHelpTopic('modbus_tcp')">💡 Guida</button>
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="openSettingsTab('scan')">Altro ⚙</button>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center">
               <div style="flex:1">
-                <label class="bham-label" data-i18n="bbmd_ttl_label">TTL Registrazione (s)</label>
-                <input id="bbmd-ttl" type="number" value="60" min="10" max="3600" class="bham-input" />
+                <span class="bham-drawer-lbl">Porta TCP</span>
+                <input id="tcp-port" type="text" value="502" class="bham-input-sm" oninput="syncTcpPortFromInput(this.value)" />
               </div>
-              <div style="flex:1; display:flex; align-items:flex-end;">
-                <button type="button" id="btn-read-bbmd" onclick="openBBMDModal()" class="bham-btn-chip" style="width:100%; height:26px; justify-content:center; gap:4px; margin-top:14px;" title="Interroga tabelle BDT/FDT">
-                  <svg class="bham-svg-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                  <span data-i18n="btn_inspect_bbmd">Tabelle BDT/FDT</span>
-                </button>
+              <div style="display:flex;gap:4px;align-self:flex-end;padding-bottom:1px">
+                <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:2px 5px" onclick="setTcpPortPreset('502')">502</button>
+                <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:2px 5px" onclick="setTcpPortPreset('5020')">5020</button>
               </div>
             </div>
           </div>
         </div>
 
-        <button onclick="startBACnet()" class="bham-btn-action bham-btn-bacnet" style="margin-top:2px">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-          <span data-i18n="btn_start_bacnet">Who-Is Broadcast</span>
-        </button>
-      </div>
-
-      <!-- Rack Unit 4: KNXnet/IP -->
-      <div class="bham-rack-card" id="rack-knx">
-        <div class="bham-rack-header">
-          <div class="bham-rack-title-wrap">
-            <svg class="bham-svg-sm color-knx" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            <span class="bham-rack-title color-knx" data-i18n="knx_title">KNXnet/IP</span>
+        <!-- Channel: BACnet/IP -->
+        <div class="bham-channel-card" id="rack-bacnet">
+          <div class="bham-channel-header">
+            <div class="bham-channel-title-wrap">
+              <svg class="bham-svg-sm color-bacnet" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line></svg>
+              <span class="bham-channel-name color-bacnet" data-i18n="bacnet_title">BACnet/IP</span>
+            </div>
+            <div class="bham-channel-meta">
+              <span id="led-bacnet" class="bham-led led-idle" title="Stato Canale BACnet"></span>
+              <span id="rack-count-bacnet" class="bham-proto-count badge-bacnet" title="Dispositivi BACnet">0 dev</span>
+              <button type="button" class="bham-channel-gear-btn" onclick="toggleChannelDrawer('bacnet')" title="Personalizza parametri BACnet (Porta, Interfaccia)">⚙</button>
+            </div>
           </div>
-          <div class="bham-rack-status-right">
-            <span id="led-knx" class="bham-led led-idle" title="Stato Canale KNX"></span>
-            <span id="rack-count-knx" class="bham-rack-badge badge-knx" title="Dispositivi KNX scoperti">0 dev</span>
-          </div>
-        </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="iface_label">Interfaccia</label>
-            <input id="knx-iface" type="text" value="eth0" class="bham-input" />
-          </div>
-          <div>
-            <label class="bham-label" data-i18n="udp_port_label">Porta UDP</label>
-            <input id="knx-port" type="text" value="3671" class="bham-input" placeholder="3671" oninput="updateKnxPortHint(this.value)" />
-          </div>
-        </div>
-        <div style="display:none"><span id="knx-port-hint">:3671</span></div>
-        <div class="bham-preset-pills">
-          <button type="button" class="bham-btn-chip" onclick="setKnxPortPreset('3671')">3671 (Std)</button>
-          <button type="button" class="bham-btn-chip" onclick="setKnxPortPreset('3672')">3672</button>
-        </div>
-        <button onclick="startKNX()" class="bham-btn-action bham-btn-knx" style="margin-top:2px">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-          <span data-i18n="btn_start_knx">Avvia KNX Discovery</span>
-        </button>
-      </div>
-
-      <!-- Rack Unit 5: BACS IP Scanner & ARP -->
-      <div class="bham-rack-card" id="rack-arp">
-        <div class="bham-rack-header">
-          <div class="bham-rack-title-wrap">
-            <svg class="bham-svg-sm color-network" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-            <span class="bham-rack-title color-network" data-i18n="ip_scanner_title">BACS IP Scanner &amp; ARP</span>
-          </div>
-          <div class="bham-rack-status-right">
-            <span id="led-arp" class="bham-led led-idle" title="Stato Scanner IP"></span>
-            <span id="rack-count-arp" class="bham-rack-badge badge-network" title="Host IP rilevati">0 host</span>
-          </div>
-        </div>
-        <div>
-          <label class="bham-label" data-i18n="subnet_label">Subnet CIDR / Range IP</label>
-          <input id="ipscan-subnet" type="text" value="192.168.1.0/24" class="bham-input" placeholder="192.168.1.0/24 o 192.168.1.1-100" />
-        </div>
-        <div class="bham-field-row" style="margin-top:2px">
-          <div>
-            <label class="bham-label" data-i18n="lbl_bacs_ports">Porte BACS / IoT</label>
-            <input id="ipscan-ports" type="text" value="502,47808,3671,80,443,1911" class="bham-input" placeholder="502, 47808..." />
-          </div>
-          <div>
-            <label class="bham-label" data-i18n="lbl_concurrency">Concorrenza</label>
-            <input id="ipscan-concurrency" type="number" value="50" min="5" max="200" class="bham-input" />
-          </div>
-        </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button onclick="startIPScan()" class="bham-btn-action bham-btn-arp" style="flex:2">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-            <span data-i18n="btn_start_ip_scan">Avvia Scansione IP</span>
+          <button type="button" class="bham-channel-btn bham-channel-btn-bacnet" onclick="startBACnet()" title="Avvia Who-Is Broadcast">
+            <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span>Who-Is Broadcast</span>
           </button>
-          <button onclick="startARP()" class="bham-btn-action" style="flex:1;background:var(--bg-hover);color:var(--text-main);border:1px solid var(--border-color)" title="Sniffing ARP L2 passivo (ascolto promiscuo)">
-            <span>ARP L2</span>
-          </button>
+          <!-- Accordion Extension: Parametri BACnet -->
+          <div id="drawer-channel-bacnet" class="bham-channel-drawer hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+              <span class="bham-drawer-lbl" style="margin:0">Interfaccia &amp; Porta</span>
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="openHelpTopic('bacnet')">💡 Guida</button>
+            </div>
+            <span class="bham-drawer-lbl">Interfaccia</span>
+            <input id="bacnet-iface" type="text" value="eth0" class="bham-input-sm" />
+            <span class="bham-drawer-lbl">Porta UDP</span>
+            <input id="bacnet-port" type="text" value="BAC0" class="bham-input-sm" />
+          </div>
         </div>
-      </div>
 
-      <!-- Rack Unit 6: Sniffer Seriale Passivo (Zero-TX) -->
-      <div class="bham-rack-card" id="card-serial-sniff">
-        <div class="bham-rack-header">
-          <div class="bham-rack-title-wrap">
-            <svg class="bham-svg-sm color-sniff" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
-            <span class="bham-rack-title color-sniff" data-i18n="serial_sniff_title">Sniffer Passivo RS485</span>
+        <!-- Channel: KNXnet/IP -->
+        <div class="bham-channel-card" id="rack-knx">
+          <div class="bham-channel-header">
+            <div class="bham-channel-title-wrap">
+              <svg class="bham-svg-sm color-knx" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+              <span class="bham-channel-name color-knx" data-i18n="knx_title">KNXnet/IP</span>
+            </div>
+            <div class="bham-channel-meta">
+              <span id="led-knx" class="bham-led led-idle" title="Stato Canale KNX"></span>
+              <span id="rack-count-knx" class="bham-proto-count badge-knx" title="Dispositivi KNX">0 dev</span>
+              <button type="button" class="bham-channel-gear-btn" onclick="toggleChannelDrawer('knx')" title="Personalizza parametri KNX (Multicast IP, Porta)">⚙</button>
+            </div>
           </div>
-          <div class="bham-rack-status-right">
-            <span id="led-sniff" class="bham-led led-idle" title="Stato Sniffer Seriale"></span>
-            <span id="rack-count-sniff" class="bham-rack-badge badge-sniff" title="Frame seriali intercettati">0 frame</span>
-          </div>
-        </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="protocol_label">Protocollo</label>
-            <select id="serial-sniff-proto" class="bham-select">
-              <option value="auto" data-i18n="opt_proto_auto">Auto-Detect</option>
-              <option value="modbus_rtu">Modbus RTU</option>
-              <option value="bacnet_mstp">BACnet MS-TP</option>
-            </select>
-          </div>
-          <div>
-            <label class="bham-label" data-i18n="baud_label">Baudrate</label>
-            <select id="serial-sniff-baud" class="bham-select">
-              <option value="0" data-i18n="opt_baud_auto">Auto-Baud</option>
-              <option value="9600">9600</option>
-              <option value="19200">19200</option>
-              <option value="38400">38400</option>
-              <option value="57600">57600</option>
-              <option value="76800">76800 (MS-TP)</option>
-              <option value="115200">115200</option>
-            </select>
-          </div>
-        </div>
-        <div class="bham-field-row" style="margin-top:2px">
-          <div>
-            <label class="bham-label" data-i18n="parity_label">Parità</label>
-            <select id="serial-sniff-parity" class="bham-select">
-              <option value="auto" data-i18n="opt_parity_auto">Auto</option>
-              <option value="N">None (N)</option>
-              <option value="E">Even (E)</option>
-              <option value="O">Odd (O)</option>
-            </select>
-          </div>
-          <div>
-            <label class="bham-label" data-i18n="duration_label">Durata</label>
-            <select id="serial-sniff-dur" class="bham-select">
-              <option value="15">15 sec</option>
-              <option value="30" selected>30 sec</option>
-              <option value="60">60 sec</option>
-              <option value="0" data-i18n="opt_dur_continuous">Continuo (∞)</option>
-            </select>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button onclick="startSerialSniff()" class="bham-btn-action bham-btn-sniff" style="flex:1">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-            <span data-i18n="btn_start_sniff">Avvia Ascolto</span>
+          <button type="button" class="bham-channel-btn bham-channel-btn-knx" onclick="startKNX()" title="Avvia KNX Discovery">
+            <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span>KNX Discovery</span>
           </button>
-          <button onclick="stopSerialSniff()" class="bham-btn-action bham-btn-abort" style="width:38px;flex-shrink:0;padding:0" title="Arresta ascolto">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" ry="2" fill="currentColor"></rect></svg>
-          </button>
+          <!-- Accordion Extension: Parametri KNX -->
+          <div id="drawer-channel-knx" class="bham-channel-drawer hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+              <span class="bham-drawer-lbl" style="margin:0">Interfaccia &amp; Multicast</span>
+              <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:1px 5px" onclick="openHelpTopic('knx')">💡 Guida</button>
+            </div>
+            <span class="bham-drawer-lbl">Interfaccia</span>
+            <input id="knx-iface" type="text" value="eth0" class="bham-input-sm" />
+            <span class="bham-drawer-lbl">Porta UDP</span>
+            <input id="knx-port" type="text" value="3671" class="bham-input-sm" />
+            <input id="knx-ip" type="hidden" value="224.0.23.12" />
+          </div>
         </div>
-        <button onclick="openConsoleTab('serial')" class="bham-btn-secondary" style="margin-top:5px;width:100%" title="Visualizza i frame RS485 catturati nell'inspector">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"></path></svg>
-          <span data-i18n="btn_open_inspector">🔍 Mostra Tabella Frame</span>
-        </button>
-      </div>
 
-      <!-- Rack Unit 7: FC43 Device ID (MEI) -->
-      <div class="bham-rack-card" id="rack-fc43">
-        <div class="bham-rack-header">
-          <div class="bham-rack-title-wrap">
-            <svg class="bham-svg-sm color-diag" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-            <span class="bham-rack-title color-diag" data-i18n="fc43_title">FC43 Device ID (MEI)</span>
+        <!-- Channel: Host ARP & IP -->
+        <div class="bham-channel-card" id="rack-arp">
+          <div class="bham-channel-header">
+            <div class="bham-channel-title-wrap">
+              <svg class="bham-svg-sm color-network" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path></svg>
+              <span class="bham-channel-name color-network" data-i18n="arp_title">Host ARP &amp; IP</span>
+            </div>
+            <div class="bham-channel-meta">
+              <span id="led-arp" class="bham-led led-idle" title="Stato Scanner IP"></span>
+              <span id="rack-count-arp" class="bham-proto-count badge-network" title="Host IP">0 host</span>
+              <button type="button" class="bham-channel-gear-btn" onclick="toggleChannelDrawer('arp')" title="Personalizza parametri ARP (Subnet, Durata)">⚙</button>
+            </div>
           </div>
-          <span id="led-fc43" class="bham-led led-idle" title="Stato Diagnostica FC43"></span>
+          <button type="button" class="bham-channel-btn bham-channel-btn-net" onclick="startIPScan()" title="Avvia Scansione IP">
+            <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span>Scansione ARP/IP</span>
+          </button>
+          <!-- Accordion Extension: Parametri ARP -->
+          <div id="drawer-channel-arp" class="bham-channel-drawer hidden">
+            <span class="bham-drawer-lbl">Subnet / IP Target</span>
+            <input id="ipscan-subnet" type="text" value="192.168.1.0/24" class="bham-input-sm" />
+            <span class="bham-drawer-lbl">Porte Scansione</span>
+            <input id="ipscan-ports" type="text" value="502,47808,3671,80,443,1911" class="bham-input-sm" />
+            <input id="arp-subnet" type="hidden" value="192.168.1.0/24" />
+            <input id="arp-iface" type="hidden" value="eth0" />
+            <input id="arp-dur" type="hidden" value="30" />
+            <input id="ipscan-concurrency" type="hidden" value="50" />
+          </div>
         </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="serial_port_label">Porta Seriale</label>
-            <input id="fc43-port" type="text" value="/dev/ttyUSB0" class="bham-input" />
+
+        <!-- Channel: Sniffer RS485 Passivo -->
+        <div class="bham-channel-card" id="card-serial-sniff">
+          <div class="bham-channel-header">
+            <div class="bham-channel-title-wrap">
+              <svg class="bham-svg-sm color-sniff" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"></path></svg>
+              <span class="bham-channel-name color-sniff" data-i18n="sniff_title">Sniffer RS485</span>
+            </div>
+            <div class="bham-channel-meta">
+              <span id="led-sniff" class="bham-led led-idle" title="Stato Sniffer"></span>
+              <span id="rack-count-sniff" class="bham-proto-count badge-sniff" title="Frame seriali">0 frm</span>
+              <button type="button" class="bham-channel-gear-btn" onclick="toggleChannelDrawer('sniff')" title="Personalizza parametri Sniffer">⚙</button>
+            </div>
           </div>
-          <div>
-            <label class="bham-label" data-i18n="slave_id_label">Slave ID</label>
-            <input id="fc43-id" type="number" value="1" min="1" max="247" class="bham-input" />
+          <button type="button" class="bham-channel-btn bham-channel-btn-sniff" onclick="startSerialSniff()" title="Avvia Ascolto Passivo">
+            <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span>Ascolto Passivo</span>
+          </button>
+          <!-- Accordion Extension: Parametri Sniffer -->
+          <div id="drawer-channel-sniff" class="bham-channel-drawer hidden">
+            <span class="bham-drawer-lbl">Durata Ascolto (s)</span>
+            <input id="sniffer-dur" type="number" value="15" class="bham-input-sm" />
           </div>
         </div>
-        <button onclick="runFC43()" class="bham-btn-action bham-btn-fc43" style="margin-top:2px">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
-          <span data-i18n="btn_run_fc43">Leggi FC43</span>
-        </button>
+
+        <!-- Channel: Diagnostica FC43 MEI -->
+        <div class="bham-channel-card" id="rack-fc43">
+          <div class="bham-channel-header">
+            <div class="bham-channel-title-wrap">
+              <svg class="bham-svg-sm color-diag" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect></svg>
+              <span class="bham-channel-name color-diag">Diagnostica FC43 MEI</span>
+            </div>
+            <div class="bham-channel-meta">
+              <span id="led-fc43" class="bham-led led-idle" title="Stato FC43"></span>
+              <button type="button" class="bham-channel-gear-btn" onclick="toggleChannelDrawer('fc43')" title="Personalizza Slave ID MEI">⚙</button>
+            </div>
+          </div>
+          <button type="button" class="bham-channel-btn" onclick="runFC43()" title="Leggi FC43 MEI">
+            <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+            <span>Leggi Device ID</span>
+          </button>
+          <!-- Accordion Extension: Parametri FC43 -->
+          <div id="drawer-channel-fc43" class="bham-channel-drawer hidden">
+            <span class="bham-drawer-lbl">Target Unit / Slave ID</span>
+            <input id="fc43-unit-id" type="number" value="1" class="bham-input-sm" />
+          </div>
+        </div>
       </div>
 
       <!-- Sidebar Utilities Footer -->
       <div class="bham-sidebar-footer">
-        <button onclick="openSettingsModal('maps')" class="bham-btn-secondary" title="Gestisci definizioni registri e mappe punti BACS Help">
-          <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-          <span data-i18n="btn_bacs_maps">Mappe BACS</span>
+        <button type="button" onclick="openSettingsModal('scan')" class="bham-btn-secondary" title="Configura parametri dettagliati dei protocolli">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span>Tutti i Parametri</span>
         </button>
-        <button onclick="clearState()" class="bham-btn-secondary" title="Svuota memoria e resetta i dispositivi rilevati">
+        <button type="button" onclick="clearState()" class="bham-btn-secondary" title="Svuota memoria e resetta i dispositivi rilevati">
           <svg class="bham-svg-sm" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           <span data-i18n="btn_clear_cache">Pulisci Cache</span>
         </button>
@@ -500,6 +389,7 @@
           <button class="bham-tab" data-filter="hosts" onclick="setProtocolFilter('hosts')">
             <span data-i18n="tab_hosts">ARP Hosts</span> (<span id="count-hosts">0</span>)
           </button>
+          <span id="comm-summary-badge" class="bham-comm-summary-badge" title="Avanzamento Collaudo Funzionale As-Built">Collaudo: 0/0 (0%)</span>
         </div>
 
         <!-- View Mode Switcher (Tabelle vs Mappa Topologica) -->
@@ -527,6 +417,10 @@
         </div>
 
         <div class="bham-export-group">
+          <button id="btn-field-tools" onclick="openToolsModal()" class="bham-btn-chip" title="Banco Prova: Modbus &amp; BACnet Point Commander">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>Banco Prova</span>
+          </button>
           <button id="btn-session-diff" onclick="openDiffModal()" class="bham-btn-diff" title="Confronta impianto con una sessione salvata (Prima vs Dopo)">
             <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path></svg>
             <span data-i18n="btn_diff">Diff Impianto</span>
@@ -535,6 +429,18 @@
             <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
             <span data-i18n="export_csv">CSV</span>
           </button>
+          <!-- Tag BMS Export Dropdown -->
+          <div class="bham-export-dropdown-wrap" style="position:relative;display:inline-block">
+            <button id="btn-export-tags-scada" onclick="toggleTagsExportMenu()" class="bham-btn-export" title="Esporta Tag List d'Impianto per SCADA o Niagara 4">
+              <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Tag BMS ▾</span>
+            </button>
+            <div id="tags-export-menu" class="hidden" style="position:absolute;top:100%;right:0;z-index:90;background:var(--bham-bg-surface-elevated);border:1px solid var(--bham-border);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,0.15);padding:4px;min-width:180px;display:flex;flex-direction:column;gap:2px">
+              <a href="/api/v1/export/tags?format=niagara_csv" target="_blank" class="bham-menu-item" style="padding:6px 10px;font-size:11px;text-decoration:none;color:var(--bham-text-main);border-radius:4px">🏷️ Tridium Niagara 4 (CSV)</a>
+              <a href="/api/v1/export/tags?format=standard_csv" target="_blank" class="bham-menu-item" style="padding:6px 10px;font-size:11px;text-decoration:none;color:var(--bham-text-main);border-radius:4px">📊 SCADA Standard (CSV)</a>
+              <a href="/api/v1/export/tags?format=json" target="_blank" class="bham-menu-item" style="padding:6px 10px;font-size:11px;text-decoration:none;color:var(--bham-text-main);border-radius:4px">🌐 Tag Dictionary (JSON)</a>
+            </div>
+          </div>
           <a href="/api/v1/report/excel" target="_blank" class="bham-btn-export" title="Scarica cartella Excel multi-scheda">
             <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span data-i18n="export_excel">Excel</span>
@@ -563,6 +469,40 @@
           <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon></svg>
           <span>Avvia Scansione Rapida (Tutti i Protocolli)</span>
         </button>
+
+        <!-- Smart Field Tips Box (Collapsible / Non-invasive) -->
+        <div id="empty-tips-box" class="bham-empty-tips-box">
+          <div class="bham-empty-tips-toggle" onclick="toggleEmptyTips()">
+            <span style="display:flex;align-items:center;gap:6px">
+              <span>💡</span>
+              <strong>Guida di Cantiere: Cosa verificare se la scansione non rileva dispositivi?</strong>
+            </span>
+            <span id="empty-tips-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼ Espandi 4 verifiche</span>
+          </div>
+          <div id="empty-tips-content" class="bham-empty-tips-content hidden">
+            <div class="bham-empty-tip-card">
+              <span class="color-modbus" style="font-weight:700;white-space:nowrap">Modbus RTU:</span>
+              <div>Verifica polarità fili A/B (prova a invertirli temporaneamente), assicurati che la resistenza da 120Ω sia presente ai capi del bus e controlla se i contatori richiedono parità Even (8E1).</div>
+            </div>
+            <div class="bham-empty-tip-card">
+              <span class="color-modbus" style="font-weight:700;white-space:nowrap">Modbus TCP:</span>
+              <div>Verifica che l'IP sia raggiungibile e controlla la porta: molti gateway Ethernet (es. Moxa, Seneca) rispondono sulla porta 5020 o 4001 invece che sullo standard 502.</div>
+            </div>
+            <div class="bham-empty-tip-card">
+              <span class="color-bacnet" style="font-weight:700;white-space:nowrap">BACnet/IP:</span>
+              <div>I broadcast UDP 47808 (BAC0) sono spesso bloccati dai firewall software di Windows/Linux o non attraversano router L3; in quel caso imposta l'IP del BBMD Foreign Device.</div>
+            </div>
+            <div class="bham-empty-tip-card">
+              <span class="color-knx" style="font-weight:700;white-space:nowrap">KNXnet/IP:</span>
+              <div>La ricerca avviene in multicast su 224.0.23.12:3671; verifica che gli switch gestiti della rete abbiano l'IGMP Snooping attivo o consentano il traffico multicast non vincolato.</div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:2px">
+              <button type="button" class="bham-btn-chip" style="font-size:10.5px;padding:3px 8px" onclick="openHelpTopic('troubleshoot')">
+                📚 Apri Assistente di Cantiere Completo ↗
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Modbus Table Card -->
@@ -584,6 +524,7 @@
                 <th style="width:45px" data-i18n="th_latency">MS</th>
                 <th data-i18n="th_vendor_model">VENDOR / MODELLO</th>
                 <th style="width:65px" data-i18n="th_status">STATO</th>
+                <th style="width:85px">COLLAUDO</th>
                 <th style="width:65px" data-i18n="th_actions">AZIONI</th>
               </tr>
             </thead>
@@ -611,6 +552,7 @@
                 <th data-i18n="th_model">MODELLO</th>
                 <th style="width:75px" data-i18n="th_fw_rev">REV FW</th>
                 <th style="width:80px" data-i18n="th_obj_count">OGGETTI</th>
+                <th style="width:85px">COLLAUDO</th>
                 <th style="width:95px" data-i18n="th_actions">AZIONI</th>
               </tr>
             </thead>
@@ -638,6 +580,7 @@
                 <th data-i18n="th_serial">NUMERO SERIE</th>
                 <th>MAC ADDRESS</th>
                 <th style="width:65px" data-i18n="th_medium">MEDIUM</th>
+                <th style="width:85px">COLLAUDO</th>
               </tr>
             </thead>
             <tbody id="knx-table"></tbody>
@@ -664,6 +607,7 @@
                 <th data-i18n="th_hostname">HOSTNAME / NETBIOS</th>
                 <th data-i18n="th_bacs_services">SERVIZI BACS &amp; PORTE</th>
                 <th style="width:75px" data-i18n="th_latency">LATENZA</th>
+                <th style="width:85px">COLLAUDO</th>
                 <th style="width:90px">AZIONI</th>
               </tr>
             </thead>
@@ -887,56 +831,157 @@
     </div>
   </div>
 
+    <!-- ── Modal: Parametri Scansione Rapida (Pop-up dedicato) ─────────────── -->
+  <div id="modal-rapid-scan" class="bham-overlay hidden">
+    <div class="bham-modal" style="max-width:560px;width:92vw">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--bham-border)">
+        <h2 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:8px;font-size:15px;margin:0">
+          <svg class="bham-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span>Scansione Rapida d'Impianto</span>
+        </h2>
+        <button type="button" onclick="closeRapidScanModal()" class="bham-header-btn">✕</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--bham-text-dim);margin:8px 0 14px 0">
+        Seleziona il profilo di cantiere e i protocolli da scansionare contemporaneamente.
+      </p>
+
+      <!-- Profilo Impianto -->
+      <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:12px;background:var(--bham-bg-surface-elevated);margin-bottom:12px">
+        <label class="bham-label" style="margin-bottom:5px" data-i18n="quick_profile_title">Profilo Impianto</label>
+        <select id="quick-profile-select" class="bham-select" onchange="applyQuickProfile(this.value)">
+          <option value="hvac_std" data-i18n="profile_hvac">HVAC Standard (Modbus 9600 8N1 + BACnet 47808)</option>
+          <option value="energy_meters" data-i18n="profile_energy">Contatori Energia (Modbus 19200 8E1)</option>
+          <option value="dali_gw" data-i18n="profile_dali">Gateway Luce / DALI (Modbus 19200 8N1)</option>
+          <option value="deep_slow" data-i18n="profile_slow">Ricerca Approfondita (Bus Lento, 1-247)</option>
+          <option value="custom" data-i18n="profile_custom">Personalizzato (Manuale)</option>
+        </select>
+        <span id="quick-profile-badge" class="hidden">HVAC Std</span>
+        <small style="color:var(--bham-text-dim);font-size:10.5px;display:block;margin-top:4px">
+          Configura automaticamente baudrate seriale, timeout e porte secondo il tipo di impianto.
+        </small>
+      </div>
+
+      <!-- Protocolli da Scansionare -->
+      <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:12px;background:var(--bham-bg-surface-elevated);margin-bottom:14px">
+        <span class="bham-label" style="margin-bottom:8px;display:block">Protocolli Inclusi nella Scansione</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600">
+            <input type="checkbox" id="scan-inc-rtu" checked style="accent-color:#0284c7" />
+            <span>Modbus RTU (RS485)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600">
+            <input type="checkbox" id="scan-inc-tcp" checked style="accent-color:#0284c7" onchange="toggleRapidTcpSection()" />
+            <span>Modbus TCP</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600">
+            <input type="checkbox" id="scan-inc-bacnet" checked style="accent-color:#a855f7" />
+            <span>BACnet/IP (Who-Is)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600">
+            <input type="checkbox" id="scan-inc-knx" checked style="accent-color:#f97316" />
+            <span>KNXnet/IP (Multicast)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:600">
+            <input type="checkbox" id="scan-inc-arp" checked style="accent-color:#10b981" />
+            <span>Host ARP &amp; IP LAN</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Configurazione Rapida Modbus TCP -->
+      <div id="rapid-tcp-config-box" style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:10px 12px;background:var(--bham-bg-surface-elevated);margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <label class="bham-label" style="margin:0;color:var(--bham-modbus);font-weight:700">
+            <span>🎯 Target IP Modbus TCP</span>
+          </label>
+          <span id="rapid-tcp-count-badge" class="bham-proto-count" style="font-size:10px">1 IP stimati</span>
+        </div>
+        <textarea id="rapid-tcp-hosts" class="bham-input-sm" rows="2" style="width:100%;font-family:var(--font-mono, monospace);font-size:11px;resize:vertical;padding:4px 6px" placeholder="192.168.1.1&#10;192.168.1.0/24&#10;192.168.1.10-50" oninput="syncTcpHostsFromInput(this.value)">192.168.1.1</textarea>
+        
+        <div style="display:flex;gap:6px;align-items:center;justify-content:space-between;margin-top:6px;flex-wrap:wrap">
+          <div style="display:flex;gap:4px;align-items:center">
+            <span style="font-size:10px;color:var(--bham-text-dim)">Preset:</span>
+            <button type="button" class="bham-btn-chip" style="font-size:10px;padding:1px 6px" onclick="setTcpHostPreset('192.168.1.0/24')">192.168.1.0/24</button>
+            <button type="button" class="bham-btn-chip" style="font-size:10px;padding:1px 6px" onclick="setTcpHostPreset('192.168.1.10-50')">.10-50</button>
+            <button type="button" class="bham-btn-chip" style="font-size:10px;padding:1px 6px" onclick="setTcpHostPreset('127.0.0.1')">127.0.0.1</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:10px;color:var(--bham-text-dim)">Porta:</span>
+            <input id="rapid-tcp-port" type="text" value="502" class="bham-input-sm" style="width:65px;height:24px;font-size:11px;text-align:center" oninput="syncTcpPortFromInput(this.value)" />
+          </div>
+        </div>
+        <small style="color:var(--bham-text-dim);font-size:10px;display:block;margin-top:4px">
+          Supporta subnet (/24), range compatti (.10-50) o IP singoli. Separati da riga o virgola.
+        </small>
+      </div>
+
+      <!-- Azioni Modal -->
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px">
+        <button type="button" onclick="closeRapidScanModal()" class="bham-btn-secondary" style="height:38px;padding:0 16px">Annulla</button>
+        <button type="button" onclick="executeRapidScanFromModal()" class="bham-btn-primary" style="height:38px;padding:0 20px;font-weight:700">
+          <svg class="bham-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon></svg>
+          <span>Avvia Scansione Ora</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Modal 1: Unified Settings Center ───────────────────────────────── -->
   <div id="settings-overlay" class="bham-overlay hidden">
-    <div class="bham-modal" style="max-width:720px">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <h1 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:7px">
-          <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          <span data-i18n="settings_title">Centro Impostazioni &amp; Configurazione</span>
-        </h1>
-        <button onclick="closeSettingsModal()" class="bham-header-btn">✕</button>
+    <div class="bham-modal bham-settings-modal-expanded">
+      <div class="bham-settings-header">
+        <div class="bham-settings-header-left">
+          <h2 class="bham-settings-title color-modbus">
+            <svg class="bham-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span data-i18n="settings_title">Centro Impostazioni &amp; Configurazione Avanzata</span>
+          </h2>
+          <p class="bham-settings-sub" data-i18n="settings_sub">Configurazione centralizzata hardware, parametri e timeout dei protocolli, cantieri, sicurezza e sistema.</p>
+        </div>
+        <button type="button" onclick="closeSettingsModal()" class="bham-header-btn" title="Chiudi Impostazioni">✕</button>
       </div>
-      <p style="font-size:11px;color:var(--bham-text-dim);margin:0" data-i18n="settings_sub">Gestione centralizzata hardware, motori di scansione, lingua, sessioni salvate e mappe.</p>
 
-      <!-- Settings Tabs Navigation -->
-      <div style="display:flex; height: 500px; border: 1px solid var(--bham-border); border-radius: var(--bham-radius); overflow: hidden; margin-top: 12px;">
-        <!-- Left Sidebar (Macro voci) -->
-        <div class="bham-settings-sidebar" style="width: 220px; background: var(--bham-bg-surface-elevated); border-right: 1px solid var(--bham-border); display: flex; flex-direction: column; padding: 8px 0; overflow-y:auto;">
-          <button id="tab-btn-hw" onclick="switchSettingsTab('hw')" class="bham-settings-nav-btn active">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span data-i18n="tab_hw">Adattatori & Porte</span>
+      <!-- Settings Layout -->
+      <div class="bham-settings-layout">
+        <!-- Left Sidebar Navigation -->
+        <div class="bham-settings-sidebar">
+          <button id="tab-btn-hw" type="button" onclick="switchSettingsTab('hw')" class="bham-settings-nav-btn active">
+            <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line></svg>
+            <span data-i18n="tab_hw">Adattatori &amp; Porte</span>
           </button>
-          <button id="tab-btn-scan" onclick="switchSettingsTab('scan')" class="bham-settings-nav-btn">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span data-i18n="tab_scan">Connettività & Scansione</span>
+          <button id="tab-btn-scan" type="button" onclick="switchSettingsTab('scan')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm color-network" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            <span data-i18n="tab_scan">Parametri Protocolli</span>
           </button>
-          <button id="tab-btn-appearance" onclick="switchSettingsTab('appearance')" class="bham-settings-nav-btn">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line></svg>
-            <span data-i18n="tab_appearance">Tema & Lingua</span>
-          </button>
-          <button id="tab-btn-sessions" onclick="switchSettingsTab('sessions')" class="bham-settings-nav-btn">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline></svg>
+          <button id="tab-btn-sessions" type="button" onclick="switchSettingsTab('sessions')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             <span data-i18n="tab_sessions">Sessioni Salvate</span>
           </button>
-          <button id="tab-btn-maps" onclick="switchSettingsTab('maps')" class="bham-settings-nav-btn">
-            <svg class="bham-svg-sm" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg>
+          <button id="tab-btn-security" type="button" onclick="switchSettingsTab('security')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm color-danger" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <span data-i18n="tab_security">Sicurezza &amp; Safe Mode</span>
+          </button>
+          <button id="tab-btn-appearance" type="button" onclick="switchSettingsTab('appearance')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <span data-i18n="tab_appearance">Tema &amp; Lingua</span>
+          </button>
+          <button id="tab-btn-maps" type="button" onclick="switchSettingsTab('maps')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm color-bacnet" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
             <span data-i18n="tab_maps">Mappe BACS Help</span>
           </button>
         </div>
-        
-        <!-- Right Content -->
-        <div class="bham-settings-content" style="flex: 1; padding: 18px; overflow-y: auto;">
+
+        <!-- Right Content Area -->
+        <div class="bham-settings-content">
 
       <!-- Tab 1: Hardware & Network -->
       <div id="panel-settings-hw" class="bham-tab-panel">
         <div>
-          <label class="bham-label" data-i18n="site_name_label">Nome Sito / Impianto</label>
+          <label class="bham-label" data-i18n="site_name_label">Nome Sito / Impianto Attivo</label>
           <input id="setup-site" type="text" placeholder="Cliente Rossi – Imp. 3" class="bham-input" />
         </div>
 
         <!-- Self-Test Interfacce Card -->
-        <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:10px 12px;background:var(--bham-bg-surface-elevated)">
+        <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:10px 12px;background:var(--bham-bg-surface-elevated);margin-top:8px">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div>
               <span style="font-weight:700;font-size:12px;color:var(--bham-text-main);display:flex;align-items:center;gap:6px">
@@ -953,7 +998,7 @@
         </div>
 
         <!-- Seriale -->
-        <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:12px;background:var(--bham-bg-surface-elevated)">
+        <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:12px;background:var(--bham-bg-surface-elevated);margin-top:8px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <span style="font-weight:600;font-size:12px;color:var(--bham-modbus)" data-i18n="rs485_box_title">Porta Seriale RS485</span>
             <button onclick="scanSerialPorts()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:26px;padding:0 10px;font-size:11px" data-i18n="btn_scan_ports">Scansiona Porte</button>
@@ -990,7 +1035,7 @@
         </div>
 
         <!-- Rete -->
-        <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:12px;background:var(--bham-bg-surface-elevated)">
+        <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:12px;background:var(--bham-bg-surface-elevated);margin-top:8px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <span style="font-weight:600;font-size:12px;color:var(--bham-bacnet)" data-i18n="net_box_title">Interfacce di Rete (NIC)</span>
             <button onclick="scanNetworkIfaces()" class="bham-btn-action bham-btn-bacnet" style="width:auto;height:26px;padding:0 10px;font-size:11px" data-i18n="btn_scan_nics">Scansiona NIC</button>
@@ -1030,101 +1075,477 @@
           </div>
         </div>
 
-        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px">
-          <button onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
-          <button onclick="confirmSetup()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 16px;height:32px" data-i18n="btn_apply_config">Applica Configurazione</button>
+        <div class="bham-settings-footer-bar">
+          <button type="button" onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
+          <button type="button" onclick="confirmSetup()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 16px;height:32px" data-i18n="btn_apply_config">Applica Configurazione</button>
         </div>
       </div>
 
-      <!-- Tab 2: Scan Parameters -->
+      <!-- Tab 2: Protocol Parameters & Guided Field Tuning -->
       <div id="panel-settings-scan" class="bham-tab-panel hidden">
-        <div style="margin-bottom:12px;background:var(--bham-bg-surface-elevated);border:1px solid var(--bham-border);border-radius:var(--bham-radius);padding:10px 12px">
-          <label class="bham-label" data-i18n="preset_profile_label" style="color:var(--bham-modbus);font-weight:700">Profilo Impianto Rapido</label>
-          <select id="cfg-scan-preset" class="bham-select" onchange="applyScanPreset(this.value)">
-            <option value="hvac_std" data-i18n="profile_hvac">HVAC Standard (Modbus 9600 8N1 + BACnet 47808)</option>
-            <option value="energy_meters" data-i18n="profile_energy">Contatori Energia (Modbus 19200 8E1)</option>
-            <option value="dali_gw" data-i18n="profile_dali">Gateway Luce / DALI (Modbus 19200 8N1)</option>
-            <option value="deep_slow" data-i18n="profile_slow">Ricerca Approfondita (Bus Lento, 1-247)</option>
-            <option value="custom" data-i18n="profile_custom">Personalizzato (Manuale)</option>
-          </select>
+        <!-- Archetipi Rapidi & Template Registri -->
+        <div class="bham-settings-card" style="margin-bottom:12px">
+          <div class="bham-settings-card-header">
+            <div>
+              <div class="bham-settings-card-title">
+                <span>🎯 Profili Impianto Rapidi (1-Click Presets)</span>
+              </div>
+              <p class="bham-settings-card-desc">Configurazione automatica suggerita per le tipologie d'impianto più comuni</p>
+            </div>
+            <button id="btn-profiles" type="button" onclick="openProfilesModal()" class="bham-btn-action" style="width:auto;height:28px;padding:0 12px;font-size:11px">
+              📚 Libreria Template Registri
+            </button>
+          </div>
+
+          <!-- Griglia Archetipi Impianto -->
+          <div class="bham-archetype-grid">
+            <button type="button" class="bham-archetype-btn active" data-archetype="hvac_std" onclick="selectScanArchetype('hvac_std')" title="Imposta profilo per impianti di climatizzazione, pompe e fan-coil">
+              <div class="bham-archetype-title">❄️ HVAC &amp; Pompe</div>
+              <div class="bham-archetype-desc">Centrale termica, fan-coil e regolatori climatici</div>
+              <span class="bham-archetype-tag">9600 8N1 • ID 1-32 • BAC0</span>
+            </button>
+            <button type="button" class="bham-archetype-btn" data-archetype="energy_meters" onclick="selectScanArchetype('energy_meters')" title="Imposta profilo per contatori di energia fiscale MID (Carlo Gavazzi, ABB, Schneider)">
+              <div class="bham-archetype-title">⚡ Contatori Energia (MID)</div>
+              <div class="bham-archetype-desc">Analizzatori di rete, contatori fiscali e power meters</div>
+              <span class="bham-archetype-tag">19200 8E1 (Even) • ID 1-64</span>
+            </button>
+            <button type="button" class="bham-archetype-btn" data-archetype="dali_gw" onclick="selectScanArchetype('dali_gw')" title="Imposta profilo per automazione luci DALI e KNXnet/IP">
+              <div class="bham-archetype-title">💡 Luce DALI &amp; KNX</div>
+              <div class="bham-archetype-desc">Gateway DALI, attuatori e sensori KNXnet/IP</div>
+              <span class="bham-archetype-tag">KNX 3671 • Modbus 19200</span>
+            </button>
+            <button type="button" class="bham-archetype-btn" data-archetype="deep_slow" onclick="selectScanArchetype('deep_slow')" title="Imposta ricerca lenta approfondita su tutti gli indirizzi 1-247">
+              <div class="bham-archetype-title">🔬 Scansione Approfondita</div>
+              <div class="bham-archetype-desc">Bus lento con ripetitori o parametri sconosciuti</div>
+              <span class="bham-archetype-tag">ID 1-247 • Timeout 800ms</span>
+            </button>
+          </div>
+
+          <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+            <label class="bham-label" style="margin-bottom:0;white-space:nowrap" data-i18n="preset_profile_label">Selettore Profilo:</label>
+            <select id="cfg-scan-preset" class="bham-select" style="flex:1" onchange="applyScanPreset(this.value)">
+              <option value="hvac_std" data-i18n="profile_hvac">HVAC Standard (Modbus 9600 8N1 + BACnet 47808)</option>
+              <option value="energy_meters" data-i18n="profile_energy">Contatori Energia (Modbus 19200 8E1)</option>
+              <option value="dali_gw" data-i18n="profile_dali">Gateway Luce / DALI (Modbus 19200 8N1)</option>
+              <option value="deep_slow" data-i18n="profile_slow">Ricerca Approfondita (Bus Lento, 1-247)</option>
+              <option value="custom" data-i18n="profile_custom">Personalizzato (Manuale)</option>
+            </select>
+          </div>
+
+          <!-- Card Profili Personalizzati d'Impianto -->
+          <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--bham-border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <div>
+                <strong style="font-size:11.5px;color:var(--bham-text-main)">🛠️ Profili Custom di Cantiere</strong>
+                <p style="font-size:10px;color:var(--bham-text-dim);margin:1px 0 0 0">Salva, esporta o condividi profili specifici per ciascun impianto o commessa.</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <button type="button" class="bham-btn-chip active" style="font-size:10.5px;padding:3px 8px" onclick="openSaveCustomProfileModal()">
+                  💾 Salva Come Profilo...
+                </button>
+                <button type="button" class="bham-btn-chip" style="font-size:10.5px;padding:3px 8px" onclick="exportCustomProfilesJSON()" title="Esporta tutti i profili custom in un file JSON">
+                  📤 Esporta JSON
+                </button>
+                <input type="file" id="import-profiles-input" accept=".json" style="display:none" onchange="importCustomProfilesFile(event)" />
+                <button type="button" class="bham-btn-chip" style="font-size:10.5px;padding:3px 8px" onclick="document.getElementById('import-profiles-input').click()" title="Importa profili da file JSON">
+                  📥 Importa JSON
+                </button>
+              </div>
+            </div>
+            <!-- Container Profili Custom -->
+            <div id="custom-profiles-container" class="bham-custom-profiles-grid"></div>
+          </div>
         </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="rtu_timeout_slow">Timeout Iniziale Modbus RTU (s)</label>
-            <input id="cfg-rtu-slow" type="number" step="0.05" value="0.50" class="bham-input" />
+
+        <!-- Section 1: Modbus RTU (RS485) -->
+        <div class="bham-settings-card" style="margin-bottom:12px">
+          <div class="bham-settings-card-header">
+            <div class="bham-settings-card-title" style="color:var(--bham-modbus)">
+              <span>🔵 1. Modbus RTU (RS485 Seriale)</span>
+            </div>
+            <span class="mono text-dim" style="font-size:10.5px">Porta attiva: <span id="rtu-quick-port" class="color-modbus" style="font-weight:600">ttyUSB0</span></span>
           </div>
+
+          <!-- Suggested Serial Parameters -->
           <div>
-            <label class="bham-label" data-i18n="rtu_timeout_fast">Fast Timeout dopo LOCK (s)</label>
-            <input id="cfg-rtu-fast" type="number" step="0.01" value="0.12" class="bham-input" />
+            <label class="bham-label">Parametri Seriale Suggeriti (Baudrate / Parità / Stop)</label>
+            <div id="chips-rtu-serial" class="bham-suggest-row">
+              <span class="bham-suggest-hint">Suggeriti:</span>
+              <button type="button" class="bham-btn-chip active" data-val="9600 8N1" onclick="setRtuSerialPreset(9600, 'N', 1)">9600 8N1 (Consigliato HVAC / Pompe)</button>
+              <button type="button" class="bham-btn-chip" data-val="19200 8E1" onclick="setRtuSerialPreset(19200, 'E', 1)">19200 8E1 (Consigliato Contatori MID)</button>
+              <button type="button" class="bham-btn-chip" data-val="19200 8N1" onclick="setRtuSerialPreset(19200, 'N', 1)">19200 8N1 (DALI Gateway)</button>
+              <button type="button" class="bham-btn-chip" data-val="38400 8N1" onclick="setRtuSerialPreset(38400, 'N', 1)">38400 8N1 (PLC Moderni)</button>
+            </div>
+          </div>
+
+          <!-- Slave ID Range & Timeout -->
+          <div class="bham-field-row" style="margin-top:6px">
+            <div>
+              <label class="bham-label" data-i18n="slave_id_range">Slave ID Range</label>
+              <input id="cfg-rtu-id-range" type="text" value="1 - 32" class="bham-input" />
+              <div id="chips-rtu-range" class="bham-suggest-row">
+                <span class="bham-suggest-hint">Suggeriti:</span>
+                <button type="button" class="bham-btn-chip active" data-val="1 - 32" onclick="setRtuRangePreset('1 - 32')">1 - 32 (Consigliato Rapido)</button>
+                <button type="button" class="bham-btn-chip" data-val="1 - 64" onclick="setRtuRangePreset('1 - 64')">1 - 64 (Contatori)</button>
+                <button type="button" class="bham-btn-chip" data-val="1 - 128" onclick="setRtuRangePreset('1 - 128')">1 - 128 (Medio)</button>
+                <button type="button" class="bham-btn-chip" data-val="1 - 247" onclick="setRtuRangePreset('1 - 247')">1 - 247 (Completo)</button>
+              </div>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="timeout_ms">Timeout Risposta (ms)</label>
+              <input id="cfg-rtu-timeout" type="number" value="400" class="bham-input" />
+              <div id="chips-rtu-timeout" class="bham-suggest-row">
+                <span class="bham-suggest-hint">Suggeriti:</span>
+                <button type="button" class="bham-btn-chip" data-val="250" onclick="setRtuTimeoutPreset(250)">250 ms (Veloce)</button>
+                <button type="button" class="bham-btn-chip active" data-val="400" onclick="setRtuTimeoutPreset(400)">400 ms (Consigliato)</button>
+                <button type="button" class="bham-btn-chip" data-val="800" onclick="setRtuTimeoutPreset(800)">800 ms (Bus Lento)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Accordatore RS485 Avanzato -->
+          <div class="bham-field-row" style="margin-top:8px">
+            <div>
+              <label class="bham-label" data-i18n="rtu_timeout_slow">Timeout Iniziale RS485 (s)</label>
+              <input id="cfg-rtu-slow" type="number" step="0.05" value="0.40" class="bham-input" />
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="rtu_timeout_fast">Fast Timeout dopo LOCK (s)</label>
+              <input id="cfg-rtu-fast" type="number" step="0.01" value="0.12" class="bham-input" />
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="spy_ids_label">Spy IDs Early Exit</label>
+              <input id="cfg-spy-ids" type="text" value="1, 2, 10" class="bham-input" />
+            </div>
+          </div>
+          <div id="chips-rtu-tuning" class="bham-suggest-row">
+            <span class="bham-suggest-hint">Accordatore:</span>
+            <button type="button" class="bham-btn-chip active" data-val="0.4/0.12" onclick="setRtuTuningPreset(0.40, 0.12, '1, 2, 10')">Bilanciato (0.4s / 0.12s)</button>
+            <button type="button" class="bham-btn-chip" data-val="0.25/0.08" onclick="setRtuTuningPreset(0.25, 0.08, '1, 2')">Aggressivo (0.25s / 0.08s)</button>
+            <button type="button" class="bham-btn-chip" data-val="0.8/0.25" onclick="setRtuTuningPreset(0.80, 0.25, '1, 2, 10, 20')">Conservativo (0.8s / 0.25s)</button>
+          </div>
+
+          <div class="bham-guide-box">
+            <span>💡</span>
+            <div><strong>Consiglio del Tecnico:</strong> Se non conosci gli indirizzi dei dispositivi sull'impianto, mantieni il range 1-32: eviterai lunghe attese per timeout su indirizzi vuoti. Il 90% delle centraline HVAC risponde a 9600 8N1 con ID bassi (1, 2, 3...). I contatori di energia fiscale (MID) impiegano tipicamente 19200 con parità Even (8E1).</div>
           </div>
         </div>
-        <div>
-          <label class="bham-label" data-i18n="spy_ids_label">Spy IDs per Early Exit (separati da virgola)</label>
-          <input id="cfg-spy-ids" type="text" value="1, 2, 10" class="bham-input" />
+
+        <!-- Section 2: Modbus TCP Tuning -->
+        <div class="bham-settings-card" style="margin-bottom:12px">
+          <div class="bham-settings-card-header">
+            <div class="bham-settings-card-title" style="color:var(--bham-modbus)">
+              <span>🔵 2. Modbus TCP &amp; Gateway Ethernet-RS485</span>
+            </div>
+            <span id="cfg-tcp-hosts-count" class="bham-proto-count" style="font-size:11px">1 IP</span>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label class="bham-label" style="margin:0" data-i18n="tcp_hosts_label">Host Target (uno per riga, CIDR o Range)</label>
+              <span class="mono text-dim" style="font-size:10.5px">Supporta: /24, .10-50, IP singoli</span>
+            </div>
+            <textarea id="cfg-tcp-hosts" class="bham-textarea" rows="2" placeholder="192.168.1.1&#10;192.168.1.0/24" oninput="syncTcpHostsFromInput(this.value)">192.168.1.1
+192.168.1.10-50</textarea>
+            <div id="chips-tcp-hosts" class="bham-suggest-row">
+              <span class="bham-suggest-hint">Host Suggeriti:</span>
+              <button type="button" class="bham-btn-chip" data-val="192.168.1.0/24" onclick="setTcpHostPreset('192.168.1.0/24')">192.168.1.0/24 (Subnet 1)</button>
+              <button type="button" class="bham-btn-chip" data-val="192.168.0.0/24" onclick="setTcpHostPreset('192.168.0.0/24')">192.168.0.0/24 (Subnet 0)</button>
+              <button type="button" class="bham-btn-chip" data-val="127.0.0.1" onclick="setTcpHostPreset('127.0.0.1')">127.0.0.1 (Loopback Locale)</button>
+              <button type="button" class="bham-btn-chip" data-val="10.0.0.0/24" onclick="setTcpHostPreset('10.0.0.0/24')">10.0.0.0/24 (Rete Impianto)</button>
+            </div>
+          </div>
+
+          <div class="bham-field-row" style="margin-top:8px">
+            <div style="flex:1">
+              <label class="bham-label" data-i18n="cfg_tcp_port_default">Porta Default Modbus TCP</label>
+              <input id="cfg-modbus-tcp-port" type="text" value="502" class="bham-input" placeholder="502, 503, 5020" oninput="syncTcpPortFromInput(this.value)" />
+              <div style="display:none"><span id="tcp-port-hint">Port: 502</span></div>
+              <div id="chips-tcp-port" class="bham-suggest-row">
+                <span class="bham-suggest-hint">Porte Suggerite:</span>
+                <button type="button" class="bham-btn-chip active" data-val="502" onclick="setTcpPortPreset('502')">502 (Consigliato: Standard IANA)</button>
+                <button type="button" class="bham-btn-chip" data-val="503" onclick="setTcpPortPreset('503')">503 (Porta Secondaria)</button>
+                <button type="button" class="bham-btn-chip" data-val="5020" onclick="setTcpPortPreset('5020')">5020 (Gateway Moxa / Seneca)</button>
+                <button type="button" class="bham-btn-chip" data-val="502, 503, 5020" onclick="setTcpPortPreset('502, 503, 5020')">Multi (502, 503, 5020)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bham-guide-box">
+            <span>💡</span>
+            <div><strong>Consiglio del Tecnico:</strong> La porta 502 è lo standard ufficiale Modbus TCP. Se sull'impianto è presente un convertitore RS485-Ethernet (come Moxa NPort o Seneca Z-KEY), verifica se è configurato in modalità Modbus Gateway (porta 502) oppure TCP Server / Real COM (spesso porte 5020, 4001 o 10001).</div>
+          </div>
         </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="knx_multicast_label">Gruppo Multicast KNX</label>
-            <input id="cfg-knx-multi" type="text" value="224.0.23.12" class="bham-input" />
+
+        <!-- Section 3: BACnet/IP Tuning -->
+        <div class="bham-settings-card" style="margin-bottom:12px">
+          <div class="bham-settings-card-header">
+            <div class="bham-settings-card-title" style="color:var(--bham-bacnet)">
+              <span>🟣 3. BACnet/IP (BMS &amp; Controllori HVAC)</span>
+            </div>
           </div>
-          <div>
-            <label class="bham-label" data-i18n="knx_timeout_label">Finestra di Ascolto KNX (s)</label>
-            <input id="cfg-knx-timeout" type="number" step="0.5" value="3.5" class="bham-input" />
+          <div class="bham-field-row">
+            <div>
+              <label class="bham-label" data-i18n="iface_label">Interfaccia di Rete</label>
+              <div style="display:flex;gap:6px">
+                <input id="cfg-bacnet-iface" type="text" value="eth0" class="bham-input" style="flex:1" />
+                <button type="button" class="bham-btn-chip" onclick="useActiveIfaceForProtocol('bacnet')" title="Imposta interfaccia attualmente attiva">Usa Attiva</button>
+              </div>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="cfg_bacnet_port_default">Porta BACnet/IP</label>
+              <input id="cfg-bacnet-port" type="text" value="BAC0" class="bham-input" placeholder="BAC0, 47808" oninput="updateBacnetPortHint(this.value)" />
+              <div style="display:none"><span id="bacnet-port-hint">BAC0</span></div>
+            </div>
+          </div>
+          <div id="chips-bacnet-port" class="bham-suggest-row">
+            <span class="bham-suggest-hint">Porta UDP Suggerita:</span>
+            <button type="button" class="bham-btn-chip active" data-val="BAC0" onclick="setBacnetPortPreset('BAC0')">BAC0 (UDP 47808 - Consigliato Standard)</button>
+            <button type="button" class="bham-btn-chip" data-val="BAC1" onclick="setBacnetPortPreset('BAC1')">BAC1 (UDP 47809 - Subnet 2)</button>
+            <button type="button" class="bham-btn-chip" data-val="BAC0..BAC3" onclick="setBacnetPortPreset('BAC0..BAC3')">BAC0..3 (47808-47811 Multi-Net)</button>
+          </div>
+
+          <!-- Router BBMD Traversal Drawer -->
+          <div class="bbmd-config-box" style="margin-top:8px">
+            <div class="bbmd-config-header" onclick="toggleBBMDBox()" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; font-weight:600; color:var(--bham-text-muted); display:flex; align-items:center; gap:4px;">
+                <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <span data-i18n="bbmd_traversal_title">Configurazione Router BBMD (Foreign Device)</span>
+              </span>
+              <span id="bbmd-toggle-chevron" style="font-size:10px; color:var(--bham-text-muted)">▶</span>
+            </div>
+            <div id="bbmd-fields-drawer" style="display:none; padding:8px; background:rgba(0,0,0,0.06); border:1px solid var(--bham-border); border-radius:4px; margin-top:6px;">
+              <div class="bham-field-row" style="margin-bottom:4px;">
+                <div style="flex:2">
+                  <label class="bham-label" data-i18n="bbmd_ip_label">IP Router BBMD</label>
+                  <input id="bbmd-ip" type="text" class="bham-input" placeholder="es. 192.168.10.1" />
+                </div>
+                <div style="flex:1">
+                  <label class="bham-label" data-i18n="bbmd_port_label">Porta</label>
+                  <input id="bbmd-port" type="text" value="47808" class="bham-input" />
+                </div>
+              </div>
+              <div class="bham-field-row" style="align-items:center; margin-bottom:4px;">
+                <div style="flex:1">
+                  <label class="bham-label" data-i18n="bbmd_ttl_label">TTL Registrazione (s)</label>
+                  <input id="bbmd-ttl" type="number" value="60" min="10" max="3600" class="bham-input" />
+                </div>
+                <div style="flex:1; display:flex; align-items:flex-end;">
+                  <button type="button" id="btn-read-bbmd" onclick="openBBMDModal()" class="bham-btn-chip" style="width:100%; height:26px; justify-content:center; gap:4px; margin-top:14px;" title="Interroga tabelle BDT/FDT">
+                    <svg class="bham-svg-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    <span data-i18n="btn_inspect_bbmd">Tabelle BDT/FDT</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bham-guide-box">
+            <span>💡</span>
+            <div><strong>Consiglio del Tecnico:</strong> BACnet/IP invia annunci broadcast 'Who-Is' su porta UDP 47808 (BAC0). I broadcast non superano i router di rete: se i controllori si trovano su un'altra VLAN o sottorete, inserisci l'IP del router BBMD dell'edificio per registrarti come Foreign Device.</div>
           </div>
         </div>
-        <div class="bham-field-row">
-          <div>
-            <label class="bham-label" data-i18n="cfg_tcp_port_default">Porta default Modbus TCP</label>
-            <input id="cfg-modbus-tcp-port" type="text" value="502" class="bham-input" placeholder="502" />
+
+        <!-- Section 4: KNXnet/IP Tuning -->
+        <div class="bham-settings-card" style="margin-bottom:12px">
+          <div class="bham-settings-card-header">
+            <div class="bham-settings-card-title" style="color:var(--bham-knx)">
+              <span>🟠 4. KNXnet/IP (Automazione Edificio &amp; DALI)</span>
+            </div>
           </div>
-          <div>
-            <label class="bham-label" data-i18n="cfg_bacnet_port_default">Porta default BACnet/IP</label>
-            <input id="cfg-bacnet-port" type="text" value="BAC0" class="bham-input" placeholder="BAC0" />
+          <div class="bham-field-row">
+            <div>
+              <label class="bham-label" data-i18n="iface_label">Interfaccia</label>
+              <div style="display:flex;gap:6px">
+                <input id="cfg-knx-iface" type="text" value="eth0" class="bham-input" style="flex:1" />
+                <button type="button" class="bham-btn-chip" onclick="useActiveIfaceForProtocol('knx')">Usa Attiva</button>
+              </div>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="cfg_knx_port_default">Porta KNXnet/IP</label>
+              <input id="cfg-knx-port" type="text" value="3671" class="bham-input" placeholder="3671" oninput="updateKnxPortHint(this.value)" />
+              <div style="display:none"><span id="knx-port-hint">:3671</span></div>
+            </div>
           </div>
-          <div>
-            <label class="bham-label" data-i18n="cfg_knx_port_default">Porta default KNXnet/IP</label>
-            <input id="cfg-knx-port" type="text" value="3671" class="bham-input" placeholder="3671" />
+
+          <div class="bham-field-row" style="margin-top:6px">
+            <div>
+              <label class="bham-label" data-i18n="knx_multicast_label">Gruppo Multicast KNX</label>
+              <input id="cfg-knx-multi" type="text" value="224.0.23.12" class="bham-input" />
+              <div id="chips-knx-port" class="bham-suggest-row">
+                <span class="bham-suggest-hint">Suggerito:</span>
+                <button type="button" class="bham-btn-chip active" data-val="3671" onclick="setKnxPortPreset('3671'); setKnxMulticastPreset('224.0.23.12')">224.0.23.12 : 3671 (Standard IANA KNX)</button>
+              </div>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="knx_timeout_label">Finestra di Ascolto KNX (s)</label>
+              <input id="cfg-knx-timeout" type="number" step="0.5" value="3.5" class="bham-input" />
+              <div id="chips-knx-timeout" class="bham-suggest-row">
+                <span class="bham-suggest-hint">Suggeriti:</span>
+                <button type="button" class="bham-btn-chip" data-val="2.0" onclick="setKnxTimeoutPreset(2.0)">2.0 s (Veloce)</button>
+                <button type="button" class="bham-btn-chip active" data-val="3.5" onclick="setKnxTimeoutPreset(3.5)">3.5 s (Consigliato)</button>
+                <button type="button" class="bham-btn-chip" data-val="5.0" onclick="setKnxTimeoutPreset(5.0)">5.0 s (Router Lenti)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bham-guide-box">
+            <span>💡</span>
+            <div><strong>Consiglio del Tecnico:</strong> La scoperta KNXnet/IP invia una Search Request al gruppo multicast 224.0.23.12:3671. Assicurati che gli switch o il punto di accesso Wi-Fi non blocchino il traffico IGMP / Multicast tra il tuo PC e il router KNX.</div>
           </div>
         </div>
-        <div>
-          <label class="bham-label" data-i18n="arp_duration_default">Durata default Sniffer ARP (s)</label>
-          <input id="cfg-arp-dur" type="number" value="30" class="bham-input" />
+
+        <!-- Section 5: BACS IP Scanner & ARP -->
+        <div class="bham-settings-card" style="margin-bottom:12px">
+          <div class="bham-settings-card-header">
+            <div class="bham-settings-card-title" style="color:var(--bham-network)">
+              <span>🟢 5. BACS Network Scanner &amp; ARP</span>
+            </div>
+          </div>
+          <div>
+            <label class="bham-label" data-i18n="subnet_label">Subnet CIDR / Range IP Target</label>
+            <input id="cfg-ipscan-subnet" type="text" value="192.168.1.0/24" class="bham-input" placeholder="192.168.1.0/24 o 192.168.1.1-100" />
+            <div id="chips-ipscan-subnet" class="bham-suggest-row">
+              <span class="bham-suggest-hint">Subnet Suggerite:</span>
+              <button type="button" class="bham-btn-chip active" data-val="192.168.1.0/24" onclick="setIpScannerSubnetPreset('192.168.1.0/24')">192.168.1.0/24</button>
+              <button type="button" class="bham-btn-chip" data-val="192.168.0.0/24" onclick="setIpScannerSubnetPreset('192.168.0.0/24')">192.168.0.0/24</button>
+              <button type="button" class="bham-btn-chip" data-val="10.0.0.0/24" onclick="setIpScannerSubnetPreset('10.0.0.0/24')">10.0.0.0/24</button>
+              <button type="button" class="bham-btn-chip" data-val="192.168.1.1-50" onclick="setIpScannerSubnetPreset('192.168.1.1-50')">Primi 50 IP (.1 - .50)</button>
+            </div>
+          </div>
+
+          <div style="margin-top:8px">
+            <label class="bham-label" data-i18n="lbl_bacs_ports">Porte BACS / IoT da Scansionare</label>
+            <input id="cfg-ipscan-ports" type="text" value="502,47808,3671,80,443" class="bham-input" placeholder="502, 47808, 3671..." />
+            <div id="chips-ipscan-ports" class="bham-suggest-row">
+              <span class="bham-suggest-hint">Profili Porte:</span>
+              <button type="button" class="bham-btn-chip" data-val="502,47808,3671" onclick="setIpScannerPortsPreset('502,47808,3671')">Solo BACS (502, 47808, 3671)</button>
+              <button type="button" class="bham-btn-chip active" data-val="502,47808,3671,80,443" onclick="setIpScannerPortsPreset('502,47808,3671,80,443')">BACS + Web BMS (+ 80, 443)</button>
+              <button type="button" class="bham-btn-chip" data-val="502,47808,3671,80,443,1911,4911,8080" onclick="setIpScannerPortsPreset('502,47808,3671,80,443,1911,4911,8080')">Tutte + Tridium Niagara (+ 1911, 4911)</button>
+            </div>
+          </div>
+
+          <div class="bham-field-row" style="margin-top:8px">
+            <div>
+              <label class="bham-label" data-i18n="lbl_concurrency">Concorrenza Socket</label>
+              <input id="cfg-ipscan-concurrency" type="number" value="50" min="5" max="200" class="bham-input" />
+              <div id="chips-ipscan-concurrency" class="bham-suggest-row">
+                <span class="bham-suggest-hint">Suggerita:</span>
+                <button type="button" class="bham-btn-chip" data-val="25" onclick="setIpScannerConcurrencyPreset(25)">25 (PLC Delicati)</button>
+                <button type="button" class="bham-btn-chip active" data-val="50" onclick="setIpScannerConcurrencyPreset(50)">50 (Consigliato Standard)</button>
+                <button type="button" class="bham-btn-chip" data-val="100" onclick="setIpScannerConcurrencyPreset(100)">100 (Reti Veloci)</button>
+              </div>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="arp_duration_default">Durata Default ARP (s)</label>
+              <input id="cfg-arp-dur" type="number" value="30" class="bham-input" />
+              <div id="chips-arp-dur" class="bham-suggest-row">
+                <span class="bham-suggest-hint">Suggerita:</span>
+                <button type="button" class="bham-btn-chip" data-val="15" onclick="setArpDurationPreset(15)">15 s (Rapido)</button>
+                <button type="button" class="bham-btn-chip active" data-val="30" onclick="setArpDurationPreset(30)">30 s (Consigliato)</button>
+                <button type="button" class="bham-btn-chip" data-val="60" onclick="setArpDurationPreset(60)">60 s (Approfondito)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bham-guide-box">
+            <span>💡</span>
+            <div><strong>Consiglio del Tecnico:</strong> Scansiona una sottorete /24 alla volta (254 host). Mantenere la concorrenza a 50 evita di sovraccaricare vecchi webserver di centraline o interfacce BMS dotate di microprocessori lenti.</div>
+          </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:6px">
-          <button onclick="saveScanParameters()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 16px;height:32px" data-i18n="btn_apply_config">Applica Configurazione</button>
+
+        <!-- Section 6: Sniffer Seriale & Diagnostica FC43 -->
+        <div class="bham-settings-card" style="margin-bottom:12px">
+          <div class="bham-settings-card-header">
+            <div class="bham-settings-card-title" style="color:var(--bham-sniff)">
+              <span>🔍 6. Sniffer Seriale Passivo (Zero-TX) &amp; MEI FC43</span>
+            </div>
+          </div>
+
+          <!-- Suggested Sniffer Presets -->
+          <div>
+            <label class="bham-label">Preset Ascolto Rapidi</label>
+            <div id="chips-sniffer" class="bham-suggest-row">
+              <span class="bham-suggest-hint">Suggeriti:</span>
+              <button type="button" class="bham-btn-chip active" data-val="auto_0" onclick="setSnifferPreset('auto', 0, 'auto', 30)">Auto-Detect Tutto (Zero-Config Consigliato)</button>
+              <button type="button" class="bham-btn-chip" data-val="modbus_rtu_9600" onclick="setSnifferPreset('modbus_rtu', 9600, 'N', 30)">Modbus RTU 9600 8N1 (30s)</button>
+              <button type="button" class="bham-btn-chip" data-val="modbus_rtu_19200" onclick="setSnifferPreset('modbus_rtu', 19200, 'E', 30)">Modbus RTU 19200 8E1 (30s)</button>
+              <button type="button" class="bham-btn-chip" data-val="bacnet_mstp_76800" onclick="setSnifferPreset('bacnet_mstp', 76800, 'N', 30)">BACnet MS-TP 76800 (30s)</button>
+            </div>
+          </div>
+
+          <div class="bham-field-row" style="margin-top:8px">
+            <div>
+              <label class="bham-label" data-i18n="protocol_label">Protocollo Sniffer</label>
+              <select id="serial-sniff-proto" class="bham-select">
+                <option value="auto" data-i18n="opt_proto_auto">Auto-Detect</option>
+                <option value="modbus_rtu">Modbus RTU</option>
+                <option value="bacnet_mstp">BACnet MS-TP</option>
+              </select>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="baud_label">Baudrate</label>
+              <select id="serial-sniff-baud" class="bham-select">
+                <option value="0" data-i18n="opt_baud_auto">Auto-Baud</option>
+                <option value="9600">9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="76800">76800 (MS-TP)</option>
+                <option value="115200">115200</option>
+              </select>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="parity_label">Parità</label>
+              <select id="serial-sniff-parity" class="bham-select">
+                <option value="auto" data-i18n="opt_parity_auto">Auto</option>
+                <option value="N">None (N)</option>
+                <option value="E">Even (E)</option>
+                <option value="O">Odd (O)</option>
+              </select>
+            </div>
+            <div>
+              <label class="bham-label" data-i18n="duration_label">Durata</label>
+              <select id="serial-sniff-dur" class="bham-select">
+                <option value="15">15 sec</option>
+                <option value="30" selected>30 sec</option>
+                <option value="60">60 sec</option>
+                <option value="0" data-i18n="opt_dur_continuous">Continuo (∞)</option>
+              </select>
+            </div>
+          </div>
+          <div class="bham-field-row" style="margin-top:8px">
+            <div>
+              <label class="bham-label">FC43 Device ID - Porta Seriale</label>
+              <input id="fc43-port" type="text" value="/dev/ttyUSB0" class="bham-input" />
+            </div>
+            <div>
+              <label class="bham-label">FC43 Device ID - Slave ID Target</label>
+              <input id="fc43-id" type="number" value="1" min="1" max="247" class="bham-input" />
+            </div>
+          </div>
+
+          <div class="bham-guide-box">
+            <span>💡</span>
+            <div><strong>Consiglio del Tecnico:</strong> Lo Sniffer Seriale ascolta il bus senza trasmettere alcun byte (Zero-TX), garantendo 100% sicurezza su impianti attivi. Se non conosci la velocità o parità del bus, lascia 'Auto-Detect' e 'Auto-Baud' per 30 secondi: BHAM rileverà automaticamente i telegrammi scambiati sul cavo RS485.</div>
+          </div>
+        </div>
+
+        <div class="bham-settings-footer-bar">
+          <button type="button" onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
+          <button type="button" onclick="saveScanParameters()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 20px;height:32px" data-i18n="btn_apply_config">💾 Salva &amp; Applica Parametri</button>
         </div>
       </div>
 
-      <!-- Tab 3: Appearance & Language -->
-      <div id="panel-settings-appearance" class="bham-tab-panel hidden">
-        <div>
-          <label class="bham-label" data-i18n="lang_selection_label">Lingua dell'Interfaccia</label>
-          <select id="setup-lang" class="bham-select" onchange="setAppLanguage(this.value)" style="margin-top:6px">
-            <option value="it">Italiano (IT)</option>
-            <option value="en">English (EN)</option>
-            <option value="es">Español (ES)</option>
-          </select>
-        </div>
-        <div style="margin-top:14px">
-          <label class="bham-label" data-i18n="theme_selection_label">Tema Grafico</label>
-          <select id="setup-theme" class="bham-select" onchange="setThemeMode(this.value)" style="margin-top:6px">
-            <option value="light">Light (Field High-Contrast)</option>
-            <option value="dark">Dark (Field Soft Slate)</option>
-          </select>
-        </div>
-        <div style="margin-top:14px">
-          <label class="bham-label" data-i18n="console_buffer_label">Buffer Retention Console (righe massime)</label>
-          <input id="cfg-console-buffer" type="number" value="600" class="bham-input" />
-        </div>
-      </div>
-
-      <!-- Tab 4: Saved Sessions Manager -->
+      <!-- Tab 3: Saved Sessions Manager -->
       <div id="panel-settings-sessions" class="bham-tab-panel hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="font-weight:600;font-size:12px;color:var(--bham-text-main)" data-i18n="saved_sessions_list_title">Archivio Sessioni di Collaudo</span>
-          <button onclick="refreshSavedSessionsList()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:26px;padding:0 10px;font-size:11px">Aggiorna Lista</button>
+          <span style="font-weight:600;font-size:12px;color:var(--bham-text-main)" data-i18n="saved_sessions_list_title">Archivio Cantieri &amp; Sessioni Salvate</span>
+          <div style="display:flex;gap:8px">
+            <button onclick="openSaveModal()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:28px;padding:0 12px;font-size:11px">Salva Sessione Attuale</button>
+            <button onclick="refreshSavedSessionsList()" class="bham-btn-secondary" style="height:28px;padding:0 10px;font-size:11px">Aggiorna Lista</button>
+          </div>
         </div>
-        <div style="max-height:280px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:var(--bham-radius)">
+        <div style="max-height:360px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:var(--bham-radius)">
           <table class="bham-sessions-table">
             <thead>
               <tr>
@@ -1139,22 +1560,187 @@
             </tbody>
           </table>
         </div>
+        <div class="bham-settings-footer-bar">
+          <button type="button" onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
+        </div>
       </div>
 
-      <!-- Tab 5: BACS Help Maps -->
+      <!-- Tab 4: Security & Safe Mode -->
+      <div id="panel-settings-security" class="bham-tab-panel hidden">
+        <div class="bham-settings-card">
+          <div class="bham-settings-card-header">
+            <div>
+              <span class="bham-settings-card-title color-danger">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Blocco Sicurezza Manovre (Safe Mode)</span>
+              </span>
+              <p class="bham-settings-card-desc">Protezione attiva contro scritture accidentali sui bus Modbus, BACnet e KNX</p>
+            </div>
+            <button id="btn-safe-mode" type="button" onclick="openSafeModeModal()" class="bham-header-btn bham-btn-safe-mode" title="Configura o Arma Blocco Sicurezza">
+              <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <span id="safe-mode-badge-text" data-i18n="safe_mode_disarmed_badge">🛡️ Safe Mode: ATTIVO</span>
+            </button>
+          </div>
+          <p style="font-size:11px;color:var(--bham-text-muted);margin:0">
+            Quando Safe Mode è attivo, le forzature fisiche sono bloccate (FC05/06/16 Modbus, WriteProperty BACnet, GroupWrite KNX) per proteggere PLC ed attuatori operativi. L'armamento richiede identificazione dell'operatore, commessa e durata temporanea ad auto-scadenza.
+          </p>
+        </div>
+
+        <div class="bham-settings-card">
+          <div class="bham-settings-card-header">
+            <div>
+              <span class="bham-settings-card-title">
+                <svg class="bham-svg-sm color-modbus" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                <span>Registro Manovre Certificato (Crash-Proof WAL)</span>
+              </span>
+              <p class="bham-settings-card-desc">Audit journal immutabile di tutte le operazioni di scansione e comandi impartiti su campo</p>
+            </div>
+            <button id="btn-audit-journal" type="button" onclick="openAuditModal()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:30px;padding:0 14px;font-size:11.5px">
+              📖 Apri Registro Manovre
+            </button>
+          </div>
+          <p style="font-size:11px;color:var(--bham-text-muted);margin:0">
+            Ogni operazione viene registrata con timestamp ad alta precisione, sequenza progressiva numerica e hash crittografico a prova di manomissione o crash applicativo.
+          </p>
+        </div>
+
+        <div class="bham-settings-footer-bar">
+          <button type="button" onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
+        </div>
+      </div>
+
+      <!-- Tab 5: Appearance, Language & System -->
+      <div id="panel-settings-appearance" class="bham-tab-panel hidden">
+        <div class="bham-settings-card">
+          <div class="bham-settings-card-header">
+            <div>
+              <span class="bham-settings-card-title">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <span data-i18n="lang_selection_label">Lingua dell'applicazione</span>
+              </span>
+              <p class="bham-settings-card-desc">Seleziona la lingua per testi, allarmi, diagnostica e report</p>
+            </div>
+            <div class="bham-lang-group" title="Seleziona Lingua">
+              <button type="button" class="bham-lang-btn active" data-lang="it" onclick="setAppLanguage('it')">IT</button>
+              <button type="button" class="bham-lang-btn" data-lang="en" onclick="setAppLanguage('en')">EN</button>
+              <button type="button" class="bham-lang-btn" data-lang="es" onclick="setAppLanguage('es')">ES</button>
+            </div>
+          </div>
+          <select id="setup-lang" class="bham-select" onchange="setAppLanguage(this.value)" style="display:none">
+            <option value="it">Italiano (IT)</option>
+            <option value="en">English (EN)</option>
+            <option value="es">Español (ES)</option>
+          </select>
+        </div>
+
+        <div class="bham-settings-card">
+          <div class="bham-settings-card-header">
+            <div>
+              <span class="bham-settings-card-title">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <span data-i18n="theme_selection_label">Tema Grafico Ambientale</span>
+              </span>
+              <p class="bham-settings-card-desc">Modalità giorno ad alto contrasto per cantiere o modalità notturna per cabine</p>
+            </div>
+            <button id="theme-toggle-btn" type="button" onclick="toggleTheme()" class="bham-theme-toggle-btn" title="Alterna modalità Chiara / Scura">
+              <svg id="theme-icon-dark" class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+              <span id="theme-text">Chiaro</span>
+            </button>
+          </div>
+          <select id="setup-theme" class="bham-select" onchange="setThemeMode(this.value)" style="display:none">
+            <option value="light">Light (Field High-Contrast)</option>
+            <option value="dark">Dark (Obsidian Telemetry)</option>
+          </select>
+        </div>
+
+        <div class="bham-settings-card">
+          <label class="bham-label" data-i18n="console_buffer_label">Buffer Retention Console (righe massime di log)</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input id="cfg-console-buffer" type="number" value="600" class="bham-input" style="max-width:180px" />
+            <div class="bham-preset-pills">
+              <button type="button" class="bham-btn-chip" onclick="document.getElementById('cfg-console-buffer').value='300'">300</button>
+              <button type="button" class="bham-btn-chip" onclick="document.getElementById('cfg-console-buffer').value='600'">600 (Std)</button>
+              <button type="button" class="bham-btn-chip" onclick="document.getElementById('cfg-console-buffer').value='1200'">1200</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personalizzazione Densità Interfaccia -->
+        <div class="bham-settings-card">
+          <div class="bham-settings-card-header">
+            <div>
+              <span class="bham-settings-card-title">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                <span>Densità Visualizzazione Tabelle (Cantiere)</span>
+              </span>
+              <p class="bham-settings-card-desc">Ottimizza lo spazio su laptop da cantiere da 13" con decine di dispositivi su schermo</p>
+            </div>
+            <div id="chips-ui-density" class="bham-suggest-row" style="margin:0">
+              <button id="density-btn-comfortable" type="button" class="bham-btn-chip active" onclick="applyUiDensity('comfortable')">Confortevole (Default)</button>
+              <button id="density-btn-compact" type="button" class="bham-btn-chip" onclick="applyUiDensity('compact')">Compatta (Laptop 13")</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personalizzazione Verbale di Collaudo & Report -->
+        <div class="bham-settings-card">
+          <div class="bham-settings-card-header">
+            <div>
+              <span class="bham-settings-card-title color-modbus">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                <span>Dati Intestazione Verbale di Collaudo (PDF / Excel)</span>
+              </span>
+              <p class="bham-settings-card-desc">Personalizza i dati del collaudatore stampati nell'intestazione dei report ufficiali</p>
+            </div>
+          </div>
+          <div class="bham-field-row" style="margin-top:6px">
+            <div>
+              <label class="bham-label">Tecnico Collaudatore / Commissioning Lead</label>
+              <input id="cfg-report-technician" type="text" placeholder="es. Ing. Giuliano Rossi" class="bham-input" onchange="saveReportConfig()" />
+            </div>
+            <div>
+              <label class="bham-label">Società d'Ingegneria / System Integrator</label>
+              <input id="cfg-report-company" type="text" placeholder="es. BACS Automation &amp; Controls Srl" class="bham-input" onchange="saveReportConfig()" />
+            </div>
+          </div>
+          <div style="margin-top:6px">
+            <label class="bham-label">Note Standard di Collaudo (Allegato)</label>
+            <textarea id="cfg-report-notes" class="bham-textarea" rows="2" placeholder="Note operative, condizioni ambientali di prova o riferimenti d'offerta..." onchange="saveReportConfig()"></textarea>
+          </div>
+        </div>
+
+        <div class="bham-settings-card" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between">
+          <div>
+            <strong style="display:block;font-size:12px;color:var(--bham-text-main)">Documentazione API &amp; Schema OpenAPI</strong>
+            <span style="font-size:11px;color:var(--bham-text-dim)">Esplora gli endpoint REST e la console Swagger interattiva</span>
+          </div>
+          <a href="/docs" target="_blank" class="bham-btn-secondary" style="height:30px;display:inline-flex;align-items:center;gap:6px">
+            <span>Apri Swagger /docs ↗</span>
+          </a>
+        </div>
+
+        <div class="bham-settings-footer-bar">
+          <button type="button" onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
+        </div>
+      </div>
+
+      <!-- Tab 6: BACS Help Maps -->
       <div id="panel-settings-maps" class="bham-tab-panel hidden">
         <div>
           <h3 style="margin:0 0 4px 0;font-size:13px;color:var(--bham-modbus)" data-i18n="maps_title">Definizioni Registri &amp; Mappe BACS Help</h3>
           <p style="font-size:11px;color:var(--bham-text-dim);margin:0" data-i18n="maps_sub">Importa ed esporta tabelle di punti registri per arricchire i dispositivi Modbus.</p>
         </div>
         <textarea id="maps-import-textarea" class="bham-textarea" rows="4" placeholder='Incolla qui il JSON definizioni BACS Help (es. [{"slave_id": 1, "register": 100, "label": "Temp Mandata"}])'></textarea>
-        <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
           <div id="maps-status-badge" class="mono text-dim" style="font-size:11px">Mappe caricate per 0 slave ID.</div>
           <div style="display:flex;gap:8px">
             <button onclick="importBacsMapsFromInput()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 12px;height:28px" data-i18n="btn_import_maps">Importa JSON</button>
             <a href="/api/v1/maps/export" target="_blank" class="bham-btn-secondary" style="height:28px;display:inline-flex;align-items:center" data-i18n="btn_export_maps">Esporta JSON</a>
             <button onclick="clearBacsMaps()" class="bham-btn-secondary" style="height:28px;color:#f87171" data-i18n="btn_clear_maps">Svuota Mappe</button>
           </div>
+        </div>
+        <div class="bham-settings-footer-bar">
+          <button type="button" onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
         </div>
       </div>
 
@@ -1163,23 +1749,259 @@
   </div>
 </div>
 
-  <!-- ── Modal 2: Interactive Field Manual & Help ──────────────────────── -->
+  <!-- ── Modal 2: Interactive Field Manual, Quick Assistant & Tools ───── -->
   <div id="help-overlay" class="bham-overlay hidden">
-    <div class="bham-modal" style="max-width:850px;max-height:85vh">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <h1 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:7px">
+    <div class="bham-modal" style="max-width:880px;max-height:88vh">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h1 class="bham-modal-title color-modbus" style="display:flex;align-items:center;gap:7px;margin:0">
           <svg class="bham-svg" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-          <span data-i18n="help_title">Manuale Tecnico &amp; Guida di Campo BHAM</span>
+          <span data-i18n="help_title">Centro Assistenza &amp; Guida di Campo BHAM</span>
         </h1>
         <button onclick="closeHelpModal()" class="bham-header-btn">✕</button>
       </div>
-      <p style="font-size:11.5px;color:var(--bham-text-dim);margin:0" data-i18n="help_sub">Manuale operativo completo per il collaudo e la diagnosi di reti BACS.</p>
+      <p style="font-size:11.5px;color:var(--bham-text-dim);margin:0 0 10px 0" data-i18n="help_sub">
+        Guida operativa di cantiere, troubleshooting rapido, calcolatori di rete e manuale tecnico per integratori BACS.
+      </p>
 
-      <div class="bham-help-container">
-        <!-- Chapters Navigation -->
-        <div id="manual-nav" class="bham-help-nav"></div>
-        <!-- Chapter Content Reader -->
-        <div id="manual-body" class="bham-help-body"></div>
+      <!-- Help Hub Navigation Tabs -->
+      <div class="bham-help-tab-bar">
+        <button id="btn-help-tab-quick" type="button" class="bham-help-tab-btn active" onclick="switchHelpTab('quick')">
+          <span>⚡ Assistente di Cantiere &amp; FAQ</span>
+        </button>
+        <button id="btn-help-tab-manual" type="button" class="bham-help-tab-btn" onclick="switchHelpTab('manual')">
+          <span>📖 Manuale Tecnico Completo</span>
+        </button>
+        <button id="btn-help-tab-calcs" type="button" class="bham-help-tab-btn" onclick="switchHelpTab('calcs')">
+          <span>🧰 Calcolatori &amp; Strumenti da Campo</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Assistente di Cantiere & FAQ -->
+      <div id="help-panel-quick" class="bham-help-panel" style="overflow-y:auto;max-height:calc(88vh - 170px);padding-right:4px">
+        <!-- Quick Filter -->
+        <div style="margin-bottom:10px">
+          <input id="help-quick-search" type="text" placeholder="Filtra problemi (es. polarità, timeout, terminazione, 02, pinout)..." class="bham-input-sm" oninput="filterHelpFaq(this.value)" style="height:32px" />
+        </div>
+
+        <div class="bham-field-faq-card" style="display:flex;flex-direction:column;gap:8px">
+          <!-- Modbus RTU -->
+          <div class="bham-trouble-item" data-faq-keywords="modbus rtu polarita polarità terminazione 120 baudrate parita parità slave id timeout">
+            <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface-elevated);overflow:hidden">
+              <div class="bham-empty-tips-toggle" onclick="toggleFaqAccordion(this)">
+                <span style="font-weight:700;color:var(--bham-modbus)">🔵 Modbus RTU: Nessun dispositivo risponde o timeout continuo sul bus RS485</span>
+                <span class="faq-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼</span>
+              </div>
+              <div class="faq-body hidden" style="padding:10px 12px;font-size:11.5px;line-height:1.5;background:var(--bham-bg-surface)">
+                <ol style="margin:0;padding-left:18px">
+                  <li><strong>Inversione Polarità A/B:</strong> Spesso i costruttori usano convenzioni opposte (+/- vs A/B). Prova a invertire temporaneamente i due fili sull'adattatore USB-RS485.</li>
+                  <li><strong>Resistenza di Terminazione 120Ω:</strong> Su tratte superiori a 50 metri o con riflessioni d'onda, inserisci una resistenza da 120Ω (1/4W) ai soli due capi estremi del bus fisico.</li>
+                  <li><strong>Parità Seriale:</strong> I contatori fiscali (MID) richiedono quasi sempre <strong>Parità Even (8E1)</strong> a 19200 baud. I regolatori climatici usano tipicamente <strong>None (8N1)</strong> a 9600 baud.</li>
+                  <li><strong>Massa Comune (GND / Schermo):</strong> Collega lo schermo del cavo STP a terra <em>su un solo punto</em> e verifica che la massa di riferimento sia condivisa tra i dispositivi per evitare differenze di potenziale.</li>
+                  <li><strong>Slave ID Ristretto:</strong> Se non conosci gli indirizzi, scansiona il range 1-32: eviterai centinaia di timeout su indirizzi inesistenti.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modbus TCP -->
+          <div class="bham-trouble-item" data-faq-keywords="modbus tcp porta port 502 5020 moxa seneca gateway ethernet timeout ping ip">
+            <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface-elevated);overflow:hidden">
+              <div class="bham-empty-tips-toggle" onclick="toggleFaqAccordion(this)">
+                <span style="font-weight:700;color:var(--bham-modbus)">🔵 Modbus TCP: Host non raggiungibile o rifiuto connessione (Connection Refused)</span>
+                <span class="faq-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼</span>
+              </div>
+              <div class="faq-body hidden" style="padding:10px 12px;font-size:11.5px;line-height:1.5;background:var(--bham-bg-surface)">
+                <ol style="margin:0;padding-left:18px">
+                  <li><strong>Porta Gateway Alternativa:</strong> La porta standard IANA è la <strong>502</strong>. Tuttavia, molti convertitori Ethernet-RS485 (Moxa NPort, Seneca Z-KEY) usano la porta <strong>5020</strong> o <strong>4001</strong> quando configurati in modalità TCP Server.</li>
+                  <li><strong>Unit ID / Slave ID del Gateway:</strong> Nei convertitori seriali-Ethernet, la richiesta TCP contiene uno "Unit ID" (1..247) che deve coincidere con l'indirizzo della periferica RS485 collegata a valle.</li>
+                  <li><strong>Subnet &amp; Maschera di Rete:</strong> Verifica che il laptop di collaudo si trovi nella stessa classe IP dell'apparato (es. 192.168.1.x/24) o imposta un IP statico secondario sulla scheda.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- BACnet/IP -->
+          <div class="bham-trouble-item" data-faq-keywords="bacnet who-is broadcast firewall udp 47808 bac0 bbmd vlan router">
+            <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface-elevated);overflow:hidden">
+              <div class="bham-empty-tips-toggle" onclick="toggleFaqAccordion(this)">
+                <span style="font-weight:700;color:var(--bham-bacnet)">🟣 BACnet/IP: Who-Is inviato ma nessun dispositivo risponde</span>
+                <span class="faq-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼</span>
+              </div>
+              <div class="faq-body hidden" style="padding:10px 12px;font-size:11.5px;line-height:1.5;background:var(--bham-bg-surface)">
+                <ol style="margin:0;padding-left:18px">
+                  <li><strong>Firewall UDP:</strong> I messaggi Who-Is sono broadcast UDP sulla porta <strong>47808 (BAC0)</strong>. I firewall locali di Windows Defender o Linux iptables spesso bloccano i pacchetti broadcast in ingresso: crea una regola per la porta 47808 UDP.</li>
+                  <li><strong>Selezione Scheda di Rete:</strong> Assicurati di aver selezionato la scheda fisica collegata all'impianto (es. <code>eth0</code>) e non un'interfaccia Wi-Fi o VPN virtuale.</li>
+                  <li><strong>Attraversamento Router / VLAN:</strong> I broadcast UDP non attraversano i router di livello 3. Se i controllori si trovano su un'altra VLAN, inserisci l'IP del router <strong>BBMD</strong> nella card BACnet per registrarti come Foreign Device.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- KNXnet/IP -->
+          <div class="bham-trouble-item" data-faq-keywords="knx multicast 224.0.23.12 3671 igmp switch tunnel router">
+            <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface-elevated);overflow:hidden">
+              <div class="bham-empty-tips-toggle" onclick="toggleFaqAccordion(this)">
+                <span style="font-weight:700;color:var(--bham-knx)">🟠 KNXnet/IP: Impossibile rilevare interfaccia o router KNX</span>
+                <span class="faq-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼</span>
+              </div>
+              <div class="faq-body hidden" style="padding:10px 12px;font-size:11.5px;line-height:1.5;background:var(--bham-bg-surface)">
+                <ol style="margin:0;padding-left:18px">
+                  <li><strong>Multicast 224.0.23.12:</strong> La ricerca KNX avviene inviando un SEARCH_REQUEST all'indirizzo multicast <code>224.0.23.12:3671</code>. Se lo switch di cantiere ha l'IGMP Snooping attivo senza querier, il traffico multicast viene scartato.</li>
+                  <li><strong>Saturazione Connessioni Tunnel:</strong> Molte interfacce KNX IP supportano solo da 1 a 4 connessioni simultanee (es. ETS aperto blocca altri tool). Chiudi ETS prima di scansionare.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Watch List & Polling -->
+          <div class="bham-trouble-item" data-faq-keywords="watch list polling registri modbus buzzer delta trend csv live monitoraggio">
+            <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface-elevated);overflow:hidden">
+              <div class="bham-empty-tips-toggle" onclick="toggleFaqAccordion(this)">
+                <span style="font-weight:700;color:var(--bham-modbus)">🟣 Live Watch List &amp; Polling: Monitoraggio e Trend Registri in Tempo Reale</span>
+                <span class="faq-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼</span>
+              </div>
+              <div class="faq-body hidden" style="padding:10px 12px;font-size:11.5px;line-height:1.5;background:var(--bham-bg-surface)">
+                <ol style="margin:0;padding-left:18px">
+                  <li><strong>Aggiunta Punti da Inspector:</strong> Apri l'inspector dello slave Modbus e clicca sull'icona dell'occhio <code>👁️</code> accanto al registro desiderato per inserirlo nella Watch List.</li>
+                  <li><strong>Selezione Frequenza:</strong> Imposta la frequenza tra 500ms e 5s. Per bus carichi o a 9600 baud, usa intervalli di 1s o 2s per non saturare la linea.</li>
+                  <li><strong>Buzzer Audio Hands-Free:</strong> Attiva il pulsante altoparlante per ricevere un avviso sonoro discreto a ogni cambio di valore, ideale per tarature a bordo quadro senza dover guardare lo schermo.</li>
+                  <li><strong>Esportazione CSV:</strong> Clicca <em>Esporta CSV</em> per scaricare la cronologia di tutti i campionamenti registrati.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- RS485 Stress Test & Benchmark -->
+          <div class="bham-trouble-item" data-faq-keywords="stress test benchmark rs485 latenza jitter packet error rate per riflessione terminazione baudrate">
+            <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface-elevated);overflow:hidden">
+              <div class="bham-empty-tips-toggle" onclick="toggleFaqAccordion(this)">
+                <span style="font-weight:700;color:var(--bham-modbus)">🔵 RS485 Stress Test &amp; Benchmark: Qualità Segnale, Jitter e Riflessioni d'Onda</span>
+                <span class="faq-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼</span>
+              </div>
+              <div class="faq-body hidden" style="padding:10px 12px;font-size:11.5px;line-height:1.5;background:var(--bham-bg-surface)">
+                <ol style="margin:0;padding-left:18px">
+                  <li><strong>Esecuzione Benchmark:</strong> Seleziona porta e baudrate, imposta 50 o 100 pacchetti e avvia il test per misurare PER (Packet Error Rate), RTT e jitter.</li>
+                  <li><strong>Diagnosi Jitter Elevato:</strong> Se il jitter supera i 25ms con errori CRC isolati, verifica che le resistenze di terminazione da 120 Ω siano presenti ai due capi fisici del bus.</li>
+                  <li><strong>Errori Concentrati (EMI):</strong> Se si registrano raffiche di pacchetti corrotti sincronizzate con l'avvio di motori o pompe, il cavo RS485 è esposto a disturbi da inverter: ricontrolla messa a terra dello schermo su un solo punto.</li>
+                  <li><strong>Baudrate Consigliato:</strong> Consulta la raccomandazione del motore a fine test prima di decidere la velocità definitiva per il supervisore.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- BMS Tag Exporter & QR Code -->
+          <div class="bham-trouble-item" data-faq-keywords="bms scada export tag niagara tridium desigo siemens ecostruxure schneider bacnet qr code lan mobile smartphone tablet">
+            <div style="border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);background:var(--bham-bg-surface-elevated);overflow:hidden">
+              <div class="bham-empty-tips-toggle" onclick="toggleFaqAccordion(this)">
+                <span style="font-weight:700;color:var(--bham-network)">🟢 Esportatore Tag BMS &amp; Accesso Mobile con QR Code</span>
+                <span class="faq-chevron" style="font-size:10px;color:var(--bham-text-dim)">▼</span>
+              </div>
+              <div class="faq-body hidden" style="padding:10px 12px;font-size:11.5px;line-height:1.5;background:var(--bham-bg-surface)">
+                <ol style="margin:0;padding-left:18px">
+                  <li><strong>Importazione Niagara 4 / Desigo / EcoStruxure:</strong> Dal menu Esporta, scarica il file XML o CSV preformattato per il tuo supervisore BMS. I registri, tipi di dato e scale sono già convertiti.</li>
+                  <li><strong>Accesso Mobile 1-Click con QR Code:</strong> Clicca sul pulsante 📱 QR Code in testata o nella barra di stato. Inquadra il codice con lo smartphone o tablet connesso alla rete Wi-Fi del quadro: si aprirà la dashboard completa di collaudo.</li>
+                  <li><strong>Senza Internet:</strong> La generazione QR Code è 100% offline via SVG vettoriale locale, garantendo funzionamento continuo anche in cantiere privo di connettività esterna.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schemi Pinout & Tabelle Rapide -->
+        <div style="margin-top:14px;border:1px solid var(--bham-border);border-radius:var(--bham-radius-sm);padding:10px 12px;background:var(--bham-bg-surface-elevated)">
+          <strong style="font-size:12px;color:var(--bham-text-main);display:flex;align-items:center;gap:6px">
+            <span>🔌</span>
+            <span>Pinout RS485 &amp; Porte Standard d'Automazione Edificio</span>
+          </strong>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <div style="background:var(--bham-bg-surface);border:1px solid var(--bham-border);border-radius:4px;padding:8px">
+              <span style="font-size:11px;font-weight:700;color:var(--bham-modbus)">Pinout Seriale RS485 (RJ45 &amp; DB9)</span>
+              <ul style="margin:4px 0 0 0;padding-left:16px;font-size:10.5px;line-height:1.5;color:var(--bham-text-dim)">
+                <li><strong>RJ45 Schneider / Modicon:</strong> Pin 4 = D1 (B/+), Pin 5 = D0 (A/-), Pin 8 = 0V Com.</li>
+                <li><strong>RJ45 Carel / PCO:</strong> Pin 1 = GND, Pin 2 = Rx/Tx+ (B), Pin 3 = Rx/Tx- (A).</li>
+                <li><strong>DB9 Standard Profibus/RS485:</strong> Pin 3 = B (RxD/TxD-P), Pin 8 = A (RxD/TxD-N), Pin 5 = GND.</li>
+                <li><strong>Morsetto a vite:</strong> Se non indicato, prova A con D- e B con D+.</li>
+              </ul>
+            </div>
+            <div style="background:var(--bham-bg-surface);border:1px solid var(--bham-border);border-radius:4px;padding:8px">
+              <span style="font-size:11px;font-weight:700;color:var(--bham-network)">Porte Standard Sistemi BACS / BMS</span>
+              <ul style="margin:4px 0 0 0;padding-left:16px;font-size:10.5px;line-height:1.5;color:var(--bham-text-dim)">
+                <li><strong>Modbus TCP:</strong> TCP 502 (IANA), 503, 5020 (Moxa/Seneca).</li>
+                <li><strong>BACnet/IP:</strong> UDP 47808 (BAC0), 47809 (BAC1).</li>
+                <li><strong>KNXnet/IP:</strong> UDP 3671 (Unicast/Multicast 224.0.23.12).</li>
+                <li><strong>Tridium Niagara:</strong> TCP 1911 (Fox), 4911 (FoxS criptato).</li>
+                <li><strong>Web Server BMS:</strong> TCP 80 (HTTP), 443 (HTTPS), 8080 (Web Alt).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Manuale Tecnico Completo (22 Capitoli) -->
+      <div id="help-panel-manual" class="bham-help-panel hidden">
+        <div class="bham-help-container">
+          <!-- Chapters Navigation -->
+          <div id="manual-nav" class="bham-help-nav"></div>
+          <!-- Chapter Content Reader -->
+          <div id="manual-body" class="bham-help-body"></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Calcolatori & Strumenti da Cantiere -->
+      <div id="help-panel-calcs" class="bham-help-panel hidden" style="overflow-y:auto;max-height:calc(88vh - 170px);padding-right:4px">
+        <div class="bham-calc-grid">
+          <!-- Calcolatore 1: Bus RS485 -->
+          <div class="bham-calc-card">
+            <div class="bham-calc-header color-modbus">
+              <span>📏 Calcolatore Bus RS485 (Lunghezza &amp; Baudrate)</span>
+            </div>
+            <p style="font-size:10.5px;color:var(--bham-text-dim);margin:0">Calcola il baudrate massimo sicuro e le raccomandazioni di terminazione in base ai metri di cavo.</p>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+              <label class="bham-label" style="margin:0;white-space:nowrap">Lunghezza Cavo (m):</label>
+              <input id="calc-rs485-meters" type="number" value="300" min="1" max="1500" class="bham-input-sm" style="width:100px" oninput="runRs485Calc()" />
+              <button type="button" class="bham-btn-chip active" style="font-size:10.5px;padding:2px 8px" onclick="runRs485Calc()">Calcola</button>
+            </div>
+            <div id="calc-rs485-result" class="bham-calc-result-box">
+              Inserisci la lunghezza per calcolare i parametri.
+            </div>
+          </div>
+
+          <!-- Calcolatore 2: Decodificatore Eccezioni Modbus -->
+          <div class="bham-calc-card">
+            <div class="bham-calc-header color-modbus">
+              <span>🔍 Decodificatore Codici Eccezione Modbus</span>
+            </div>
+            <p style="font-size:10.5px;color:var(--bham-text-dim);margin:0">Inserisci il codice di errore restituito dal PLC o analizzatore di rete per visualizzare la causa.</p>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+              <label class="bham-label" style="margin:0;white-space:nowrap">Codice Esadecimale:</label>
+              <input id="calc-modbus-code" type="text" value="02" placeholder="01..0B" class="bham-input-sm" style="width:80px;text-transform:uppercase" oninput="runModbusExceptionCalc()" />
+              <div style="display:flex;gap:3px">
+                <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:2px 5px" onclick="setModbusExceptionCode('01')">01</button>
+                <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:2px 5px" onclick="setModbusExceptionCode('02')">02</button>
+                <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:2px 5px" onclick="setModbusExceptionCode('03')">03</button>
+                <button type="button" class="bham-btn-chip" style="font-size:9.5px;padding:2px 5px" onclick="setModbusExceptionCode('04')">04</button>
+              </div>
+            </div>
+            <div id="calc-modbus-result" class="bham-calc-result-box">
+              Codice 02: Illegal Data Address.
+            </div>
+          </div>
+
+          <!-- Calcolatore 3: Subnet IPv4 & CIDR -->
+          <div class="bham-calc-card">
+            <div class="bham-calc-header color-network">
+              <span>🌐 Calcolatore Subnet IPv4 &amp; CIDR</span>
+            </div>
+            <p style="font-size:10.5px;color:var(--bham-text-dim);margin:0">Inserisci l'indirizzo con notazione CIDR per calcolare range host, broadcast e netmask.</p>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+              <input id="calc-subnet-input" type="text" value="192.168.1.50/24" class="bham-input-sm" style="flex:1" oninput="runSubnetCalc()" />
+              <button type="button" class="bham-btn-chip active" style="font-size:10.5px;padding:2px 8px" onclick="runSubnetCalc()">Calcola</button>
+            </div>
+            <div id="calc-subnet-result" class="bham-calc-result-box">
+              Subnet: 192.168.1.0/24 (254 host).
+            </div>
+          </div>
+        </div>
       </div>
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;border-top:1px solid var(--bham-border);padding-top:10px">
@@ -1200,6 +2022,36 @@
       <div style="display:flex;justify-content:flex-end;gap:10px">
         <button onclick="closeSaveModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_cancel">Annulla</button>
         <button onclick="saveSession()" class="bham-btn-action bham-btn-rtu" style="width:auto;padding:0 16px;height:32px" data-i18n="save">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Salva Profilo d'Impianto Personalizzato ───────────────────── -->
+  <div id="modal-save-custom-profile" class="bham-overlay hidden">
+    <div class="bham-modal" style="max-width:460px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3 class="bham-modal-title color-modbus" style="margin:0;display:flex;align-items:center;gap:6px">
+          <span>💾</span>
+          <span>Salva Profilo d'Impianto Personalizzato</span>
+        </h3>
+        <button type="button" onclick="closeSaveCustomProfileModal()" class="bham-header-btn">✕</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--bham-text-dim);margin:0 0 10px 0">
+        Memorizza tutti i parametri attivi di RS485, Modbus TCP, BACnet, KNX e IP Scanner per questo cantiere.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div>
+          <label class="bham-label">Nome Profilo / Cantiere</label>
+          <input id="custom-prof-name" type="text" placeholder="es. Ospedale San Paolo – Carel 19200" class="bham-input" />
+        </div>
+        <div>
+          <label class="bham-label">Descrizione / Note Impianto</label>
+          <input id="custom-prof-desc" type="text" placeholder="es. Contatori MID su RS485 e gateway TCP Seneca porta 5020" class="bham-input" />
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button type="button" onclick="closeSaveCustomProfileModal()" class="bham-btn-secondary" style="height:32px">Annulla</button>
+        <button type="button" onclick="confirmSaveCustomProfile()" class="bham-btn-primary" style="height:32px;padding:0 16px">Salva Profilo</button>
       </div>
     </div>
   </div>
@@ -1236,6 +2088,7 @@
               <th>LABEL / DESC</th>
               <th style="width:45px">UNIT</th>
               <th style="width:45px">SCALE</th>
+              <th style="width:65px;text-align:right">WATCH</th>
             </tr>
           </thead>
           <tbody id="slave-modal-registers-tbody"></tbody>
@@ -1253,10 +2106,11 @@
               <th style="width:65px">HEX</th>
               <th style="width:60px">INT16</th>
               <th>FLOAT32 (IEEE)</th>
+              <th style="width:65px;text-align:right">WATCH</th>
             </tr>
           </thead>
           <tbody id="slave-modal-smart-tbody">
-            <tr><td colspan="6" class="text-dim" style="text-align:center;padding:12px">Premi "⚡ Avvia Auto-Scan" per scoprire automaticamente i registri attivi su questo slave.</td></tr>
+            <tr><td colspan="7" class="text-dim" style="text-align:center;padding:12px">Premi "⚡ Avvia Auto-Scan" per scoprire automaticamente i registri attivi su questo slave.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1641,6 +2495,9 @@
         <button id="btn-tool-tab-bacnet" onclick="switchToolTab('bacnet')" class="bham-action-btn-sm" style="font-size:11.5px;font-weight:600">
           BACnet Point Commander
         </button>
+        <button id="btn-tool-tab-benchmark" onclick="switchToolTab('benchmark')" class="bham-action-btn-sm" style="font-size:11.5px;font-weight:600">
+          ⚡ Stress Test Bus
+        </button>
       </div>
 
       <!-- Tab 1: Modbus Quick Commander -->
@@ -1770,6 +2627,75 @@
             <span id="tool-bacnet-elapsed" class="mono text-dim" style="font-size:10.5px">0.0 ms</span>
           </div>
           <div id="tool-bacnet-res-msg" style="font-size:12px;margin-top:6px;color:var(--bham-text-main)"></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Bus Benchmark & Stress Test -->
+      <div id="panel-tool-benchmark" class="hidden">
+        <div class="bham-quick-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr))">
+          <div>
+            <label class="bham-form-lbl">Protocollo</label>
+            <select id="bench-proto" class="bham-select" style="height:30px;font-size:11px" onchange="handleBenchProtoChange()">
+              <option value="rtu">Modbus RTU (Seriale)</option>
+              <option value="tcp">Modbus TCP (Ethernet)</option>
+            </select>
+          </div>
+          <div id="bench-port-wrap">
+            <label class="bham-form-lbl">Porta Seriale RS485</label>
+            <input type="text" id="bench-port" value="/dev/ttyUSB0" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div id="bench-ip-wrap" style="display:none">
+            <label class="bham-form-lbl">Indirizzo IP Host</label>
+            <input type="text" id="bench-ip" placeholder="192.168.1.50" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div>
+            <label class="bham-form-lbl">Slave / Unit ID</label>
+            <input type="number" id="bench-slave" value="1" min="1" max="247" class="bham-input mono" style="height:30px;font-size:11px" />
+          </div>
+          <div>
+            <label class="bham-form-lbl">Iterazioni (Frame)</label>
+            <select id="bench-iterations" class="bham-select" style="height:30px;font-size:11px">
+              <option value="10">10 pacchetti (Veloce)</option>
+              <option value="25" selected>25 pacchetti (Standard)</option>
+              <option value="50">50 pacchetti (Approfondito)</option>
+              <option value="100">100 pacchetti (Certificazione)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button id="btn-run-benchmark" onclick="executeBusBenchmark()" class="bham-btn-action bham-btn-rtu" style="height:32px;font-size:11.5px;padding:0 18px">
+            ⚡ Avvia Stress Test Linea
+          </button>
+        </div>
+
+        <!-- Benchmark Results Container -->
+        <div id="bench-results-box" style="display:none;margin-top:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:11.5px;font-weight:700">VALUTAZIONE INTEGRITÀ BUS:</span>
+            <span id="bench-rating-badge" class="bham-rating-badge bham-rating-good">BUONO</span>
+          </div>
+          <div class="bham-benchmark-grid">
+            <div class="bham-benchmark-box">
+              <span class="bham-benchmark-box-lbl">Frame Error Rate (FER)</span>
+              <span id="bench-fer-val" class="bham-benchmark-box-val">0.0%</span>
+            </div>
+            <div class="bham-benchmark-box">
+              <span class="bham-benchmark-box-lbl">Latenza Media</span>
+              <span id="bench-avg-val" class="bham-benchmark-box-val">0.0 ms</span>
+            </div>
+            <div class="bham-benchmark-box">
+              <span class="bham-benchmark-box-lbl">Min / Max</span>
+              <span id="bench-minmax-val" class="bham-benchmark-box-val">0 / 0 ms</span>
+            </div>
+            <div class="bham-benchmark-box">
+              <span class="bham-benchmark-box-lbl">Jitter (StDev)</span>
+              <span id="bench-jitter-val" class="bham-benchmark-box-val">0.0 ms</span>
+            </div>
+          </div>
+          <div style="font-size:10.5px;color:var(--bham-text-dim);margin-top:6px">Istogramma Latenze per Pacchetto (ms):</div>
+          <div id="bench-latency-chart" class="bham-latency-chart"></div>
+          <div id="bench-diagnosis-text" style="font-size:11.5px;color:var(--bham-text-main);background:var(--bham-bg-surface);padding:8px 10px;border-radius:4px;border:1px solid var(--bham-border);margin-top:6px"></div>
         </div>
       </div>
 
@@ -2225,14 +3151,173 @@
     </div>
   </div>
 
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: MOBILE QR CODE ACCESS
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-mobile-qr" class="bham-overlay hidden" onclick="if(event.target===this)closeMobileQrModal()">
+    <div class="bham-modal" style="max-width:440px;text-align:center">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h3 class="bham-modal-title" style="display:flex;align-items:center;gap:6px">
+          <span>📱</span> <span>Accesso Mobile &amp; Tablet LAN</span>
+        </h3>
+        <button onclick="closeMobileQrModal()" class="bham-header-btn">✕</button>
+      </div>
+      <p class="bham-modal-sub" style="margin:4px 0 10px 0;font-size:11.5px;color:var(--bham-text-dim)">
+        Inquadra il codice QR con la fotocamera del tuo smartphone o tablet connesso alla stessa rete WiFi/LAN per controllare BHAM a mani libere lungo il quadro.
+      </p>
+
+      <div id="mobile-qr-svg-wrap" class="bham-qr-container">
+        <!-- SVG QR code dinamico iniettato qui -->
+      </div>
+
+      <div class="bham-qr-url-bar" style="margin:0 auto">
+        <span id="mobile-qr-url-text" style="word-break:break-all">http://127.0.0.1:8765</span>
+        <button onclick="copyMobileQrUrl()" class="bham-btn-secondary" style="height:24px;font-size:10.5px;padding:0 8px">Copia</button>
+      </div>
+
+      <div style="display:flex;justify-content:center;margin-top:14px">
+        <button onclick="closeMobileQrModal()" class="bham-btn-secondary" style="height:30px;padding:0 24px">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: LIVE WATCH LIST & TRENDS
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-watchlist" class="bham-overlay hidden" onclick="if(event.target===this)closeWatchListModal()">
+    <div class="bham-modal" style="max-width:960px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">📈</span>
+          <div>
+            <h3 class="bham-modal-title" style="margin:0">Watch List &amp; Live Trend Monitor</h3>
+            <p class="bham-modal-sub" style="margin:2px 0 0 0;font-size:11.5px;color:var(--bham-text-dim)">
+              Polling continuo di registri e variabili d'impianto con sparkline in tempo reale e data logger CSV.
+            </p>
+          </div>
+        </div>
+        <button onclick="closeWatchListModal()" class="bham-header-btn">✕</button>
+      </div>
+
+      <!-- Controls bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:12px 0;padding:8px 12px;background:var(--bham-bg-surface);border:1px solid var(--bham-border);border-radius:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11.5px;font-weight:600">Intervallo:</span>
+          <div style="display:inline-flex;gap:4px">
+            <button class="bham-btn-chip active" id="wl-freq-1" onclick="setWatchListFreq(1000)">1.0s</button>
+            <button class="bham-btn-chip" id="wl-freq-2" onclick="setWatchListFreq(2000)">2.0s</button>
+            <button class="bham-btn-chip" id="wl-freq-5" onclick="setWatchListFreq(5000)">5.0s</button>
+          </div>
+          <span id="wl-polling-status" class="bham-led led-online" style="margin-left:6px" title="Polling attivo"></span>
+          <span id="wl-cycle-count" class="mono text-dim" style="font-size:11px">0 cicli</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px">
+          <button id="btn-wl-toggle-poll" onclick="toggleWatchListPolling()" class="bham-btn-secondary" style="height:28px;font-size:11px">
+            ⏸️ Pausa
+          </button>
+          <button onclick="openAddWatchListPointPrompt()" class="bham-btn-action bham-btn-rtu" style="height:28px;font-size:11px;padding:0 10px">
+            ➕ Aggiungi Punto
+          </button>
+          <button onclick="exportWatchListCSV()" class="bham-btn-secondary" style="height:28px;font-size:11px" title="Scarica lo storico campionamenti registrato">
+            📥 Esporta CSV Log
+          </button>
+          <button onclick="clearWatchList()" class="bham-btn-secondary" style="height:28px;font-size:11px;color:#ef4444" title="Svuota elenco punti">
+            🗑️ Svuota
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div style="max-height:380px;overflow-y:auto;border:1px solid var(--bham-border);border-radius:6px">
+        <table class="bham-watchlist-table">
+          <thead>
+            <tr>
+              <th style="width:90px">Protocollo</th>
+              <th style="width:110px">Dispositivo</th>
+              <th>Punto / Tag</th>
+              <th style="width:70px">Offset</th>
+              <th style="width:100px">Valore Live</th>
+              <th style="width:65px">Min</th>
+              <th style="width:65px">Max</th>
+              <th style="width:65px">Delta</th>
+              <th style="width:110px">Trend Live</th>
+              <th style="width:75px;text-align:center">Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="watchlist-table-body">
+            <tr>
+              <td colspan="10" class="text-dim" style="text-align:center;padding:24px">
+                Nessun punto nella Watch List. Clicca <b>➕ Aggiungi Punto</b> o usa il pulsante <b>📈 Segui</b> nell'Inspector di uno slave.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <button onclick="closeWatchListModal()" class="bham-btn-secondary" style="height:30px">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL: COMMISSIONING STATUS QUICK EDIT
+       ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-commissioning-status" class="bham-overlay hidden" onclick="if(event.target===this)closeCommissioningModal()">
+    <div class="bham-modal" style="max-width:460px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h3 class="bham-modal-title" style="display:flex;align-items:center;gap:6px">
+          <span>📋</span> <span>Collaudo Dispositivo (As-Built)</span>
+        </h3>
+        <button onclick="closeCommissioningModal()" class="bham-header-btn">✕</button>
+      </div>
+      <p id="comm-target-desc" class="bham-modal-sub" style="margin:2px 0 10px 0;font-size:11.5px;color:var(--bham-text-dim)"></p>
+
+      <div class="bham-form-group">
+        <label class="bham-form-lbl">Esito di Collaudo</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;cursor:pointer">
+            <input type="radio" name="comm-status-radio" value="ok" checked />
+            <span class="bham-comm-pill bham-comm-pill-ok">🟢 Conforme (OK)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;cursor:pointer">
+            <input type="radio" name="comm-status-radio" value="warning" />
+            <span class="bham-comm-pill bham-comm-pill-warn">🟡 Con Riserva</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;cursor:pointer">
+            <input type="radio" name="comm-status-radio" value="failed" />
+            <span class="bham-comm-pill bham-comm-pill-fail">🔴 Non Conforme</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;cursor:pointer">
+            <input type="radio" name="comm-status-radio" value="pending" />
+            <span class="bham-comm-pill bham-comm-pill-pending">⚪ Non Testato</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="bham-form-group" style="margin-top:10px">
+        <label class="bham-form-lbl">Note Operative / Perizia di Cantiere</label>
+        <textarea id="comm-notes-input" class="bham-input" rows="3" placeholder="es. Risponde correttamente a 9600 baud, senso rotazione verificato, tarato setpoint..."></textarea>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button onclick="closeCommissioningModal()" class="bham-btn-secondary" style="height:30px">Annulla</button>
+        <button onclick="saveCommissioningStatus()" class="bham-btn-action bham-btn-rtu" style="height:30px">
+          💾 Salva Stato
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div id="bham-toast-container" class="bham-toast-container"></div>
 
 
 
   <!-- Scripts: Relative paths for 100% reliable local & server loading -->
-  <script src="js/i18n.js?v=0.9.0"></script>
-  <script src="js/manual-content.js?v=0.9.0"></script>
-  <script src="js/app.js?v=0.9.0"></script>
+  <script src="js/i18n.js?v=1.0.0"></script>
+  <script src="js/manual-content.js?v=1.0.0"></script>
+  <script src="js/app.js?v=1.0.0"></script>
 </body>
 </html>

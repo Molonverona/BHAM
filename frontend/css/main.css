@@ -149,6 +149,8 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   background: var(--bham-bg-canvas);
@@ -171,15 +173,33 @@ html, body {
 
 /* ── SVG Icons ───────────────────────────────────────────────── */
 
-.bham-svg {
-  width: 15px; height: 15px;
-  stroke: currentColor; stroke-width: 2;
-  stroke-linecap: round; stroke-linejoin: round;
-  fill: none; display: inline-block;
-  vertical-align: -2px; flex-shrink: 0;
+.bham-svg,
+.bham-svg-xs,
+.bham-svg-sm,
+.bham-svg-lg,
+svg[class*="bham-svg"] {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  display: inline-block;
+  vertical-align: -2px;
+  flex-shrink: 0;
 }
-.bham-svg-sm { width: 13px; height: 13px; stroke-width: 2; }
+.bham-svg-xs { width: 11px; height: 11px; stroke-width: 2; }
+.bham-svg-sm { width: 14px; height: 14px; stroke-width: 2; }
+.bham-svg    { width: 16px; height: 16px; stroke-width: 2; }
 .bham-svg-lg { width: 18px; height: 18px; stroke-width: 2; }
+
+/* SVG shapes with explicit fill attribute */
+svg polygon[fill="currentColor"],
+svg circle[fill="currentColor"],
+svg path[fill="currentColor"],
+svg rect[fill="currentColor"] {
+  fill: currentColor;
+  stroke: none;
+}
 
 /* ── Protocol Color Helpers ──────────────────────────────────── */
 
@@ -198,15 +218,25 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 0 20px;
+  padding: 0 18px;
   background: var(--bham-header-bg);
   border-bottom: 1px solid var(--bham-border);
   height: 52px;
+  min-height: 52px;
   flex-shrink: 0;
   user-select: none;
   box-shadow: var(--bham-shadow-xs);
+  z-index: 30;
 }
 
+.bham-header-left, .bham-header-center, .bham-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bham-header-center {
+  gap: 10px;
+}
 .bham-header-left, .bham-header-right {
   display: flex;
   align-items: center;
@@ -519,24 +549,25 @@ html, body {
 .bham-workspace {
   display: flex;
   flex-direction: row;
-  gap: 18px;
-  padding: 14px 20px;
-  height: calc(100vh - 52px - 58px - 38px);
+  gap: 16px;
+  padding: 12px 18px 46px 18px;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 /* ── Column 1: Hardware Protocol Rack (Left Panel, Width: 360px) ── */
 
 .bham-col-sidebar {
-  width: 360px;
-  min-width: 360px;
+  width: 290px;
+  min-width: 290px;
   flex-shrink: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   padding-right: 4px;
-  padding-bottom: 290px;
+  padding-bottom: 24px;
 }
 
 /* Modular Rack Card */
@@ -839,8 +870,8 @@ html, body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding-bottom: 290px;
+  gap: 12px;
+  padding-bottom: 24px;
 }
 
 /* Toolbar (Tabs + Export Group) */
@@ -2418,31 +2449,311 @@ html, body {
 
 
 
-/* Custom Settings Sidebar Nav Buttons */
+/* ── Unified Settings Modal (Centro Impostazioni) ─────────────────────────── */
+
+.bham-settings-modal-expanded {
+  max-width: 980px !important;
+  width: 94vw !important;
+  height: 620px !important;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: var(--bham-radius) !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28) !important;
+}
+
+.bham-settings-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--bham-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bham-bg-surface-elevated);
+  flex-shrink: 0;
+}
+
+.bham-settings-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bham-settings-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bham-text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.bham-settings-sub {
+  font-size: 11px;
+  color: var(--bham-text-dim);
+  margin: 0;
+}
+
+.bham-settings-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bham-settings-sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--bham-bg-surface-elevated);
+  border-right: 1px solid var(--bham-border);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
 .bham-settings-nav-btn {
   background: transparent;
   border: none;
   border-left: 3px solid transparent;
   color: var(--bham-text-muted);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   padding: 10px 14px;
   text-align: left;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  transition: all 0.2s;
+  gap: 9px;
+  transition: all 0.15s ease;
   width: 100%;
 }
+
 .bham-settings-nav-btn:hover {
   background: var(--bham-bg-surface);
   color: var(--bham-text-main);
 }
+
 .bham-settings-nav-btn.active {
   background: var(--bham-bg-surface);
   border-left-color: var(--bham-modbus);
   color: var(--bham-modbus);
+  font-weight: 700;
+}
+
+.bham-settings-content {
+  flex: 1;
+  padding: 18px 20px;
+  overflow-y: auto;
+  background: var(--bham-bg-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.bham-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.bham-settings-card {
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  background: var(--bham-bg-surface-elevated);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.bham-settings-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bham-settings-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bham-text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bham-settings-card-desc {
+  font-size: 10.5px;
+  color: var(--bham-text-dim);
+  margin: 0;
+}
+
+.bham-settings-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--bham-border);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .bham-settings-header {
+  background: #161e2e;
+}
+
+[data-theme="dark"] .bham-settings-sidebar {
+  background: #111827;
+}
+
+[data-theme="dark"] .bham-settings-content {
+  background: #0b1120;
+}
+
+[data-theme="dark"] .bham-settings-card {
+  background: #161e2e;
+  border-color: #1e293b;
+}
+
+/* ── Settings Protocol Archetype Cards & Field Guidance ──────────────────── */
+.bham-archetype-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.bham-archetype-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--bham-radius-sm);
+  border: 1px solid var(--bham-border);
+  background: var(--bham-bg-surface);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.bham-archetype-btn:hover {
+  border-color: #0284c7;
+  background: var(--bham-bg-surface-elevated);
+  transform: translateY(-1px);
+  box-shadow: var(--bham-shadow-xs);
+}
+
+.bham-archetype-btn.active {
+  border-color: #0284c7;
+  background: rgba(2, 132, 199, 0.08);
+  box-shadow: 0 0 0 1.5px #0284c7;
+}
+
+[data-theme="dark"] .bham-archetype-btn {
+  background: #111827;
+  border-color: #1f293d;
+}
+
+[data-theme="dark"] .bham-archetype-btn:hover {
+  border-color: #38bdf8;
+  background: #1e293b;
+}
+
+[data-theme="dark"] .bham-archetype-btn.active {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  box-shadow: 0 0 0 1.5px #38bdf8;
+}
+
+.bham-archetype-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--bham-text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bham-archetype-desc {
+  font-size: 10px;
+  color: var(--bham-text-dim);
+  line-height: 1.35;
+}
+
+.bham-archetype-tag {
+  display: inline-block;
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(0,0,0,0.06);
+  color: var(--bham-text-muted);
+  margin-top: 4px;
+}
+
+[data-theme="dark"] .bham-archetype-tag {
+  background: rgba(255,255,255,0.08);
+  color: #94a3b8;
+}
+
+.bham-guide-box {
+  background: rgba(2, 132, 199, 0.05);
+  border: 1px solid rgba(2, 132, 199, 0.2);
+  border-left: 3px solid #0284c7;
+  border-radius: var(--bham-radius-sm);
+  padding: 8px 11px;
+  font-size: 11px;
+  color: var(--bham-text-muted);
+  line-height: 1.45;
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.bham-guide-box strong {
+  color: #0284c7;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .bham-guide-box {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.25);
+  border-left-color: #38bdf8;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .bham-guide-box strong {
+  color: #38bdf8;
+}
+
+.bham-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.bham-suggest-hint {
+  font-size: 10px;
+  color: var(--bham-text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 2px;
 }
 
 /* ── Demo Mode Indicator Pill ─────────────────────────────────────────────── */
@@ -2754,3 +3065,843 @@ html, body {
   color: #fff;
   border-color: #16a34a;
 }
+
+
+/* ============================================================
+   BHAM Industrial Cockpit UX/UI Styles
+   - Unified Header Layout & Focal Primary Actions
+   - High-Contrast Protocol Channel Cards (Touch-Optimized)
+   - Profile Picker & Channel Buttons
+   ============================================================ */
+
+/* ── Header Profile Picker ───────────────────────────────────── */
+.bham-profile-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  height: 32px;
+  transition: border-color 0.15s;
+}
+.bham-profile-picker:hover {
+  border-color: var(--bham-border-light);
+}
+.bham-profile-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bham-text-dim);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.bham-profile-select {
+  background: transparent;
+  border: none;
+  color: var(--bham-text-main);
+  font-size: 11.5px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  max-width: 220px;
+}
+
+/* ── Primary Scan Buttons (Header Center) ────────────────────── */
+.bham-btn-scan-rapid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 18px;
+  background: #0284c7;
+  color: #ffffff;
+  border: 1px solid #0284c7;
+  border-radius: var(--bham-radius);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.35);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.bham-btn-scan-rapid:hover {
+  background: #0369a1;
+  border-color: #0369a1;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.45);
+}
+.bham-btn-scan-rapid:active {
+  transform: translateY(1px);
+}
+
+.bham-btn-abort-scan {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: var(--bham-radius);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.bham-btn-abort-scan:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+.bham-btn-abort-scan:active {
+  transform: translateY(1px);
+}
+[data-theme="dark"] .bham-btn-abort-scan {
+  background: #1f1b24;
+  border-color: #7f1d1d;
+  color: #f87171;
+}
+[data-theme="dark"] .bham-btn-abort-scan:hover {
+  background: #2b1f24;
+}
+
+/* ── Protocol Channel Cards (Left Sidebar) ───────────────────── */
+.bham-deck-header {
+  padding: 8px 10px 4px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid var(--bham-border);
+}
+.bham-deck-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--bham-text-main);
+}
+.bham-deck-sub {
+  font-size: 10px;
+  color: var(--bham-text-dim);
+}
+
+.bham-channel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 4px 0;
+  flex: 1;
+}
+
+.bham-channel-card {
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  padding: 9px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  box-shadow: var(--bham-shadow-xs);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bham-channel-card:hover {
+  border-color: var(--bham-border-light);
+  box-shadow: var(--bham-shadow-sm);
+}
+
+.bham-channel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bham-channel-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bham-channel-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+.bham-channel-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bham-proto-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-dim);
+}
+.bham-proto-count.has-devices {
+  background: var(--bham-success-bg);
+  color: var(--bham-success);
+  border-color: var(--bham-success-border);
+}
+
+.bham-channel-btn {
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--bham-radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid var(--bham-border);
+  background: var(--bham-bg-surface-elevated);
+  color: var(--bham-text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bham-channel-btn:hover {
+  background: var(--bham-row-hover);
+  border-color: var(--bham-border-light);
+}
+
+.bham-channel-btn svg {
+  width: 11px !important;
+  height: 11px !important;
+  max-width: 11px !important;
+  max-height: 11px !important;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.bham-channel-btn svg polygon {
+  fill: currentColor !important;
+  stroke: none !important;
+}
+
+.bham-channel-btn-modbus:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+.bham-channel-btn-bacnet:hover {
+  background: #a855f7;
+  color: #ffffff;
+  border-color: #a855f7;
+}
+.bham-channel-btn-knx:hover {
+  background: #f97316;
+  color: #ffffff;
+  border-color: #f97316;
+}
+.bham-channel-btn-net:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+}
+.bham-channel-btn-sniff:hover {
+  background: #64748b;
+  color: #ffffff;
+  border-color: #64748b;
+}
+
+/* ── Dark Mode Overrides ─────────────────────────────────────── */
+[data-theme="dark"] .bham-btn-scan-rapid {
+  background: #0284c7;
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+[data-theme="dark"] .bham-channel-card {
+  background: var(--bham-bg-surface);
+}
+
+/* ── Wizard Master Action (Dedicated Top Button) ─────────────── */
+.bham-btn-wizard-master {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+  color: #ffffff;
+  border: 1px solid #6366f1;
+  border-radius: var(--bham-radius);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.35);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.bham-btn-wizard-master:hover {
+  background: linear-gradient(135deg, #4338ca, #3730a3);
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.45);
+}
+.bham-btn-wizard-master:active {
+  transform: translateY(1px);
+}
+[data-theme="dark"] .bham-btn-wizard-master {
+  background: linear-gradient(135deg, #4338ca, #312e81);
+  border-color: #818cf8;
+}
+
+/* ── Protocol Channel Gear Button & Accordion Extension ──────── */
+.bham-channel-gear-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bham-channel-gear-btn:hover {
+  color: var(--bham-text-main);
+  border-color: var(--bham-border-light);
+  background: var(--bham-row-hover);
+}
+
+.bham-channel-target-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--bham-text-dim);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px dashed var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 3px 6px;
+  margin-top: 4px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bham-channel-target-preview:hover {
+  border-color: #0284c7;
+  color: var(--bham-text-main);
+  background: rgba(2, 132, 199, 0.06);
+}
+.bham-channel-target-preview strong {
+  color: #0284c7;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme="dark"] .bham-channel-target-preview {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: #334155;
+}
+[data-theme="dark"] .bham-channel-target-preview:hover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+}
+[data-theme="dark"] .bham-channel-target-preview strong {
+  color: #38bdf8;
+}
+
+.bham-preview-count {
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--bham-text-dim);
+}
+[data-theme="dark"] .bham-preview-count {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+.bham-channel-drawer {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  animation: bhamDrawerSlide 0.15s ease-out;
+}
+.bham-channel-drawer.hidden {
+  display: none;
+}
+
+@keyframes bhamDrawerSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bham-drawer-lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--bham-text-dim);
+  letter-spacing: 0.4px;
+}
+
+.bham-input-sm {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  border-radius: var(--bham-radius-sm);
+  border: 1px solid var(--bham-border);
+  background: var(--bham-bg-surface);
+  color: var(--bham-text-main);
+  font-family: 'JetBrains Mono', monospace;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.bham-input-sm:focus {
+  border-color: var(--bham-modbus);
+}
+
+/* ── UI Customization: Compact Field Density ── */
+body.bham-density-compact .bham-data-table th,
+body.bham-density-compact .bham-data-table td {
+  padding: 3px 6px !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
+body.bham-density-compact .bham-badge-sm,
+body.bham-density-compact .bham-tag {
+  font-size: 9.5px !important;
+  padding: 1px 4px !important;
+}
+body.bham-density-compact .bham-table-card-header {
+  padding: 6px 10px !important;
+}
+body.bham-density-compact .bham-telemetry-strip {
+  padding: 4px 14px !important;
+}
+
+/* ── Help Hub Navigation Tabs ── */
+.bham-help-tab-bar {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--bham-border);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.bham-help-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--bham-radius-sm);
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-dim);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bham-help-tab-btn:hover {
+  background: var(--bham-bg-surface);
+  color: var(--bham-text-main);
+  border-color: #94a3b8;
+}
+.bham-help-tab-btn.active {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+}
+[data-theme="dark"] .bham-help-tab-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+/* ── Smart Empty State Tips Box ── */
+.bham-empty-tips-box {
+  margin-top: 14px;
+  max-width: 600px;
+  width: 100%;
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  background: var(--bham-bg-surface-elevated);
+  overflow: hidden;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+.bham-empty-tips-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(2, 132, 199, 0.05);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--bham-text-main);
+  border-bottom: 1px solid transparent;
+}
+.bham-empty-tips-toggle:hover {
+  background: rgba(2, 132, 199, 0.09);
+}
+.bham-empty-tips-box.open .bham-empty-tips-toggle {
+  border-bottom-color: var(--bham-border);
+}
+.bham-empty-tips-content {
+  display: none;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bham-empty-tips-content.hidden {
+  display: none !important;
+}
+.bham-empty-tip-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--bham-text-main);
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 6px 10px;
+}
+
+/* ── Field Calculators Grid ── */
+.bham-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+.bham-calc-card {
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  background: var(--bham-bg-surface-elevated);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bham-calc-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--bham-text-main);
+}
+.bham-calc-result-box {
+  background: var(--bham-bg-surface);
+  border: 1px dashed var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  font-family: var(--font-mono, monospace);
+  color: var(--bham-text-main);
+}
+
+/* ── Custom Profiles Grid ── */
+.bham-custom-profiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.bham-custom-profile-card {
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  background: var(--bham-bg-surface);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.bham-custom-profile-card:hover {
+  border-color: #0284c7;
+}
+.bham-custom-profile-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--bham-text-main);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bham-custom-profile-desc {
+  font-size: 10.5px;
+  color: var(--bham-text-dim);
+  line-height: 1.3;
+}
+.bham-custom-profile-tags {
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  color: #0284c7;
+}
+.bham-custom-profile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  border-top: 1px solid var(--bham-border);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BHAM v1.3.0 – BACS Field Master Tools
+   Watch List, Bus Benchmark, Mobile QR, Commissioning Checklist
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Header Badges & Audio ── */
+.bham-header-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0284c7;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  height: 16px;
+  margin-left: 4px;
+}
+
+/* ── QR Code LAN Modal ── */
+.bham-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius);
+  margin: 12px 0;
+}
+.bham-qr-container svg {
+  max-width: 220px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.bham-qr-url-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bham-bg-canvas);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 6px 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--bham-text-main);
+  width: 100%;
+  max-width: 380px;
+  margin-top: 10px;
+  justify-content: space-between;
+}
+
+/* ── Commissioning Status Pills ── */
+.bham-comm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.bham-comm-pill:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+.bham-comm-pill-ok {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+.bham-comm-pill-warn {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+.bham-comm-pill-fail {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.bham-comm-pill-pending {
+  background: var(--bham-bg-surface-elevated, #f1f5f9);
+  color: var(--bham-text-muted, #64748b);
+  border-color: var(--bham-border, #cbd5e1);
+}
+.bham-comm-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bham-bg-surface-elevated);
+  border: 1px solid var(--bham-border);
+  color: var(--bham-text-main);
+}
+
+/* ── Live Watch List & Polling ── */
+.bham-watchlist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.bham-watchlist-table th {
+  background: var(--bham-bg-surface-elevated);
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bham-text-dim);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--bham-border);
+  text-align: left;
+}
+.bham-watchlist-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--bham-border);
+  vertical-align: middle;
+}
+.bham-live-val {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--bham-text-main);
+  transition: background-color 0.4s ease;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.bham-val-pulse-up {
+  background-color: rgba(34, 197, 94, 0.25) !important;
+}
+.bham-val-pulse-down {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+}
+.bham-sparkline-svg {
+  width: 100px;
+  height: 24px;
+  overflow: visible;
+}
+
+/* ── Bus Benchmark & Stress Test ── */
+.bham-benchmark-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.bham-benchmark-box {
+  background: var(--bham-bg-surface);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bham-benchmark-box-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--bham-text-dim);
+  text-transform: uppercase;
+}
+.bham-benchmark-box-val {
+  font-family: var(--font-mono, monospace);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bham-text-main);
+}
+.bham-rating-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.bham-rating-excellent {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+.bham-rating-good {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+.bham-rating-degraded {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+.bham-rating-critical {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+.bham-latency-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  background: var(--bham-bg-canvas);
+  border: 1px solid var(--bham-border);
+  border-radius: var(--bham-radius-sm);
+  padding: 6px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.bham-latency-bar {
+  flex: 1;
+  min-width: 4px;
+  background: #0284c7;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.2s ease;
+}
+.bham-latency-bar.timeout {
+  background: #ef4444;
+}
+
+

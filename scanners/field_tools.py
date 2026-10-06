@@ -795,3 +795,125 @@ async def bacnet_point_override(
                 _safe_close(app)
             except Exception:
                 pass
+
+
+# ── Modbus Stress Test & Bus Latency Benchmark ────────────────────────────────
+
+async def modbus_benchmark(
+    protocol: str = "rtu",
+    port: Optional[str] = None,
+    baudrate: int = 9600,
+    parity: str = "N",
+    stopbits: int = 1,
+    ip: Optional[str] = None,
+    tcp_port: int = 502,
+    slave_id: int = 1,
+    address: int = 0,
+    count: int = 1,
+    iterations: int = 20,
+    timeout: float = 0.5,
+) -> dict[str, Any]:
+    """
+    Esegue un benchmark e stress-test di comunicazione su un nodo Modbus (RTU o TCP).
+    Invia 'iterations' frame di lettura consecutivi (FC03/FC04), misura latenza al ms di ciascun pacchetto,
+    calcola Min, Max, Media, Jitter (deviazione standard) e Frame Error Rate (FER %).
+    Formula un verdetto ingegneristico sulla qualità fisica della linea/bus.
+    """
+    iterations = max(5, min(int(iterations or 20), 100))
+    latencies: list[float] = []
+    errors: list[str] = []
+    success_count = 0
+    fail_count = 0
+
+    t_start = time.monotonic()
+
+    for i in range(iterations):
+        res = await modbus_quick_read(
+            protocol=protocol,
+            port=port,
+            baudrate=baudrate,
+            parity=parity,
+            stopbits=stopbits,
+            ip=ip,
+            tcp_port=tcp_port,
+            slave_id=slave_id,
+            function_code=3,
+            address=address,
+            count=count,
+            timeout=timeout,
+        )
+        if res.get("success"):
+            success_count += 1
+            latencies.append(float(res.get("elapsed_ms", 0.0)))
+        else:
+            fail_count += 1
+            latencies.append(round(timeout * 1000, 1))
+            err = res.get("error") or "Timeout / Eccezione"
+            if err not in errors:
+                errors.append(err)
+        # Breve pausa per evitare saturazione buffer su RTU lenta
+        await asyncio.sleep(0.01)
+
+    total_elapsed = round((time.monotonic() - t_start) * 1000, 1)
+
+    # Calcolo metriche statistiche
+    fer_pct = round((fail_count / iterations) * 100.0, 1)
+
+    if latencies:
+        min_lat = round(min(latencies), 1)
+        max_lat = round(max(latencies), 1)
+        avg_lat = round(sum(latencies) / len(latencies), 1)
+        variance = sum((x - avg_lat) ** 2 for x in latencies) / len(latencies)
+        jitter = round(variance ** 0.5, 1)
+    else:
+        min_lat = max_lat = avg_lat = jitter = 0.0
+
+    # Diagnosi e Verdetto Ingegneristico
+    if fer_pct == 0.0:
+        if avg_lat < 80.0 and jitter < 15.0:
+            rating = "EXCELLENT"
+            rating_it = "ECCELLENTE"
+            diagnosis = "Bus ottimale: nessuna perdita di frame, latenza minima e jitter trascurabile."
+        elif avg_lat < 180.0:
+            rating = "GOOD"
+            rating_it = "BUONO"
+            diagnosis = "Comunicazione stabile e affidabile con tempi di risposta nella norma industriale."
+        else:
+            rating = "DEGRADED"
+            rating_it = "DEGRADATO"
+            diagnosis = "Nessun errore di frame ma latenza media elevata (>180ms): verificare lunghezza cavo o carico dello slave."
+    elif fer_pct <= 5.0:
+        rating = "DEGRADED"
+        rating_it = "DEGRADATO"
+        diagnosis = f"Perdita sporadica di pacchetti (FER {fer_pct}%): possibili disturbi EMI, terminazione 120Ω mancante o timeout troppo stretto."
+    else:
+        rating = "CRITICAL"
+        rating_it = "CRITICO"
+        diagnosis = f"Qualità del bus critica (FER {fer_pct}%): frequenti timeout o scarti CRC. Verificare cablaggio A/B, schermatura, o conflitto indirizzi ID {slave_id}."
+
+    return {
+        "success": True,
+        "protocol": protocol.lower(),
+        "target": {
+            "port": port,
+            "ip": ip,
+            "slave_id": slave_id,
+            "baudrate": baudrate,
+            "iterations": iterations,
+        },
+        "iterations": iterations,
+        "success_count": success_count,
+        "fail_count": fail_count,
+        "packet_error_rate_pct": fer_pct,
+        "min_latency_ms": min_lat,
+        "max_latency_ms": max_lat,
+        "avg_latency_ms": avg_lat,
+        "jitter_ms": jitter,
+        "rating": rating,
+        "rating_label": rating_it,
+        "diagnosis": diagnosis,
+        "latencies": latencies,
+        "errors": errors,
+        "total_elapsed_ms": total_elapsed,
+    }
+

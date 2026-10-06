@@ -127,6 +127,73 @@ class AppState:
     def record_serial_frame(self, frame: SerialFrame) -> None:
         self._notify({"event": "serial_frame", "frame": frame.model_dump(mode="json")})
 
+    def update_device_commissioning(
+        self,
+        protocol: str,
+        identifier: str | int,
+        status: str,
+        notes: Optional[str] = None,
+        commissioned_by: Optional[str] = None,
+    ) -> bool:
+        """
+        Aggiorna lo stato di collaudo e le note operative per un dispositivo specifico.
+        protocol: 'modbus', 'bacnet', 'knx', 'ip'
+        """
+        now = datetime.now(timezone.utc)
+        proto = (protocol or "").lower()
+        updated = False
+
+        with self._state_lock:
+            if proto == "modbus":
+                sid = int(identifier) if str(identifier).isdigit() else None
+                for k, d in self.modbus_devices.items():
+                    if k == str(identifier) or (sid is not None and d.slave_id == sid):
+                        d.commissioning_status = status
+                        d.commissioning_notes = notes
+                        d.commissioned_by = commissioned_by
+                        d.commissioned_at = now
+                        updated = True
+                        break
+            elif proto == "bacnet":
+                did = int(identifier) if str(identifier).isdigit() else None
+                if did in self.bacnet_devices:
+                    bd = self.bacnet_devices[did]
+                    bd.commissioning_status = status
+                    bd.commissioning_notes = notes
+                    bd.commissioned_by = commissioned_by
+                    bd.commissioned_at = now
+                    updated = True
+            elif proto == "knx":
+                for k, kd in self.knx_devices.items():
+                    if k == str(identifier) or kd.individual_address == str(identifier):
+                        kd.commissioning_status = status
+                        kd.commissioning_notes = notes
+                        kd.commissioned_by = commissioned_by
+                        kd.commissioned_at = now
+                        updated = True
+                        break
+            elif proto == "ip":
+                ip_str = str(identifier)
+                if ip_str in self.ip_hosts:
+                    ih = self.ip_hosts[ip_str]
+                    ih.commissioning_status = status
+                    ih.commissioning_notes = notes
+                    ih.commissioned_by = commissioned_by
+                    ih.commissioned_at = now
+                    updated = True
+
+        if updated:
+            self._notify({
+                "event": "device_commissioning_updated",
+                "protocol": proto,
+                "identifier": str(identifier),
+                "status": status,
+                "notes": notes,
+                "commissioned_by": commissioned_by,
+                "commissioned_at": now.isoformat(),
+            })
+        return updated
+
     # ── Broadcast ────────────────────────────────────────────────────────────
 
     def register_broadcast_hook(self, hook: Callable[[dict], None]) -> None:

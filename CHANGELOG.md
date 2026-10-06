@@ -3,6 +3,37 @@
 Formato basato su [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versioni [SemVer](https://semver.org/lang/it/).
 Le note della sezione corrispondente alla versione vengono pubblicate automaticamente nella GitHub Release.
 
+## [1.0.0] – 2026-10-06 – Stable Release
+
+### Aggiunto
+- **Live Watch List & Register Polling Monitor (`frontend/js/app.js`)**:
+  - Monitoraggio continuo in tempo reale di registri Modbus selezionati (Holding e Input) con frequenze regolabili (500ms, 1s, 2s, 5s).
+  - Evidenziazione dinamica dei delta con transizioni cromatiche e buzzer audio hands-free sintetizzato via Web Audio API.
+  - Esportazione cronologica dei campionamenti in formato CSV.
+- **RS485 Stress Test & Latency Benchmark (`scanners/field_tools.py`, `api/routes.py`, `api/schemas.py`)**:
+  - Test diagnostico fisico del bus RS485/Modbus con calcolo in tempo reale di Packet Error Rate (PER %), latenza RTT (min, max, avg), jitter e frame scartati per checksum CRC corrotto.
+  - Diagnostica fisica guidata con raccomandazione analitica del baudrate ottimale.
+  - Endpoint dedicati `POST /api/v1/tools/modbus/benchmark` e `POST /api/v1/modbus/benchmark`.
+- **BMS/SCADA Multi-Vendor Tag Exporter (`core/tag_exporter.py`, `api/routes.py`)**:
+  - Esportazione istantanea dei punti e registri censiti nei formati nativi dei principali supervisori BMS: Tridium Niagara 4 (XML), Siemens Desigo CC (CSV), Schneider EcoStruxure Building Operation (CSV) e BACnet CSV generico.
+  - Endpoint dedicato `GET /api/v1/export/tags?format=standard_csv|niagara_csv|json`.
+- **Accesso Mobile Hands-Free con Pairing QR Code (`core/qr_svg.py`, `api/routes.py`)**:
+  - Generatore vettoriale SVG standalone di QR Code per connessione istantanea da smartphone o tablet sulla rete LAN (`0.0.0.0:8765`), 100% offline senza dipendenze cloud o esterne.
+  - Endpoint dedicato `GET /api/v1/network/qr-code`.
+- **As-Built Commissioning Checklist & Certificazione (`data/state.py`, `api/routes.py`)**:
+  - Checklist ufficiale per la validazione punto per punto dei dispositivi collaudati con annotazioni tecniche e firma operatore.
+  - Endpoint `POST /api/v1/device/commissioning-status`.
+- **1-Click Launch Script (`open.sh`) & Auto-Browser Robustness**:
+  - Script eseguibile per avvio immediato e rilancio sicuro del browser.
+  - Risoluzione intelligente del browser di sistema (fallback esplicito su `/usr/bin/firefox` quando assente `google-chrome`).
+  - Auto-reexec trasparente in virtualenv (`.venv/bin/python3`) in `main.py` e preservazione variabili grafiche `$DISPLAY` e `$XAUTHORITY` in `start.sh`.
+
+### Modificato & Ottimizzato
+- **Centro Assistenza & Manuale di Campo**: Esteso a 22 capitoli tecnici completi in Italiano, Inglese e Spagnolo, con calcolatori integrati e guide al troubleshooting.
+- **Esclusione M-Bus**: Rimozione completa di ogni riferimento o dipendenza M-Bus per garantire massima focalizzazione e pulizia architetturale.
+- **Parità Crittografica WAL**: Verifica di integrità forense su 1073 record del registro manovre con certificazione SHA-256 e zero errori.
+- **Test Suite**: Espansione a 58 test unitari e di integrazione passati con successo al 100%.
+
 ## [0.9.0] – 2026-10-05
 
 ### Aggiunto

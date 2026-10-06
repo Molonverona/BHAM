@@ -14,7 +14,7 @@ const I18N = {
   translations: {
     it: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.9.0",
+      brand_sub: "BACS Help Auto Mapper v1.0.0",
       rapid_scan: "AVVIA SCAN RAPIDO",
       rapid_scan_title: "Avvia scansione sequenziale RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -40,6 +40,8 @@ const I18N = {
       edit_params_hint: "Clicca per aprire la configurazione",
 
       // Sidebar Cards
+      deck_title: "Canali Protocollo",
+      deck_sub: "Monitor e configurazione",
       site_plant_lbl: "Sito / Impianto:",
       modbus_rtu_title: "Modbus RTU (RS485)",
       slave_id_range: "Slave ID Range",
@@ -159,6 +161,14 @@ const I18N = {
       th_hostname: "HOSTNAME / NETBIOS",
       th_first_seen: "PRIMO RILEVAMENTO",
       th_oui_vendor: "OUI VENDOR",
+      th_collaudo: "COLLAUDO",
+      btn_watchlist: "Watch List",
+      btn_mobile_qr: "QR LAN",
+      btn_benchmark: "Stress Test Bus",
+      comm_status_ok: "Conforme (OK)",
+      comm_status_warn: "Con Riserva",
+      comm_status_fail: "Non Conforme",
+      comm_status_pending: "Non Testato",
       btn_details: "Dettagli",
 
       // Live Console
@@ -174,8 +184,9 @@ const I18N = {
       settings_sub: "Gestione centralizzata hardware, motori di scansione, lingua, sessioni salvate e mappe.",
       tab_hw: "Adattatori & Porte",
       tab_scan: "Connettività & Scansione",
-      tab_appearance: "Tema & Lingua",
       tab_sessions: "Sessioni Salvate",
+      tab_security: "Sicurezza & Safe Mode",
+      tab_appearance: "Tema & Lingua",
       tab_maps: "Mappe BACS Help",
       site_name_label: "Nome Sito / Impianto",
       selftest_title: "Diagnostica Rapida Interfacce (Self-Test)",
@@ -360,7 +371,7 @@ const I18N = {
 
     en: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.9.0",
+      brand_sub: "BACS Help Auto Mapper v1.0.0",
       rapid_scan: "START RAPID SCAN",
       rapid_scan_title: "Start automated sequential scan RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -386,6 +397,8 @@ const I18N = {
       edit_params_hint: "Click to open configuration",
 
       // Sidebar Cards
+      deck_title: "Protocol Channels",
+      deck_sub: "Monitor & configuration",
       site_plant_lbl: "Site / Plant:",
       modbus_rtu_title: "Modbus RTU (RS485)",
       slave_id_range: "Slave ID Range",
@@ -505,6 +518,14 @@ const I18N = {
       th_hostname: "HOSTNAME / NETBIOS",
       th_first_seen: "FIRST SEEN",
       th_oui_vendor: "OUI VENDOR",
+      th_collaudo: "COMMISSIONING",
+      btn_watchlist: "Watch List",
+      btn_mobile_qr: "LAN QR",
+      btn_benchmark: "Bus Stress Test",
+      comm_status_ok: "Compliant (OK)",
+      comm_status_warn: "With Reservation",
+      comm_status_fail: "Non-Compliant",
+      comm_status_pending: "Untested",
       btn_details: "Details",
 
       // Live Console
@@ -520,8 +541,9 @@ const I18N = {
       settings_sub: "Centralized management of hardware, scan engines, language, saved sessions and maps.",
       tab_hw: "Adapters & Ports",
       tab_scan: "Connectivity & Scanning",
-      tab_appearance: "Theme & Language",
       tab_sessions: "Saved Sessions",
+      tab_security: "Security & Safe Mode",
+      tab_appearance: "Theme & Language",
       tab_maps: "BACS Help Maps",
       site_name_label: "Site / Plant Name",
       selftest_title: "Quick Interface Diagnostics (Self-Test)",
@@ -706,7 +728,7 @@ const I18N = {
 
     es: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v0.9.0",
+      brand_sub: "BACS Help Auto Mapper v1.0.0",
       rapid_scan: "INICIAR ESCANEO RÁPIDO",
       rapid_scan_title: "Iniciar escaneo secuencial RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -732,6 +754,8 @@ const I18N = {
       edit_params_hint: "Haga clic para abrir la configuración",
 
       // Sidebar Cards
+      deck_title: "Canales de Protocolo",
+      deck_sub: "Monitor y configuración",
       site_plant_lbl: "Sitio / Instalación:",
       modbus_rtu_title: "Modbus RTU (RS485)",
       slave_id_range: "Rango ID Slave",
@@ -851,6 +875,14 @@ const I18N = {
       th_hostname: "HOSTNAME / NETBIOS",
       th_first_seen: "PRIMER DETECCIÓN",
       th_oui_vendor: "FABRICANTE OUI",
+      th_collaudo: "PUESTA EN MARCHA",
+      btn_watchlist: "Lista Vigilancia",
+      btn_mobile_qr: "QR LAN",
+      btn_benchmark: "Prueba Estrés Bus",
+      comm_status_ok: "Conforme (OK)",
+      comm_status_warn: "Con Reserva",
+      comm_status_fail: "No Conforme",
+      comm_status_pending: "No Probado",
       btn_details: "Detalles",
 
       // Live Console
@@ -866,8 +898,9 @@ const I18N = {
       settings_sub: "Gestión centralizada de hardware, motores de escaneo, idioma, sesiones y mapas.",
       tab_hw: "Adaptadores y Puertos",
       tab_scan: "Conectividad y Escaneo",
-      tab_appearance: "Tema e Idioma",
       tab_sessions: "Sesiones Guardadas",
+      tab_security: "Seguridad y Safe Mode",
+      tab_appearance: "Tema e Idioma",
       tab_maps: "Mapas BACS Help",
       site_name_label: "Nombre Sitio / Instalación",
       selftest_title: "Diagnóstico Rápido de Interfaces (Self-Test)",

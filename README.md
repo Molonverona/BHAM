@@ -55,7 +55,21 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
   - Architettura ergonomica a 2 colonne: Sidebar canali e diagnostica a sinistra (360px) + Workspace centrale con Switcher Vista Tabella/Topologia + Dock Diagnostico Inferiore a scomparsa per Live Console e RS485 Inspector
   - Dual Mode (Dark Mode ad alto contrasto per locali tecnici / Light Mode per visibilità sotto luce solare diretta)
   - Color-coding ergonomico per protocollo (Ciano=Modbus, Viola=BACnet, Arancione=KNX, Smeraldo=ARP, Ambra=Diagnostics)
-  - Internazionalizzazione completa (Italiano, Inglese, Spagnolo, **289 chiavi per lingua** con parità 100%) e Manuale Tecnico interattivo a bordo (F1, 19 capitoli)
+  - Internazionalizzazione completa (Italiano, Inglese, Spagnolo, **289 chiavi per lingua** con parità 100%) e Manuale Tecnico interattivo a bordo (F1, 22 capitoli)
+- **📈 Live Watch List & Polling Registri (v1.0.0 Stable)**:
+  - Monitoraggio continuo in tempo reale di registri Modbus (Holding/Input) a intervalli configurabili (500ms..5s)
+  - Evidenziazione visiva reattiva dei delta con transizioni cromatiche e buzzer acustico hands-free (Web Audio API)
+  - Esportazione istantanea del log campionamenti cronologico in formato CSV
+- **🔬 RS485 Stress Test & Latency Benchmark (v1.0.0 Stable)**:
+  - Benchmark fisico del bus seriale con raffiche calibrate di pacchetti
+  - Calcolo live di Packet Error Rate (PER %), latenza RTT (min, max, avg), jitter e frame scartati per CRC
+  - Diagnostica fisica guidata di terminazioni mancanti o disturbi EMI e suggerimento analitico del baudrate ottimale
+- **📑 BMS/SCADA Multi-Vendor Tag Exporter (v1.0.0 Stable)**:
+  - Generazione file d'importazione nativi per Tridium Niagara 4 (XML), Siemens Desigo CC (CSV), Schneider EcoStruxure (CSV) e BACnet CSV generico
+- **📱 Accesso Mobile Hands-Free con Pairing QR Code (v1.0.0 Stable)**:
+  - Generatore vettoriale SVG standalone di QR Code per connessione immediata da tablet/smartphone in cantiere sulla LAN (`0.0.0.0:8765`), 100% offline
+- **✅ As-Built Commissioning Checklist & Certificazione (v1.0.0 Stable)**:
+  - Validazione dispositivo per dispositivo con stato di conformità ('ok', 'warning', 'failed', 'pending'), note tecniche e firma del collaudatore integrata nel verbale finale
 - **🌐 BACS IP Scanner Avanzato & OUI Recognition (v0.9.0)**:
   - Scansione asincrona parallela ad alta concorrenza (50 task) di subnet CIDR e range IP (`192.168.1.0/24`, `10.0.0.1-50`)
   - Database integrato IEEE OUI con oltre 100 produttori BACS, HVAC, PLC e Building Automation (Schneider, Siemens, Honeywell, Carel, WAGO, Beckhoff, Moxa, Tridium, Belimo, ABB, Carlo Gavazzi, Danfoss, Phoenix Contact, Johnson Controls, ecc.) con lookup $O(1)$
@@ -110,7 +124,7 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
 
 ---
 
-## 🚀 Installazione & Avvio (Windows e Linux) – v0.9.0
+## 🚀 Installazione & Avvio (Windows e Linux) – v1.0.0 (Stable Release)
 
 Un solo comando, identico su entrambi i sistemi. Il launcher `bham.py` legge `requirements.txt`,
 mostra l'elenco dei pacchetti mancanti, chiede conferma, crea il `.venv` isolato, installa tutto,
@@ -258,7 +272,7 @@ BHAM/
 │   └── BacsHelp.BHAM.locale.en-US.yaml
 ├── sessions/             # Storage sessioni JSON e log storici
 ├── tests/                # Test suite automatizzata
-│   └── test_bham.py      # Test unitari e di integrazione (26 test completi)
+│   └── test_bham.py      # Test unitari e di integrazione (58 test completi)
 ├── .github/workflows/    # Automazioni GitHub Actions
 │   ├── ci.yml            # Test suite automatica su Linux e Windows
 │   └── release.yml       # Build stand-alone, pacchetti .deb e auto-submit WinGet

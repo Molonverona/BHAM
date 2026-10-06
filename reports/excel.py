@@ -102,7 +102,7 @@ def generate_excel(filepath: str) -> str:
     # ── Sheet 2: Modbus Devices ──────────────────────────────────────────────
     mb_headers = [
         "Slave ID", "Protocol", "IP", "TCP Port",
-        "Serial Port", "Baudrate", "Response ms", "Discovered At"
+        "Serial Port", "Baudrate", "Response ms", "Stato Collaudo", "Note Tecnico", "Discovered At"
     ]
     mb_rows = []
     for d in state.modbus_devices.values():
@@ -114,6 +114,8 @@ def generate_excel(filepath: str) -> str:
             d.serial_params.port if d.serial_params else "",
             d.serial_params.baudrate if d.serial_params else "",
             round(d.response_time_ms, 2) if d.response_time_ms else "",
+            (d.commissioning_status or "non_testato").upper(),
+            d.commissioning_notes or "",
             str(d.discovered_at)[:19],
         ])
     _write_sheet(wb, "Modbus Devices", mb_headers, mb_rows, _HDR_CYAN)
@@ -121,7 +123,7 @@ def generate_excel(filepath: str) -> str:
     # ── Sheet 3: BACnet Devices ──────────────────────────────────────────────
     bn_headers = [
         "Device ID", "Address", "Vendor ID", "Vendor Name",
-        "Model Name", "FW Revision", "SW Version", "Discovered At"
+        "Model Name", "FW Revision", "SW Version", "Stato Collaudo", "Note Tecnico", "Discovered At"
     ]
     bn_rows = []
     for d in state.bacnet_devices.values():
@@ -133,6 +135,8 @@ def generate_excel(filepath: str) -> str:
             d.model_name or "",
             d.firmware_revision or "",
             d.application_software_version or "",
+            (d.commissioning_status or "non_testato").upper(),
+            d.commissioning_notes or "",
             str(d.discovered_at)[:19],
         ])
     _write_sheet(wb, "BACnet Devices", bn_headers, bn_rows, _HDR_PURPLE)
@@ -140,7 +144,7 @@ def generate_excel(filepath: str) -> str:
     # ── Sheet 4: KNX Devices ─────────────────────────────────────────────────
     knx_headers = [
         "Individual Address", "IP Address", "Port", "Device Name",
-        "Serial Number", "MAC", "Medium", "Discovered At"
+        "Serial Number", "MAC", "Medium", "Stato Collaudo", "Note Tecnico", "Discovered At"
     ]
     knx_rows = []
     for k in state.knx_devices.values():
@@ -152,6 +156,8 @@ def generate_excel(filepath: str) -> str:
             k.serial_number or "",
             k.mac_address or "",
             k.medium,
+            (k.commissioning_status or "non_testato").upper(),
+            k.commissioning_notes or "",
             str(k.discovered_at)[:19],
         ])
     _write_sheet(wb, "KNX Devices", knx_headers, knx_rows, _HDR_ORANGE)

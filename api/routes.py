@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Body, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Body, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
@@ -29,6 +29,8 @@ from api.schemas import (
     DeleteSessionResponse,
     DemoStatusResponse,
     DemoToggleResponse,
+    DeviceCommissioningRequest,
+    DeviceCommissioningResponse,
     FC43Request,
     FC43Response,
     HardwareSelfTestResponse,
@@ -36,6 +38,8 @@ from api.schemas import (
     IPScanRequest,
     KNXIPScanRequest,
     MapsImportResponse,
+    ModbusBenchmarkRequest,
+    ModbusBenchmarkResponse,
     ModbusQuickReadRequest,
     ModbusQuickReadResponse,
     ModbusQuickWriteRequest,
@@ -46,6 +50,7 @@ from api.schemas import (
     ModbusTCPScanRequest,
     NetworkInterfacesResponse,
     OUILookupResponse,
+    QRCodeResponse,
     RestoreSessionResponse,
     SaveCustomProfileRequest,
     SaveSessionRequest,
@@ -1183,5 +1188,124 @@ async def apply_profile_to_slave_endpoint(req: ApplyProfileRequest) -> dict:
         return profile_manager.apply_profile_to_slave(slave_id=req.slave_id, profile_id=req.profile_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── Bus Benchmark & Stress Test ───────────────────────────────────────────────
+
+@router.post(
+    "/tools/modbus/benchmark",
+    tags=["modbus"],
+    response_model=ModbusBenchmarkResponse,
+    summary="Benchmark e Stress-Test del Bus Modbus (RTU/TCP)",
+    description="Invia raffiche di richieste misurando latenza al ms, jitter, FER % e verdetto di salute fisica del cavo/bus.",
+)
+@router.post(
+    "/modbus/benchmark",
+    tags=["modbus"],
+    response_model=ModbusBenchmarkResponse,
+    include_in_schema=False,
+)
+async def modbus_benchmark_endpoint(req: ModbusBenchmarkRequest) -> dict:
+    from scanners.field_tools import modbus_benchmark
+    return await modbus_benchmark(
+        protocol=req.protocol,
+        port=req.port,
+        baudrate=req.baudrate,
+        parity=req.parity,
+        stopbits=req.stopbits,
+        ip=req.ip,
+        tcp_port=req.tcp_port,
+        slave_id=req.slave_id,
+        address=req.address,
+        count=req.count,
+        iterations=req.iterations,
+        timeout=req.timeout,
+    )
+
+
+# ── SCADA & BMS Tag Exporter ──────────────────────────────────────────────────
+
+@router.get(
+    "/export/tags",
+    tags=["reports"],
+    summary="Esporta Tag List d'Impianto per Supervisori BMS/SCADA",
+    description="Genera file CSV (Standard SCADA, Tridium Niagara 4) o JSON Tag Dictionary per l'importazione diretta nei supervisori.",
+)
+async def export_tags_endpoint(
+    format: str = Query("standard_csv", description="Formato esportazione: 'standard_csv', 'niagara_csv', 'json'"),
+) -> Response:
+    from core.tag_exporter import export_scada_tags
+    content, media_type, filename = export_scada_tags(format_type=format)
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Commissioning Checklist & As-Built ────────────────────────────────────────
+
+@router.post(
+    "/device/commissioning-status",
+    tags=["setup"],
+    response_model=DeviceCommissioningResponse,
+    summary="Aggiorna stato di collaudo e note per un dispositivo",
+    description="Assegna lo stato di collaudo ('ok', 'warning', 'failed', 'pending') e note operative As-Built per il verbale finale.",
+)
+async def update_device_commissioning_endpoint(req: DeviceCommissioningRequest) -> dict:
+    from datetime import datetime, timezone
+    updated = state.update_device_commissioning(
+        protocol=req.protocol,
+        identifier=req.identifier,
+        status=req.status,
+        notes=req.notes,
+        commissioned_by=req.commissioned_by,
+    )
+    if not updated:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dispositivo '{req.identifier}' del protocollo '{req.protocol}' non trovato nello stato attivo.",
+        )
+    return {
+        "success": True,
+        "protocol": req.protocol,
+        "identifier": req.identifier,
+        "status": req.status,
+        "notes": req.notes,
+        "commissioned_by": req.commissioned_by,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# ── QR Code LAN Access ────────────────────────────────────────────────────────
+
+@router.get(
+    "/network/qr-code",
+    tags=["system"],
+    response_model=QRCodeResponse,
+    summary="Genera QR Code SVG per accesso rapido da smartphone/tablet LAN",
+    description="Restituisce il codice QR vettoriale SVG per connettere istantaneamente un dispositivo mobile all'interfaccia BHAM.",
+)
+async def get_network_qr_code(url: Optional[str] = Query(default=None, description="URL personalizzato (default auto-rilevato LAN)")) -> dict:
+    from core.hw_discovery import get_host_lan_ips, list_network_interfaces
+    from core.qr_svg import generate_qr_svg
+
+    target_url = url if isinstance(url, str) and url.strip() else None
+    if not target_url:
+        lan_ips = get_host_lan_ips()
+        if lan_ips:
+            lan_ip = lan_ips[0]
+        else:
+            nic_list = list_network_interfaces()
+            lan_ip = nic_list[0].get("ip", "127.0.0.1") if nic_list else "127.0.0.1"
+        port = getattr(settings, "port", 8765)
+        target_url = f"http://{lan_ip}:{port}"
+
+    svg_data = generate_qr_svg(target_url, margin=3, scale=5)
+    return {
+        "url": target_url,
+        "svg": svg_data,
+    }
+
 
 
