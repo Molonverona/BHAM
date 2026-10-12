@@ -74,10 +74,15 @@ Nasconde esattamente gli errori dei punti 1–2, rendendoli invisibili in campo.
 
 ## 🟡 Medi
 
-### 8. Nessuna autenticazione + bind su `0.0.0.0` + CORS totalmente aperto
-`main.py`: `allow_origins=["*"]` con `allow_credentials=True` (combinazione anche formalmente invalida per i browser) e nessun auth, su un daemon in ascolto su tutte le interfacce. Su una rete cliente chiunque può lanciare scansioni, leggere la topologia scoperta e scaricare i report.
+### 8. Nessuna autenticazione + bind su `0.0.0.0` + CORS totalmente aperto [RISOLTO in v1.1.0]
+`main.py`: `allow_origins=["*"]` con `allow_credentials=True` (combinazione anche formalmente invalida per i browser) e nessun auth, su un daemon in ascolto su tutte le interfacce. Su una rete cliente chiunque poteva lanciare scansioni, leggere la topologia scoperta e scaricare i report.
 
-**Fix consigliato:** valutare bind di default su `127.0.0.1`, o un token/API key; almeno documentare il rischio.
+**Risolto in v1.1.0:**
+- **CORS Hardening:** Rimossa la combinazione non conforme di `allow_origins=["*"]` con `allow_credentials=True` (impostato compliant `allow_credentials=False`).
+- **LAN Security Token:** Introdotto middleware `lan_security_middleware` con token crittografico casuale a 16 byte generato automaticamente all'avvio (`secrets.token_urlsafe(16)`) o configurabile via `.env` (`BHAM_API_TOKEN`).
+- **Esenzione Localhost Trasparente:** Tutte le connessioni loopback (`127.0.0.1`, `::1`) mantengono accesso diretto senza credenziali per massima usabilità sul dispositivo di collaudo.
+- **Protezione Connessioni Remote LAN & WebSocket:** Le richieste da host LAN remoti richiedono obbligatoriamente il token via header HTTP `X-BHAM-Token` o query parameter `?token=`. Gli handshake WebSocket remoti sprovvisti di token valido vengono rifiutati con codice `4401`.
+- **Pairing QR Code Integrato:** Il generatore offline di codici QR inietta automaticamente il token di sicurezza nell'URL rilevato della LAN per accoppiare tablet e smartphone di cantiere in 1-click.
 
 ### 9. Enrichment BACnet: 10 `Application()` concorrenti sulla stessa porta
 `scanners/bacnet.py::_enrich_devices` usa `Semaphore(10)` e ogni `_read_device_properties` istanzia una nuova `Application` che tenta il bind sulla porta BACnet di default → probabili collisioni di bind, con errori inghiottiti dal try/except. In campo l'arricchimento può fallire spesso.

@@ -19,8 +19,9 @@ if sys.prefix == getattr(sys, "base_prefix", sys.prefix):
     if _venv_py.exists():
         os.execv(str(_venv_py), [str(_venv_py)] + sys.argv)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routes import router
@@ -53,7 +54,8 @@ async def lifespan(app: FastAPI):
     lan_ips = get_host_lan_ips()
     logger.info("Listening on http://localhost:%d  –  WS at ws://localhost:%d/api/v1/ws", settings.port, settings.port)
     for ip in lan_ips:
-        logger.info("LAN Remote Access: http://%s:%d", ip, settings.port)
+        token_qs = f"?token={settings.api_token}" if settings.lan_auth_required and settings.api_token else ""
+        logger.info("LAN Remote Access: http://%s:%d%s", ip, settings.port, token_qs)
 
     # Apertura automatica del browser all'avvio (se non disabilitata con BHAM_NO_BROWSER=1)
     if not os.environ.get("BHAM_NO_BROWSER"):
@@ -81,6 +83,17 @@ async def lifespan(app: FastAPI):
 
     # ── Shutdown ─────────────────────────────────────────────────────────────
     logger.info("BHAM shutting down …")
+    try:
+        from scanners.base import abort_all
+        abort_all()
+    except Exception:
+        pass
+    try:
+        from scanners.knx import knx_group_monitor
+        if knx_group_monitor.is_running:
+            await knx_group_monitor.stop()
+    except Exception:
+        pass
     try:
         audit_journal.record_event(
             action="system_shutdown",
@@ -182,17 +195,45 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS – allow the bundled frontend and local dev servers
-    # ⚠️  WARNING: This daemon has NO AUTHENTICATION and listens on 0.0.0.0.
-    # Anyone on the network can trigger scans, read discovered devices, export reports.
-    # For production/untrusted networks: bind to 127.0.0.1 or add authentication.
+    # CORS – compliant configuration (Audit #8 resolved)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # LAN Access Security Middleware (Zero-Config Localhost Exemption & QR Token Pairing)
+    @app.middleware("http")
+    async def lan_security_middleware(request: Request, call_next):
+        client_host = request.client.host if request.client else "127.0.0.1"
+        is_local = (
+            client_host in ("127.0.0.1", "::1", "localhost", "testclient")
+            or client_host.startswith("127.")
+        )
+        if is_local or not settings.lan_auth_required:
+            return await call_next(request)
+
+        path = request.url.path
+        # Allow static frontend assets, docs, and public status handshake
+        if not path.startswith("/api/v1") and path not in ("/docs", "/redoc", "/openapi.json"):
+            return await call_next(request)
+        if path in ("/api/v1/health", "/api/v1/network/qr-code", "/api/v1/network/qr"):
+            return await call_next(request)
+
+        # Check authentication token
+        token = request.headers.get("X-BHAM-Token") or request.query_params.get("token")
+        if token and settings.verify_token(token):
+            return await call_next(request)
+
+        return JSONResponse(
+            status_code=401,
+            content={
+                "detail": "Autenticazione richiesta per accesso remoto da rete LAN.",
+                "hint": "Fornire header 'X-BHAM-Token' o scansionare il QR code di accoppiamento mobile.",
+            },
+        )
 
     # REST + WS routes
     app.include_router(router, prefix="/api/v1")

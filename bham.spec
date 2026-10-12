@@ -47,6 +47,7 @@ hiddenimports = [
     'scanners.serial_sniffer',
     'core.paths',
     'core.priv_check',
+    'core.system_requirements',
     'core.session_diff',
     'core.simulator',
     'core.audit_journal',

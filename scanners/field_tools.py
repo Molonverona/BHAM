@@ -34,7 +34,8 @@ log = logger.getChild("field_tools")
 def decode_modbus_value(registers: list[int]) -> dict[str, Any]:
     """
     Decodes a list of 16-bit registers into multiple technical representations:
-    Dec, Hex, Int16, UInt16, Float32 (Big-Endian and Word-Swapped CDAB).
+    Dec, Hex, Int16, UInt16, Float32 (Big-Endian and Word-Swapped CDAB),
+    UInt32 (BE & LE), Int32 (BE & LE), Float64 (BE), Int64.
     """
     if not registers:
         return {}
@@ -48,22 +49,52 @@ def decode_modbus_value(registers: list[int]) -> dict[str, Any]:
         "int16": int16_val,
         "float32_be": None,
         "float32_le": None,
+        "uint32_be": None,
+        "uint32_le": None,
+        "int32_be": None,
+        "int32_le": None,
+        "float64_be": None,
+        "int64": None,
     }
 
     if len(registers) >= 2:
         r0 = registers[0] & 0xFFFF
         r1 = registers[1] & 0xFFFF
+        raw_be = struct.pack(">HH", r0, r1)
+        raw_le = struct.pack(">HH", r1, r0)
+
         try:
             # Big-Endian (ABCD)
-            raw_bytes_be = struct.pack(">HH", r0, r1)
-            result["float32_be"] = round(struct.unpack(">f", raw_bytes_be)[0], 4)
+            result["float32_be"] = round(struct.unpack(">f", raw_be)[0], 4)
         except Exception:
             pass
 
         try:
             # Word-Swapped (CDAB)
-            raw_bytes_le = struct.pack(">HH", r1, r0)
-            result["float32_le"] = round(struct.unpack(">f", raw_bytes_le)[0], 4)
+            result["float32_le"] = round(struct.unpack(">f", raw_le)[0], 4)
+        except Exception:
+            pass
+
+        try:
+            result["uint32_be"] = struct.unpack(">I", raw_be)[0]
+            result["uint32_le"] = struct.unpack(">I", raw_le)[0]
+            result["int32_be"] = struct.unpack(">i", raw_be)[0]
+            result["int32_le"] = struct.unpack(">i", raw_le)[0]
+        except Exception:
+            pass
+
+    if len(registers) >= 4:
+        r0 = registers[0] & 0xFFFF
+        r1 = registers[1] & 0xFFFF
+        r2 = registers[2] & 0xFFFF
+        r3 = registers[3] & 0xFFFF
+        raw_64 = struct.pack(">HHHH", r0, r1, r2, r3)
+        try:
+            result["float64_be"] = round(struct.unpack(">d", raw_64)[0], 6)
+        except Exception:
+            pass
+        try:
+            result["int64"] = struct.unpack(">q", raw_64)[0]
         except Exception:
             pass
 
@@ -73,7 +104,9 @@ def decode_modbus_value(registers: list[int]) -> dict[str, Any]:
 def encode_modbus_value(val: Any, data_type: str = "uint16") -> list[int]:
     """
     Encodes a user value (int, float, bool) into a list of 16-bit register values.
-    Supported types: 'uint16', 'int16', 'float32', 'float32_swapped', 'bool'
+    Supported types: 'uint16', 'int16', 'uint32', 'uint32_be', 'uint32_le', 'int32',
+    'int32_be', 'int32_le', 'float32', 'float32_be', 'float32_le', 'float64',
+    'float64_be', 'int64', 'bool'.
     """
     data_type = (data_type or "uint16").lower()
 
@@ -83,6 +116,24 @@ def encode_modbus_value(val: Any, data_type: str = "uint16") -> list[int]:
     if data_type == "int16":
         ival = int(val)
         return [ival & 0xFFFF]
+
+    if data_type in ("uint32", "uint32_be"):
+        ival = int(val)
+        return list(struct.unpack(">HH", struct.pack(">I", ival & 0xFFFFFFFF)))
+
+    if data_type in ("uint32_le", "uint32_swapped", "uint32_cdab"):
+        ival = int(val)
+        r0, r1 = struct.unpack(">HH", struct.pack(">I", ival & 0xFFFFFFFF))
+        return [r1, r0]
+
+    if data_type in ("int32", "int32_be"):
+        ival = int(val)
+        return list(struct.unpack(">HH", struct.pack(">i", ival)))
+
+    if data_type in ("int32_le", "int32_swapped", "int32_cdab"):
+        ival = int(val)
+        r0, r1 = struct.unpack(">HH", struct.pack(">i", ival))
+        return [r1, r0]
 
     if data_type in ("float", "float32", "float32_be"):
         fval = float(val)
@@ -95,6 +146,14 @@ def encode_modbus_value(val: Any, data_type: str = "uint16") -> list[int]:
         b = struct.pack(">f", fval)
         r0, r1 = struct.unpack(">HH", b)
         return [r1, r0]
+
+    if data_type in ("float64", "double", "float64_be"):
+        fval = float(val)
+        return list(struct.unpack(">HHHH", struct.pack(">d", fval)))
+
+    if data_type in ("int64", "int64_be"):
+        ival = int(val)
+        return list(struct.unpack(">HHHH", struct.pack(">q", ival)))
 
     # Default uint16
     return [int(val) & 0xFFFF]
@@ -788,6 +847,161 @@ async def bacnet_point_override(
             "audit_id": intent_id,
             "error": err_msg,
             "elapsed_ms": round((time.monotonic() - t0) * 1000, 1),
+        }
+    finally:
+        if app:
+            try:
+                _safe_close(app)
+            except Exception:
+                pass
+
+
+async def bacnet_point_read(
+    device_id: int,
+    address: Optional[str] = None,
+    object_type: str = "analogInput",
+    instance: int = 1,
+    timeout: float = 2.0,
+) -> dict[str, Any]:
+    """
+    Reads presentValue and units from a BACnet object.
+    Supports Virtual Plant Simulator in Demo Mode and real BACnet/IP devices via bacpypes3.
+    """
+    t0 = time.monotonic()
+    is_sim = simulator.is_active and (device_id in (1001, 1002))
+
+    if is_sim:
+        objs = simulator.get_bacnet_objects(device_id)
+        target_obj = None
+        for o in objs:
+            if o.get("type") == object_type and o.get("instance") == instance:
+                target_obj = o
+                break
+            if o.get("identifier") == f"{object_type}:{instance}":
+                target_obj = o
+                break
+
+        elapsed = round((time.monotonic() - t0) * 1000, 1)
+        if target_obj:
+            return {
+                "success": True,
+                "status": "ok",
+                "device_id": device_id,
+                "object_identifier": f"{object_type}:{instance}",
+                "object_type": object_type,
+                "instance": instance,
+                "value": str(target_obj.get("present_value", "")),
+                "units": target_obj.get("units", ""),
+                "simulated": True,
+                "elapsed_ms": elapsed,
+                "error": None,
+            }
+        else:
+            return {
+                "success": False,
+                "status": "error",
+                "device_id": device_id,
+                "object_identifier": f"{object_type}:{instance}",
+                "object_type": object_type,
+                "instance": instance,
+                "value": None,
+                "units": "",
+                "simulated": True,
+                "elapsed_ms": elapsed,
+                "error": f"Oggetto {object_type}:{instance} non trovato su dispositivo simulato #{device_id}.",
+            }
+
+    # Reale BACnet/IP
+    try:
+        from bacpypes3.app import Application
+        from bacpypes3.pdu import Address
+        from scanners.bacnet import _make_application, _safe_close
+    except ImportError:
+        return {
+            "success": False,
+            "status": "error",
+            "device_id": device_id,
+            "object_identifier": f"{object_type}:{instance}",
+            "object_type": object_type,
+            "instance": instance,
+            "value": None,
+            "units": "",
+            "simulated": False,
+            "elapsed_ms": 0.0,
+            "error": "Libreria bacpypes3 non installata.",
+        }
+
+    target_addr = address
+    if not target_addr:
+        from data.state import state
+        dev = state.bacnet_devices.get(device_id)
+        if dev and dev.address:
+            target_addr = dev.address
+
+    if not target_addr:
+        return {
+            "success": False,
+            "status": "error",
+            "device_id": device_id,
+            "object_identifier": f"{object_type}:{instance}",
+            "object_type": object_type,
+            "instance": instance,
+            "value": None,
+            "units": "",
+            "simulated": False,
+            "elapsed_ms": 0.0,
+            "error": f"Indirizzo di rete non disponibile per il device {device_id}.",
+        }
+
+    app = None
+    try:
+        app = _make_application()
+        target_pdu = Address(target_addr)
+        obj_ident = f"{object_type},{instance}"
+
+        val = await asyncio.wait_for(
+            app.read_property(target_pdu, obj_ident, "present-value"),
+            timeout=timeout,
+        )
+        units = ""
+        try:
+            u_val = await asyncio.wait_for(
+                app.read_property(target_pdu, obj_ident, "units"),
+                timeout=min(0.5, timeout),
+            )
+            if u_val is not None:
+                units = str(u_val)
+        except Exception:
+            pass
+
+        elapsed = round((time.monotonic() - t0) * 1000, 1)
+        return {
+            "success": True,
+            "status": "ok",
+            "device_id": device_id,
+            "object_identifier": f"{object_type}:{instance}",
+            "object_type": object_type,
+            "instance": instance,
+            "value": str(val) if val is not None else None,
+            "units": units,
+            "simulated": False,
+            "elapsed_ms": elapsed,
+            "error": None,
+        }
+    except Exception as exc:
+        elapsed = round((time.monotonic() - t0) * 1000, 1)
+        return {
+            "success": False,
+            "status": "error",
+            "device_id": device_id,
+            "object_identifier": f"{object_type}:{instance}",
+            "object_type": object_type,
+            "instance": instance,
+            "value": None,
+            "units": "",
+            "simulated": False,
+            "elapsed_ms": elapsed,
+            "error": str(exc),
         }
     finally:
         if app:

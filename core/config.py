@@ -5,7 +5,9 @@ Loads settings from environment variables / .env file using pydantic-settings.
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+import hmac
 import platform
+import secrets
 
 # Porta seriale di ripiego quando l'utente non ne ha selezionata una.
 DEFAULT_SERIAL_PORT = "COM1" if platform.system() == "Windows" else "/dev/ttyUSB0"
@@ -21,12 +23,24 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────────────────
     app_name: str = "BHAM – BACS Help Auto Mapper"
-    app_version: str = "1.0.0"
+    app_version: str = "1.1.0"
     debug: bool = False
 
     # ── Server ───────────────────────────────────────────────────────────────
     host: str = "0.0.0.0"
     port: int = 8765
+
+    # ── Security & Remote LAN Access ─────────────────────────────────────────
+    api_token: str = Field(default_factory=lambda: secrets.token_urlsafe(16))
+    lan_auth_required: bool = True
+
+    def verify_token(self, token: str | None) -> bool:
+        """Verifica se il token fornito corrisponde a quello attivo del demone."""
+        if not self.lan_auth_required:
+            return True
+        if not token or not self.api_token:
+            return False
+        return hmac.compare_digest(token.strip(), self.api_token.strip())
 
     # ── Modbus RTU defaults ──────────────────────────────────────────────────
     modbus_default_baudrates: list[int] = Field(

@@ -103,6 +103,18 @@ def get_sessions_dir() -> Path:
     return d
 
 
+def get_logs_dir() -> Path:
+    """Return the directory where logs are written."""
+    exe_dir = get_executable_dir()
+    if (exe_dir / "logs").is_dir() or is_portable():
+        d = exe_dir / "logs"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    d = get_data_dir() / "logs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def get_profiles_dir() -> Path:
     """Return the user-writable directory for custom/imported Modbus device profiles."""
     d = get_data_dir() / "profiles" / "custom"

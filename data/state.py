@@ -19,6 +19,7 @@ from data.models import (
     BusHealth,
     IPHost,
     KNXDevice,
+    KNXTelegram,
     ModbusDevice,
     ScanSession,
     ScanStatus,
@@ -47,6 +48,8 @@ class AppState:
         self.bacnet_devices: dict[int, BACnetDevice] = {}   # key: device_id
         self.knx_devices: dict[str, KNXDevice] = {}         # key: "<ip>:<addr>"
         self.ip_hosts: dict[str, IPHost] = {}               # key: ip
+        self.knx_telegrams: list[KNXTelegram] = []          # Circular buffer telegrammi monitor
+        self.max_knx_telegrams: int = 1000
 
         # Active / historical scan sessions
         self.sessions: dict[str, ScanSession] = {}
@@ -126,6 +129,27 @@ class AppState:
 
     def record_serial_frame(self, frame: SerialFrame) -> None:
         self._notify({"event": "serial_frame", "frame": frame.model_dump(mode="json")})
+
+    def record_knx_telegram(self, telegram: KNXTelegram) -> None:
+        with self._state_lock:
+            self.knx_telegrams.append(telegram)
+            if len(self.knx_telegrams) > self.max_knx_telegrams:
+                self.knx_telegrams.pop(0)
+        self._notify({"event": "knx_telegram", "telegram": telegram.model_dump(mode="json")})
+
+    def get_knx_telegrams(self, limit: int = 200, group_filter: Optional[str] = None) -> list[dict]:
+        with self._state_lock:
+            tgs = self.knx_telegrams
+            if group_filter and isinstance(group_filter, str):
+                gf = group_filter.strip().lower()
+                tgs = [t for t in tgs if gf in t.destination_group.lower() or gf in t.source_address.lower()]
+            sliced = tgs[-limit:] if limit > 0 else []
+            return [t.model_dump(mode="json") for t in sliced]
+
+    def clear_knx_telegrams(self) -> None:
+        with self._state_lock:
+            self.knx_telegrams.clear()
+        self._notify({"event": "knx_telegrams_cleared"})
 
     def update_device_commissioning(
         self,
@@ -636,6 +660,7 @@ class AppState:
             self.bacnet_devices.clear()
             self.knx_devices.clear()
             self.ip_hosts.clear()
+            self.knx_telegrams.clear()
         self._notify({"event": "state_cleared"})
 
 

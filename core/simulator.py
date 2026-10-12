@@ -27,6 +27,7 @@ from data.models import (
     BACnetDevice,
     IPHost,
     KNXDevice,
+    KNXTelegram,
     ModbusDevice,
     Parity,
     Protocol,
@@ -395,7 +396,7 @@ class PlantSimulator:
                 self._modbus_registers[1][2] = int(t_evap_out * 10)
                 self._modbus_registers[1][3] = int(t_evap_in * 10)
 
-                chiller = state.modbus_devices.get("/dev/ttyUSB0:1")
+                chiller = state.modbus_devices.get("/dev/ttyUSB0-1")
                 if chiller:
                     if "2" in chiller.registers:
                         chiller.registers["2"]["raw_dec"] = int(t_evap_out * 10)
@@ -405,10 +406,22 @@ class PlantSimulator:
                         chiller.registers["3"]["raw_hex"] = f"0x{(int(t_evap_in * 10)):04X}"
                     state.upsert_modbus(chiller)
 
+                # Oscillazione frequenza pompa (42.5Hz ± 1.5Hz)
+                pump_hz = round(42.5 + 1.5 * math.sin(step * 0.2), 1)
+                self._modbus_registers[2][1] = int(pump_hz * 10)
+                pump = state.modbus_devices.get("/dev/ttyUSB0-2")
+                if pump:
+                    if "1" in pump.registers:
+                        pump.registers["1"]["raw_dec"] = int(pump_hz * 10)
+                        pump.registers["1"]["raw_hex"] = f"0x{(int(pump_hz * 10)):04X}"
+                    state.upsert_modbus(pump)
+
                 # Oscillazione potenza meter (58kW ± 1.5kW)
                 power_kw = round(58.7 + 1.2 * math.sin(step * 0.2) + random.uniform(-0.3, 0.3), 1)
-                pm = state.modbus_devices.get("192.168.1.50:502:1")
+                pm = state.modbus_devices.get("192.168.1.50-1")
                 if pm:
+                    if "4" in pm.registers:
+                        pm.registers["4"]["float32"] = power_kw
                     state.upsert_modbus(pm)
 
                 # Aggiornamento oggetti BACnet UTA 01
@@ -433,6 +446,36 @@ class PlantSimulator:
                         elif obj["identifier"] == "analogInput:4":
                             obj["present_value"] = str(p_canale)
                     state.upsert_bacnet(ahu)
+
+                # Generazione telegrammi sintetici KNX in Demo Mode
+                if step % 2 == 0:
+                    t_temp = round(21.2 + 0.4 * math.sin(step * 0.15), 1)
+                    tg = KNXTelegram(
+                        source_address="1.1.2",
+                        destination_group="1/1/10",
+                        service="GroupValueWrite",
+                        raw_hex="0C 1A",
+                        data_bytes=[0x0C, 0x1A],
+                        dpt_guess="DPT 9.001 (Temperatura)",
+                        decoded_value=t_temp,
+                        unit="°C",
+                        priority="low",
+                    )
+                    state.record_knx_telegram(tg)
+                elif step % 3 == 0:
+                    l_val = bool(step % 6 == 0)
+                    tg = KNXTelegram(
+                        source_address="1.1.1",
+                        destination_group="0/0/1",
+                        service="GroupValueWrite",
+                        raw_hex="01" if l_val else "00",
+                        data_bytes=[1 if l_val else 0],
+                        dpt_guess="DPT 1.001 (Switch)",
+                        decoded_value=l_val,
+                        unit="ON" if l_val else "OFF",
+                        priority="normal",
+                    )
+                    state.record_knx_telegram(tg)
 
                 # Notifica periodica WebSocket per refresh grafi
                 if step % 5 == 0:

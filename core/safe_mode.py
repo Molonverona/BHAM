@@ -27,7 +27,7 @@ class SafeModeManager:
     """
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._armed: bool = False
         self._operator: str = ""
         self._job_order: str = ""
@@ -94,6 +94,30 @@ class SafeModeManager:
             details={"duration_minutes": duration_minutes, "expires_at": self._expires_at},
         )
 
+        return self.get_status()
+
+    def extend(self, extra_minutes: int = 15) -> dict[str, Any]:
+        """
+        Prolunga la sessione attiva di Safe Mode di extra_minutes (fino a max 8 ore totali).
+        """
+        now = time.time()
+        with self._lock:
+            if not self._armed or now >= self._expires_at:
+                raise ValueError("Safe Mode non è attualmente sbloccato. Eseguire lo sblocco (arm) prima di estendere la sessione.")
+            extra_sec = max(60, min(extra_minutes * 60, 4 * 3600))
+            max_allowed = self._armed_at + (8 * 3600)
+            self._expires_at = min(self._expires_at + extra_sec, max_allowed)
+            new_exp = self._expires_at
+            op = self._operator
+            jo = self._job_order
+
+        log.warning("⚠️  SAFE MODE ESTESO da %s (+%d min, nuova scadenza: %s)", op, extra_minutes, time.strftime("%H:%M:%S", time.localtime(new_exp)))
+        audit_journal.record_event(
+            action="safe_mode_extended",
+            operator=op,
+            job_order=jo,
+            details={"added_minutes": extra_minutes, "expires_at": new_exp},
+        )
         return self.get_status()
 
     def disarm(self) -> dict[str, Any]:

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BHAM – BACS Help Auto Mapper v1.0.0</title>
-  <link rel="stylesheet" href="css/main.css?v=1.0.0" />
+  <title>BHAM – BACS Help Auto Mapper v1.1.0</title>
+  <link rel="stylesheet" href="css/main.css?v=1.1.0" />
 </head>
 <body>
 
@@ -335,7 +335,7 @@
           <div class="bham-channel-header">
             <div class="bham-channel-title-wrap">
               <svg class="bham-svg-sm color-diag" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect></svg>
-              <span class="bham-channel-name color-diag">Diagnostica FC43 MEI</span>
+              <span class="bham-channel-name color-diag" data-i18n="fc43_title">Diagnostica FC43 MEI</span>
             </div>
             <div class="bham-channel-meta">
               <span id="led-fc43" class="bham-led led-idle" title="Stato FC43"></span>
@@ -413,6 +413,11 @@
             <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"></path></svg>
             <span data-i18n="console_tab_inspector">RS485 Inspector</span>
             <span id="center-frame-badge" class="bham-badge-count" style="display:none;margin-left:3px">0</span>
+          </button>
+          <button id="center-tab-knx" class="bham-tab-terminal" onclick="openConsoleTab('knx')" title="Apri KNX Group Monitor">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M2 12h20M7 7l5-5 5 5M7 17l5 5 5-5"></path></svg>
+            <span data-i18n="console_tab_knx">KNX Monitor</span>
+            <span id="center-knx-badge" class="bham-badge-count" style="display:none;margin-left:3px">0</span>
           </button>
         </div>
 
@@ -742,6 +747,11 @@
           <span data-i18n="console_tab_inspector">RS485 Inspector</span>
           <span id="serial-frame-badge" class="bham-badge-count" style="display:none;margin-left:2px">0</span>
         </button>
+        <button id="view-tab-knx" class="bham-btn-chip" onclick="openConsoleTab('knx')">
+          <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M2 12h20M7 7l5-5 5 5M7 17l5 5 5-5"></path></svg>
+          <span data-i18n="console_tab_knx">KNX Monitor</span>
+          <span id="knx-telegram-badge" class="bham-badge-count" style="display:none;margin-left:2px">0</span>
+        </button>
       </div>
 
       <!-- Bus Health Telemetry Strip in Dock -->
@@ -816,6 +826,36 @@
             </tr>
           </thead>
           <tbody id="serial-frames-tbody"></tbody>
+        </table>
+      </div>
+      <div id="knx-telegrams-console" class="bham-console-body hidden" style="padding:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;margin-bottom:4px;background:var(--bham-bg-surface-elevated);border-radius:4px;font-size:11px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <button id="btn-toggle-knx-monitor" class="bham-btn-chip" onclick="toggleKNXMonitor()" style="font-weight:600">▶ Avvia Monitor</button>
+            <input id="knx-group-filter-input" type="text" placeholder="Filtra Gruppo / Indirizzo (es. 1/1/* o 0/0/1)" oninput="filterKNXTelegrams()" style="padding:3px 6px;font-size:11px;border:1px solid var(--bham-border);border-radius:3px;background:var(--bham-bg);color:var(--bham-text-main);width:190px" />
+            <span id="knx-monitor-state-label" style="color:var(--bham-text-dim)">Stato: Standby</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="bham-dock-action-btn" onclick="clearKNXTelegrams()"><span data-i18n="console_clear">clear</span></button>
+            <span>•</span>
+            <button class="bham-dock-action-btn" onclick="exportKNXTelegramsCSV()">export.csv</button>
+          </div>
+        </div>
+        <table class="bham-frame-table">
+          <thead>
+            <tr>
+              <th style="width:65px">TIME</th>
+              <th style="width:50px">PRIO</th>
+              <th style="width:70px">SRC (IND)</th>
+              <th style="width:75px">DST (GRP)</th>
+              <th style="width:120px">SERVICE</th>
+              <th style="width:85px">HEX</th>
+              <th>DECODED VALUE</th>
+              <th style="width:65px">DPT</th>
+              <th style="width:40px">HOP</th>
+            </tr>
+          </thead>
+          <tbody id="knx-telegrams-tbody"></tbody>
         </table>
       </div>
 
@@ -959,6 +999,10 @@
           <button id="tab-btn-security" type="button" onclick="switchSettingsTab('security')" class="bham-settings-nav-btn">
             <svg class="bham-svg-sm color-danger" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             <span data-i18n="tab_security">Sicurezza &amp; Safe Mode</span>
+          </button>
+          <button id="tab-btn-diagnostics" type="button" onclick="switchSettingsTab('diagnostics')" class="bham-settings-nav-btn">
+            <svg class="bham-svg-sm" viewBox="0 0 24 24" style="color:var(--bham-warning)"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+            <span data-i18n="tab_diagnostics">Diagnostica &amp; Requisiti</span>
           </button>
           <button id="tab-btn-appearance" type="button" onclick="switchSettingsTab('appearance')" class="bham-settings-nav-btn">
             <svg class="bham-svg-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
@@ -1609,7 +1653,31 @@
         </div>
       </div>
 
-      <!-- Tab 5: Appearance, Language & System -->
+      <!-- Tab 5: System Diagnostics & Prerequisites -->
+      <div id="panel-settings-diagnostics" class="bham-tab-panel hidden">
+        <div class="bham-settings-card">
+          <div class="bham-settings-card-header">
+            <div>
+              <span class="bham-settings-card-title" style="color:var(--bham-warning)">
+                <svg class="bham-svg-sm" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                <span data-i18n="diagnostics_title">Diagnostica di Sistema &amp; Requisiti Cross-Platform</span>
+              </span>
+              <p class="bham-settings-card-desc" data-i18n="diagnostics_desc">Verifica runtime Python, driver di cattura rete (Npcap/CAP_NET_RAW) e permessi operativi (Windows &amp; Linux)</p>
+            </div>
+            <button type="button" onclick="loadSystemDiagnosticsUI()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:30px;padding:0 14px;font-size:11.5px" data-i18n="btn_refresh_diagnostics">
+              🔄 Aggiorna Diagnostica
+            </button>
+          </div>
+          <div id="diagnostics-content-area" style="margin-top:12px;font-size:11.5px">
+            <div style="color:var(--bham-text-muted)">Caricamento diagnostica in corso...</div>
+          </div>
+        </div>
+        <div class="bham-settings-footer-bar">
+          <button type="button" onclick="closeSettingsModal()" class="bham-btn-secondary" style="height:32px" data-i18n="btn_close">Chiudi</button>
+        </div>
+      </div>
+
+      <!-- Tab 6: Appearance, Language & System -->
       <div id="panel-settings-appearance" class="bham-tab-panel hidden">
         <div class="bham-settings-card">
           <div class="bham-settings-card-header">
@@ -2270,20 +2338,25 @@
         </div>
       </div>
 
-      <!-- Filters Bar (Protocol & Status) -->
-      <div id="diff-filter-toolbar" class="bham-diff-filter-toolbar" style="display:none">
-        <div class="bham-tabs" style="margin-bottom:0">
-          <button id="diff-tab-all" class="bham-tab active" onclick="setDiffProtoFilter('all')">Tutti</button>
-          <button id="diff-tab-modbus" class="bham-tab" onclick="setDiffProtoFilter('modbus')">Modbus</button>
-          <button id="diff-tab-bacnet" class="bham-tab" onclick="setDiffProtoFilter('bacnet')">BACnet</button>
-          <button id="diff-tab-knx" class="bham-tab" onclick="setDiffProtoFilter('knx')">KNX</button>
-          <button id="diff-tab-hosts" class="bham-tab" onclick="setDiffProtoFilter('ip_host')">ARP Hosts</button>
+      <!-- Filters Bar (Protocol, Status & Search) -->
+      <div id="diff-filter-toolbar" class="bham-diff-filter-toolbar" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="bham-tabs" style="margin-bottom:0">
+            <button id="diff-tab-all" class="bham-tab active" onclick="setDiffProtoFilter('all')">Tutti</button>
+            <button id="diff-tab-modbus" class="bham-tab" onclick="setDiffProtoFilter('modbus')">Modbus</button>
+            <button id="diff-tab-bacnet" class="bham-tab" onclick="setDiffProtoFilter('bacnet')">BACnet</button>
+            <button id="diff-tab-knx" class="bham-tab" onclick="setDiffProtoFilter('knx')">KNX</button>
+            <button id="diff-tab-hosts" class="bham-tab" onclick="setDiffProtoFilter('ip_host')">ARP Hosts</button>
+          </div>
+          <div class="bham-diff-status-filters">
+            <button id="diff-status-all" class="bham-diff-status-btn active" onclick="setDiffStatusFilter('all')" data-i18n="diff_filter_all">Tutti gli stati</button>
+            <button id="diff-status-added" class="bham-diff-status-btn" onclick="setDiffStatusFilter('added')" data-i18n="diff_filter_added">🟢 Solo Aggiunti</button>
+            <button id="diff-status-removed" class="bham-diff-status-btn" onclick="setDiffStatusFilter('removed')" data-i18n="diff_filter_removed">🔴 Solo Scomparsi</button>
+            <button id="diff-status-modified" class="bham-diff-status-btn" onclick="setDiffStatusFilter('modified')" data-i18n="diff_filter_modified">🟡 Solo Modificati</button>
+          </div>
         </div>
-        <div class="bham-diff-status-filters">
-          <button id="diff-status-all" class="bham-diff-status-btn active" onclick="setDiffStatusFilter('all')">Tutti gli stati</button>
-          <button id="diff-status-added" class="bham-diff-status-btn" onclick="setDiffStatusFilter('added')">🟢 Solo Aggiunti</button>
-          <button id="diff-status-removed" class="bham-diff-status-btn" onclick="setDiffStatusFilter('removed')">🔴 Solo Scomparsi</button>
-          <button id="diff-status-modified" class="bham-diff-status-btn" onclick="setDiffStatusFilter('modified')">🟡 Solo Modificati</button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input id="diff-search-input" type="text" placeholder="Filtra per testo (IP, nome, slave...)" oninput="filterDiffSearch(this.value)" class="bham-input-sm" style="width:220px;font-size:11px;padding:3px 8px;border-radius:4px" data-i18n-placeholder="diff_search_placeholder" />
         </div>
       </div>
 
@@ -2727,7 +2800,12 @@
             <div style="font-size:11.5px;color:var(--bham-text-dim)">Scadenza automatica tra: <strong id="sm-active-countdown" class="mono">--:--</strong></div>
           </div>
         </div>
-        <div style="margin-top:12px;text-align:right">
+        <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--bham-text-dim)" data-i18n="safe_mode_extend_label">Prolunga:</span>
+            <button type="button" onclick="executeExtendSafeMode(15)" class="bham-btn-chip" style="font-weight:600" title="Aggiungi 15 minuti alla sessione attiva" data-i18n="safe_mode_extend_15">+15 Min</button>
+            <button type="button" onclick="executeExtendSafeMode(30)" class="bham-btn-chip" style="font-weight:600" title="Aggiungi 30 minuti alla sessione attiva" data-i18n="safe_mode_extend_30">+30 Min</button>
+          </div>
           <button onclick="executeDisarmSafeMode()" class="bham-btn-secondary" style="color:#ef4444;font-weight:700" data-i18n="btn_disarm_safe_mode">
             🔒 Blocca Immediatamente (Disarm)
           </button>
@@ -2751,6 +2829,11 @@
             <option value="60">60 Minuti (1 Ora)</option>
             <option value="120">120 Minuti (2 Ore)</option>
           </select>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:11.5px;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--bham-text-dim)">
+            <input type="checkbox" id="sm-remember-me" checked /> <span data-i18n="safe_mode_remember_label">Ricorda operatore e commessa su questo terminale</span>
+          </label>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
           <button onclick="closeSafeModeModal()" class="bham-btn-secondary" data-i18n="btn_close">Chiudi</button>
@@ -3316,8 +3399,8 @@
 
 
   <!-- Scripts: Relative paths for 100% reliable local & server loading -->
-  <script src="js/i18n.js?v=1.0.0"></script>
-  <script src="js/manual-content.js?v=1.0.0"></script>
-  <script src="js/app.js?v=1.0.0"></script>
+  <script src="js/i18n.js?v=1.1.0"></script>
+  <script src="js/manual-content.js?v=1.1.0"></script>
+  <script src="js/app.js?v=1.1.0"></script>
 </body>
 </html>

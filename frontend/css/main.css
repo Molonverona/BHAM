@@ -2978,6 +2978,29 @@ svg rect[fill="currentColor"] {
   }
 }
 
+.bham-safe-mode-expiring {
+  background: #fffbeb !important;
+  border-color: #f59e0b !important;
+  color: #b45309 !important;
+  animation: bham-safe-mode-warning-pulse 1s infinite ease-in-out !important;
+}
+[data-theme="dark"] .bham-safe-mode-expiring {
+  background: rgba(245, 158, 11, 0.25) !important;
+  border-color: #f59e0b !important;
+  color: #fde68a !important;
+}
+@keyframes bham-safe-mode-warning-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
 
 /* ── BACS IP Scanner & Vendor Badges ─────────────────────────────── */
 .bham-badge-vendor {

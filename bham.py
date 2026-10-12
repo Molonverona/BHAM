@@ -94,7 +94,61 @@ def find_compatible_python() -> str | None:
         exe = shutil.which(f"python{major}.{minor}")
         if exe and _py_version(exe) == (major, minor):
             return exe
+    if IS_WINDOWS:
+        candidate = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Python" / "Python312" / "python.exe"
+        if candidate.exists() and _py_version(candidate) in SUPPORTED_PY:
+            return str(candidate)
     return None
+
+
+def offer_install_python(assume_yes: bool) -> str | None:
+    """Su Windows, propone di scaricare e installare Python 3.12 ufficiale tramite PowerShell."""
+    if not IS_WINDOWS:
+        return None
+    print("\n" + "=" * 64)
+    print("  ⚡ BHAM – Interprete Python compatibile non trovato (richiesto 3.12 o 3.13)")
+    print("=" * 64)
+    print("  Per eseguire BHAM è necessario Python 3.12 ufficiale (64-bit) con pip.")
+    if not ask("Desideri scaricare e installare automaticamente Python 3.12 da python.org? [S/n]: ", assume_yes):
+        return None
+    ps1 = ROOT_DIR / "scripts" / "bootstrap_windows.ps1"
+    if not ps1.exists():
+        print(f"File di bootstrap {ps1} non trovato.")
+        return None
+    print("\nAvvio procedura di download e installazione Python 3.12...")
+    try:
+        subprocess.check_call([
+            "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+            "-File", str(ps1), "-InstallPython"
+        ])
+    except Exception as exc:
+        print(f"Errore durante l'installazione automatica di Python: {exc}")
+        return None
+    return find_compatible_python()
+
+
+def check_and_offer_npcap(assume_yes: bool) -> None:
+    """Su Windows, rileva se Npcap è presente e propone il download se mancante."""
+    if not IS_WINDOWS:
+        return
+    try:
+        from core.system_requirements import check_npcap_installed, download_npcap
+        if check_npcap_installed():
+            return
+        print("\n" + "!" * 64)
+        print("  ⚠️  ATTENZIONE (Windows): Driver Npcap non rilevato nel sistema.")
+        print("     Lo sniffer di rete passivo (ARP / L2) richiede Npcap (wpcap.dll).")
+        print("     Senza Npcap, BHAM funzionerà per Modbus, BACnet/IP e KNX,")
+        print("     ma non potrà intercettare pacchetti ARP raw sulla scheda LAN.")
+        print("!" * 64)
+        if ask("Desideri scaricare l'installer ufficiale di Npcap adesso? [S/n]: ", assume_yes):
+            npcap_exe = download_npcap()
+            print(f"[OK] Npcap scaricato con successo in: {npcap_exe}")
+            print("Avvio installer Npcap (richiede privilegi di Amministratore)...")
+            print("IMPORTANTE: seleziona 'Install Npcap in WinPcap API-compatible Mode'.")
+            subprocess.Popen([str(npcap_exe)], shell=True)
+    except Exception as exc:
+        print(f"[!] Impossibile verificare o scaricare Npcap: {exc}")
 
 
 def supported_list() -> str:
@@ -164,6 +218,8 @@ def setup(missing: list[str] | None, assume_yes: bool) -> bool:
     try:
         if missing is None:
             base = find_compatible_python()
+            if not base:
+                base = offer_install_python(assume_yes)
             if not base:
                 print_python_help()
                 return False
@@ -416,6 +472,9 @@ def main() -> int:
     if missing != []:
         if not setup(missing, args.yes):
             return 1
+
+    if IS_WINDOWS and not args.check:
+        check_and_offer_npcap(args.yes)
 
     return start(reload=not args.no_reload, auto_open=not args.no_browser)
 

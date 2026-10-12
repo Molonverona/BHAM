@@ -29,7 +29,8 @@ const MANUAL_DATA = {
       { id: "standalone", title: "19. Standalone (Portable/Install) & SignPath" },
       { id: "watch_list", title: "20. Live Watch List & Polling Registri" },
       { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
-      { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Accesso Mobile QR" }
+      { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Accesso Mobile QR" },
+      { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & Token LAN" }
     ],
     content: {
       intro: `
@@ -490,6 +491,33 @@ const MANUAL_DATA = {
           <li><strong>Puntamento Istantaneo da Tablet/Smartphone:</strong> Il tecnico inquadra il QR con la fotocamera del tablet da cantiere e si connette alla dashboard completa via Wi-Fi senza digitare indirizzi IP.</li>
           <li><strong>Sintesi Sonora Web Audio API:</strong> Notifiche e conferme vocali/sonore generate interamente nel browser senza necessità di cuffie cablate o file audio pesanti.</li>
         </ul>
+      `,
+      knx_monitor_v11: `
+        <h3>23. KNX Group Monitor, BACnet Trend Watch List &amp; Sicurezza LAN Token (v1.1.0)</h3>
+        <p>L'aggiornamento v1.1.0 espande le capacità di collaudo passivo KNX, introduce il campionamento trend degli oggetti BACnet nella Watch List ed eleva la sicurezza di rete con token crittografico.</p>
+
+        <h4>KNX Group Monitor &amp; Live Sniffer cEMI:</h4>
+        <ul>
+          <li><strong>Ascolto Multicast UDP:</strong> Sniffing continuo sul gruppo multicast standard <code>224.0.23.12:3671</code> per intercettare telegrammi <code>ROUTING_INDICATION</code> e <code>TUNNELING_REQUEST</code>.</li>
+          <li><strong>Decodifica cEMI &amp; DPT:</strong> Estrazione istantanea di priorità, hop count (TTL), indirizzo sorgente (Area.Linea.Dispositivo), indirizzo di gruppo destinazione (3 livelli es. <code>1/1/10</code>) e decodifica euristica dei datapoint più diffusi (DPT 1.001 Bool, DPT 5.001 Percent 0-100%, DPT 9.001 Float16 °C e DPT 14.xxx Float32).</li>
+          <li><strong>Dock Console &amp; Esportazione CSV:</strong> Scheda dedicata <em>KNX Monitor</em> nella console inferiore con badge telegrammi, filtro interattivo, auto-scroll e download della sequenza in CSV.</li>
+        </ul>
+
+        <h4>BACnet Point Trend Polling &amp; Watch List:</h4>
+        <ul>
+          <li><strong>Pulsante 📈 Segui nel BACnet Explorer:</strong> Con un solo click, qualsiasi oggetto analogico, binario o multistato viene aggiunto alla Watch List.</li>
+          <li><strong>Polling Automatico &amp; Sparkline:</strong> Interrogazione ciclica via <code>/api/v1/tools/bacnet/read</code> a frequenza regolabile (1s, 2s, 5s), mini-grafico sparkline SVG, calcolo delta e rilevamento min/max.</li>
+          <li><strong>Esportazione CSV Unificata:</strong> Esportazione combinata dei punti Modbus e BACnet con unità ingegneristiche e timestamp millisecondale.</li>
+        </ul>
+
+        <h4>Modbus 32-bit &amp; 64-bit Esteso:</h4>
+        <p>Supporto nativo a <code>uint32_be</code>, <code>uint32_le</code> (word-swapped CDAB), <code>int32_be</code>, <code>int32_le</code>, <code>float64_be</code> (doppia precisione IEEE 754 a 4 registri) e <code>int64</code>.</p>
+
+        <h4>Sicurezza LAN Token &amp; Hardening CORS:</h4>
+        <ul>
+          <li><strong>Autenticazione LAN Automatica:</strong> Tutte le chiamate API e WebSocket da client remoti sulla LAN richiedono l'intestazione <code>X-BHAM-Token</code> o il parametro <code>?token=</code>. Localhost rimane trasparente per l'operatore locale.</li>
+          <li><strong>Accoppiamento Tablet Istantaneo:</strong> Il QR Code LAN inietta automaticamente il token valido negli URL di cantiere.</li>
+        </ul>
       `
     }
   },
@@ -517,7 +545,8 @@ const MANUAL_DATA = {
       { id: "standalone", title: "19. Standalone Packaging & SignPath" },
       { id: "watch_list", title: "20. Live Watch List & Register Polling" },
       { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
-      { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Mobile QR LAN Access" }
+      { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Mobile QR LAN Access" },
+      { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & LAN Token" }
     ],
     content: {
       intro: `
@@ -978,6 +1007,33 @@ const MANUAL_DATA = {
           <li><strong>Instant Mobile Pairing:</strong> Field engineers scan the QR code with a phone or tablet to open the complete diagnostic dashboard over local Wi-Fi without manual IP typing.</li>
           <li><strong>Zero-Asset Web Audio API:</strong> Synthesized audio notifications and tone verification enable eyes-free and hands-free testing in tight electrical panels.</li>
         </ul>
+      `,
+      knx_monitor_v11: `
+        <h3>23. KNX Group Monitor, BACnet Trend Watch List &amp; LAN Token Security (v1.1.0)</h3>
+        <p>The v1.1.0 release introduces passive KNX telegram sniffing, live BACnet point trend monitoring in the Watch List, and robust LAN token authentication.</p>
+
+        <h4>KNX Group Monitor &amp; Live cEMI Telegram Sniffer:</h4>
+        <ul>
+          <li><strong>Multicast UDP Reception:</strong> Passive monitoring on standard multicast group <code>224.0.23.12:3671</code> (KNXnet/IP) capturing <code>ROUTING_INDICATION</code> and <code>TUNNELING_REQUEST</code> frames.</li>
+          <li><strong>cEMI Decoding &amp; DPT Heuristics:</strong> Real-time decoding of Priority, Hop Count, Source Individual Address (Area.Line.Device), Destination Group Address (3-level, e.g. <code>1/1/10</code>), and common datapoint types (DPT 1.001 Bool, DPT 5.001 0-100%, DPT 9.001 Float16 °C, DPT 14.xxx Float32).</li>
+          <li><strong>Console Dock UI &amp; CSV Export:</strong> Dedicated <em>KNX Monitor</em> tab in the bottom diagnostic dock featuring live telegram counters, filter input, auto-scroll, and full CSV export.</li>
+        </ul>
+
+        <h4>BACnet Point Trend Polling &amp; Watch List Integration:</h4>
+        <ul>
+          <li><strong>1-Click Follow in BACnet Explorer:</strong> Click <strong>📈 Follow</strong> next to any object in the BACnet Object Explorer modal to track live values.</li>
+          <li><strong>Autonomous Polling &amp; Sparklines:</strong> Configurable polling intervals (1s, 2s, 5s) via <code>/api/v1/tools/bacnet/read</code>, interactive SVG sparklines, and delta/min/max telemetry.</li>
+          <li><strong>Unified CSV Export:</strong> Exports combined Modbus registers and BACnet points with engineering units and timestamps.</li>
+        </ul>
+
+        <h4>Extended 32-bit &amp; 64-bit Modbus Conversions:</h4>
+        <p>Full support for <code>uint32_be</code>, <code>uint32_le</code> (CDAB word-swapped), <code>int32_be</code>, <code>int32_le</code>, <code>float64_be</code> (4-register IEEE 754 double), and <code>int64</code>.</p>
+
+        <h4>LAN Security Token &amp; CORS Hardening:</h4>
+        <ul>
+          <li><strong>Automated LAN Authentication:</strong> Non-localhost REST calls and WebSocket streams require the <code>X-BHAM-Token</code> header or <code>?token=</code> query parameter. Local loopback stays transparent and unauthenticated.</li>
+          <li><strong>Seamless QR Code Mobile Pairing:</strong> Field pairing QR codes embed the LAN token automatically for instant tablet access.</li>
+        </ul>
       `
     }
   },
@@ -1005,7 +1061,8 @@ const MANUAL_DATA = {
       { id: "standalone", title: "19. Empaquetado Standalone & SignPath" },
       { id: "watch_list", title: "20. Monitorización en Vivo (Watch List)" },
       { id: "rs485_benchmark", title: "21. Test de Estrés RS485 & Benchmark de Latencia" },
-      { id: "bms_export_mobile", title: "22. Exportador BMS/SCADA & Acceso Móvil QR" }
+      { id: "bms_export_mobile", title: "22. Exportador BMS/SCADA & Acceso Móvil QR" },
+      { id: "knx_monitor_v11", title: "23. Monitor KNX, Trend BACnet y Token LAN" }
     ],
     content: {
       intro: `
@@ -1407,6 +1464,33 @@ const MANUAL_DATA = {
           <li><strong>Detección Automática de IP Local:</strong> El código QR codifica la dirección IP real de la tarjeta de red seleccionada (ej. <code>http://192.168.1.50:8765</code>).</li>
           <li><strong>Emparejamiento Instantáneo:</strong> El técnico escanea el código con su teléfono o tableta y accede a la interfaz completa por Wi-Fi sin escribir la IP a mano.</li>
           <li><strong>Síntesis Sonora Web Audio API:</strong> Notificaciones y confirmaciones acústicas generadas en el navegador para pruebas a manos libres.</li>
+        </ul>
+      `,
+      knx_monitor_v11: `
+        <h3>23. Monitor KNX, Trend BACnet y Seguridad de Red LAN (v1.1.0)</h3>
+        <p>La versión 1.1.0 amplía las capacidades de supervisión con captura de telegramas KNX, seguimiento de tendencias BACnet en la Watch List y autenticación por token criptográfico.</p>
+
+        <h4>Monitor de Grupos KNX y Sniffer cEMI en Vivo:</h4>
+        <ul>
+          <li><strong>Recepción Multicast UDP:</strong> Captura pasiva continua en <code>224.0.23.12:3671</code> para tramas <code>ROUTING_INDICATION</code> y <code>TUNNELING_REQUEST</code>.</li>
+          <li><strong>Decodificación cEMI y DPT:</strong> Extracción instantánea de prioridad, saltos (TTL), dirección individual origen, dirección de grupo destino (3 niveles ej. <code>1/1/10</code>) y decodificación heurística (DPT 1.001 Bool, DPT 5.001 0-100%, DPT 9.001 Float16 °C y DPT 14.xxx Float32).</li>
+          <li><strong>Consola de Diagnóstico y Exportación CSV:</strong> Pestaña dedicada <em>Monitor KNX</em> con contador de telegramas, filtro por grupo, desplazamiento automático y exportación CSV.</li>
+        </ul>
+
+        <h4>Seguimiento de Puntos BACnet en la Watch List:</h4>
+        <ul>
+          <li><strong>Pulsador 📈 Seguir en BACnet Explorer:</strong> Añade sondas analógicas, salidas o estados binarios a la Watch List con un solo clic.</li>
+          <li><strong>Sondeo Automático y Mini-Gráficos Sparkline:</strong> Lectura periódica por <code>/api/v1/tools/bacnet/read</code> a 1s, 2s o 5s, sparkline SVG y seguimiento de delta y límites min/máx.</li>
+          <li><strong>Exportación CSV Unificada:</strong> Registro consolidado de puntos Modbus y BACnet con unidades de ingeniería y marcas de tiempo en milisegundos.</li>
+        </ul>
+
+        <h4>Conversiones Modbus de 32 y 64 Bits:</h4>
+        <p>Soporte completo para <code>uint32_be</code>, <code>uint32_le</code> (CDAB word-swapped), <code>int32_be</code>, <code>int32_le</code>, <code>float64_be</code> (doble precisión IEEE 754 de 4 registros) e <code>int64</code>.</p>
+
+        <h4>Seguridad por Token LAN y CORS Reforzado:</h4>
+        <ul>
+          <li><strong>Autenticación de Red Local:</strong> Las llamadas de red externa y WebSockets requieren el encabezado <code>X-BHAM-Token</code> o <code>?token=</code>. Localhost continúa siendo de acceso inmediato sin contraseñas.</li>
+          <li><strong>Emparejamiento Móvil por QR:</strong> Los códigos QR inyectan automáticamente el token válido para conexión inmediata desde tabletas de obra.</li>
         </ul>
       `
     }

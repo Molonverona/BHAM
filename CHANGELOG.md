@@ -3,6 +3,61 @@
 Formato basato su [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versioni [SemVer](https://semver.org/lang/it/).
 Le note della sezione corrispondente alla versione vengono pubblicate automaticamente nella GitHub Release.
 
+## [1.1.0] – 2026-10-11
+
+### Aggiunto
+- **Network Security, LAN Token & CORS Hardening (`main.py`, `core/config.py`, `api/routes.py`, `frontend/js/app.js`)**:
+  - Middleware di sicurezza `lan_security_middleware` con token crittografico casuale a 16 byte (generato automaticamente o configurabile via `BHAM_API_TOKEN`).
+  - Esenzione automatica trasparente per tutte le connessioni originate da localhost e loopback (`127.0.0.1`, `::1`).
+  - Protezione zero-trust per connessioni LAN remote su tutte le chiamate REST e canali WebSocket (rifiuto con codice 4401 in assenza di token).
+  - Iniezione automatica del token di sicurezza nei codici QR generati per accoppiamento mobile immediato e protetto da tablet e smartphone di cantiere.
+  - Policy CORS formalmente hardening conforme agli standard OWASP (`allow_credentials=False` con `allow_origins=["*"]`).
+  - Risoluzione definitiva dell'audit issue #8.
+- **KNX Group Monitor & Live Telegram Sniffer (`scanners/knx.py`, `api/routes.py`, `data/models.py`, `data/state.py`, `frontend/`)**:
+  - Ricevitore asincrono passivo multicast UDP su `224.0.23.12:3671` (standard KNXnet/IP) per la cattura trasparente di frame `ROUTING_INDICATION` e `TUNNELING_REQUEST`.
+  - Motore di parsing cEMI nativo con decodifica di Control Field (priorità system, urgent, normal, low), Hop Count, Indirizzo Sorgente Individuale, Indirizzo di Gruppo Destinazione (notazione a 3 livelli Main/Middle/Sub) e APCI Service (`GroupValueWrite`, `GroupValueResponse`, `GroupValueRead`).
+  - Decodificatore euristico DPT per datapoint comuni: DPT 1.001 Bool (`ON`/`OFF`), DPT 5.001 Percentuale (0-100%), DPT 9.001 Float16 2-octet (`°C`), DPT 14.xxx Float32 IEEE 754 e stringhe ASCII DPT 16.001.
+  - Generazione di telegrammi sintetici realistici nel Simulatore d'Impianto Virtuale in Demo Mode.
+  - Nuova scheda "KNX Monitor" nella console di collaudo con badge conteggio, filtro per gruppo/indirizzo, auto-scroll ed esportazione della sequenza in CSV.
+  - Endpoint REST dedicati: `POST /api/v1/knx/monitor/start`, `POST /api/v1/knx/monitor/stop`, `GET /api/v1/knx/telegrams`, `DELETE /api/v1/knx/telegrams`.
+- **BACnet Point Trend Polling & Integrazione Watch List (`scanners/field_tools.py`, `api/routes.py`, `frontend/js/app.js`)**:
+  - Nuovo endpoint di lettura real-time `POST /api/v1/tools/bacnet/read` con supporto completo a dispositivi fisici via `bacpypes3` e al Virtual Plant Simulator.
+  - Pulsante **📈 Segui** integrato direttamente in ogni riga del modale *BACnet Object Explorer* per aggiungere istantaneamente qualsiasi oggetto alla Watch List.
+  - Polling periodico automatico della Watch List esteso a oggetti BACnet con mini-grafici SVG sparkline, tracciamento min/max, calcolo delta e feedback audio hands-free.
+  - Esportazione unificata Modbus & BACnet in formato CSV.
+- **Modbus Decodifica & Scrittura Estesa 32-bit e 64-bit (`scanners/field_tools.py`)**:
+  - Estensione di `decode_modbus_value` e `encode_modbus_value` con supporto a:
+    - 32-bit: `uint32_be`, `uint32_le` (word-swapped CDAB), `int32_be`, `int32_le`.
+    - 64-bit: `float64_be` (doppia precisione IEEE 754 su 4 registri) e `int64`.
+- **Manuale Tecnico & Guida Operativa di Campo**:
+  - Aggiunto Capitolo 23 completo in Italiano, Inglese e Spagnolo (`MANUALE_UTENTE.md`, `frontend/MANUALE_UTENTE.md` e `frontend/js/manual-content.js`).
+
+- **Session Diff Engine Evolvuto & As-Built Tracking (`core/session_diff.py`, `frontend/index.html`, `frontend/js/app.js`)**:
+  - Tracciamento analitico delle variazioni di stato collaudo (`commissioning_status` e note peritali `commissioning_notes`) tra snapshot baseline e target per tutti i protocolli (Modbus, BACnet, KNX, Host IP).
+  - Confronto dettagliato dei valori dei registri Modbus comuni (scostamenti di setpoint e registri di stato da vecchio a nuovo valore).
+  - Rilevamento variazioni degli elenchi oggetti BACnet censiti oltre al conteggio complessivo.
+  - Ricerca full-text istantanea integrata nella barra filtri del visualizzatore di confronto e pill cromatiche per gli esiti As-Built.
+- **Safe Mode Interlock Hardening & Estensione a Caldo (`core/safe_mode.py`, `api/routes.py`, `api/schemas.py`, `frontend/`)**:
+  - Nuovo endpoint `POST /api/v1/safe-mode/extend` e metodo `extend(extra_minutes)` protetto da lock rientrante `threading.RLock()` per prolungare la finestra temporale attiva (+15m, +30m) senza interruzioni operative, con tracciamento crittografico WAL.
+  - Memorizzazione persistente operatore/commessa in `localStorage` con auto-fill automatico all'apertura del modale.
+  - Live dynamic ticker a 1Hz con countdown continuo al secondo (`MM:SS`) sia nel modale che nel badge in testata.
+  - Indicatore visivo di allerta per scadenza imminente (`bham-safe-mode-expiring`) sotto i 2 minuti.
+  - Intercettazione automatica dei comandi di forzatura bloccati con apertura contestuale del modale di sblocco.
+- **Cross-Platform Parity & Auto-Provisioning Prerequisiti (`bham.bat`, `scripts/bootstrap_windows.ps1`, `core/system_requirements.py`, `core/priv_check.py`, `api/`)**:
+  - **Launcher a doppio clic Windows (`bham.bat`)**: Rilevamento automatico di Python 3.12/3.13; se assente o obsoleto, chiede conferma all'utente e provvede al download e installazione autonoma tramite PowerShell e python.org.
+  - **Script PowerShell di bootstrap (`scripts/bootstrap_windows.ps1`)**: Download e installazione controllata di Python 3.12 (con pip e PATH abilitati) e driver Npcap.
+  - **Modulo unificato requisiti di sistema (`core/system_requirements.py`)**: Rilevamento completo e continuo di OS, runtime Python, virtualenv, driver di cattura L2 (Npcap su Windows, CAP_NET_RAW su Linux), porte seriali e strumenti companion (Wireshark/tshark).
+  - **Download controllato companion tools (`POST /api/v1/system/companions/download`)**: Download su richiesta utente dell'installer ufficiale Npcap (`npcap-1.80.exe`) con registrazione WAL e guida all'installazione.
+  - **Endpoint diagnostico `/api/v1/system/diagnostics`**: Fornisce al frontend il quadro analitico dei requisiti di sistema e le azioni correttive consigliate.
+  - **Scheda "Diagnostica & Requisiti" nella Web UI**: Tab dedicato nel centro impostazioni per monitorare la salute di sistema, con rilevamento istantaneo dell'assenza di Npcap su Windows e pulsante di download guidato 1-click.
+- **Engine i18n & Sidebar Channel Hardening (`frontend/js/i18n.js`, `frontend/index.html`)**:
+  - Blindata la funzione `applyTranslations()` con guardia `if (trans && trans !== key)` per prevenire l'esposizione di chiavi grezze.
+  - Copertura e allineamento trilingue (IT, EN, ES) al 100% su tutte le 332 chiavi dell'interfaccia (233 attributi `data-i18n` e 15 chiavi runtime) e su tutti i 23 capitoli della documentazione tecnica.
+- **Allineamento Versioni Core Exporters (`core/tag_exporter.py`, `reports/pdf.py`)**:
+  - Versionamento centralizzato tramite `settings.app_version` per esportazioni JSON di tag BMS e intestazioni dei certificati di collaudo PDF.
+- **Test Suite Completa BHAM**: Espansione a 73 test unitari e di integrazione eseguiti con successo al 100% (copertura LAN security, cEMI parser, DPT decoding, Safe Mode extend, session diff con collaudo/registri, requisiti di sistema cross-platform).
+- **Integrità WAL**: Registro manovre certificato con oltre 1620 record concatenati SHA-256 e zero errori di catena.
+
 ## [1.0.0] – 2026-10-06 – Stable Release
 
 ### Aggiunto

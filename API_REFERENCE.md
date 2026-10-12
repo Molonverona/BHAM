@@ -1,5 +1,5 @@
 # BHAM – REST & WebSocket API Reference
-**Version:** 1.0.0 (Stable Release)  
+**Version:** 1.1.0 (Stable Release)  
 **Base URL:** `http://<host>:8765/api/v1`  
 **WebSocket URL:** `ws://<host>:8765/api/v1/ws`  
 **Interactive Documentation:** [Swagger UI](http://localhost:8765/docs) | [ReDoc](http://localhost:8765/redoc)
@@ -30,6 +30,7 @@
 21. [SCADA & BMS Multi-Vendor Tag Exporter](#21-scada--bms-multi-vendor-tag-exporter)
 22. [Device Commissioning State & As-Built Checklist](#22-device-commissioning-state--as-built-checklist)
 23. [Mobile QR Code LAN Access](#23-mobile-qr-code-lan-access)
+24. [KNX Group Monitor Endpoints](#24-knx-group-monitor-endpoints)
 
 ---
 
@@ -41,11 +42,13 @@ BHAM exposes a high-performance, asynchronous REST and WebSocket API built on **
 - By default, BHAM binds to `0.0.0.0:8765`, enabling field engineers to run BHAM on a portable industrial PC or Raspberry Pi inside an electrical cabinet while accessing the UI or API from laptops, tablets, or test jigs over Ethernet or Wi-Fi.
 - Accessible at `http://localhost:8765` locally or `http://<LAN_IP>:8765` across the local subnet.
 
-### ⚠️ Security Notice
-> **IMPORTANT:** BHAM is an industrial field diagnostic tool. By design, the REST and WebSocket endpoints require **no authentication** to streamline emergency field triage.
-> - **DO NOT expose port 8765 directly to the public Internet.**
-> - Use dedicated technician VLANs, point-to-point Ethernet cables, or an encrypted VPN (WireGuard / OpenVPN) when interacting across multi-tenant networks.
-> - For persistent remote deployments, place BHAM behind a reverse proxy (e.g., Caddy or Nginx) enforcing TLS and HTTP Basic / OAuth2 authentication.
+### 🔒 LAN Token Security & Hardened CORS (v1.1.0)
+> **SECURITY ARCHITECTURE:** Starting in v1.1.0, BHAM implements zero-trust LAN token verification with seamless localhost bypass:
+> - **Localhost Exemption:** Requests originating from `127.0.0.1`, `::1`, and loopback require **no token**, preserving friction-free local execution.
+> - **Remote LAN Clients:** Any connection originating from a remote IP (tablets, external laptops) must provide the secret token via HTTP header `X-BHAM-Token: <token>` or query parameter `?token=<token>`.
+> - **WebSocket Protection:** Non-loopback WebSocket handshakes are rejected with code `4401` if a valid token is not supplied in query parameters or headers.
+> - **Pairing QR Code:** The LAN QR Code generator automatically appends `?token=<token>` to detected LAN endpoints, enabling instant mobile pairing.
+> - **CORS Hardening:** Compliant origin policies with `allow_credentials=False` prevent cross-origin state leakage.
 
 ---
 
@@ -977,6 +980,36 @@ BHAM v0.8.0 introduces an integrated field test bench to read and override regis
   }
   ```
 
+### BACnet Point Commander: Real-time Point Read
+- **Endpoint:** `POST /api/v1/tools/bacnet/read`
+- **Description:** Reads the live `presentValue` and engineering `units` from a specified BACnet object instance. Compatible with live BACnet/IP devices via `bacpypes3` as well as the Virtual Plant Simulator for Watch List polling and trend tracking.
+- **Request Body (`BACnetPointReadRequest`):**
+  ```json
+  {
+    "device_id": 1001,
+    "address": "192.168.1.100:47808",
+    "object_type": "analogInput",
+    "instance": 1,
+    "timeout": 2.0
+  }
+  ```
+- **Response (`BACnetPointReadResponse`):**
+  ```json
+  {
+    "success": true,
+    "status": "ok",
+    "device_id": 1001,
+    "object_identifier": "analogInput:1",
+    "object_type": "analogInput",
+    "instance": 1,
+    "value": "21.4",
+    "units": "°C",
+    "simulated": false,
+    "elapsed_ms": 12.3,
+    "error": null
+  }
+  ```
+
 ---
 
 ## 16. Virtual Plant Simulator ("Demo / Offline Mode")
@@ -1266,5 +1299,73 @@ Generates an offline, vector-based SVG QR Code encoding the active local LAN URL
   }
   ```
 
+---
 
+## 24. KNX Group Monitor Endpoints
 
+BHAM v1.1.0 introduces a passive KNXnet/IP multicast sniffer that captures and decodes cEMI telegrams and DPT values in real time without sending perturbing packets onto the KNX bus.
+
+### `POST /api/v1/knx/monitor/start`
+Starts the background UDP datagram receiver listening on multicast `224.0.23.12:3671`.
+
+- **Query Parameters:**
+  - `port`: (int, optional, default: 3671) UDP port.
+- **Response (`KNXMonitorStatusResponse`):**
+  ```json
+  {
+    "running": true,
+    "message": "KNX Group Monitor avviato"
+  }
+  ```
+
+---
+
+### `POST /api/v1/knx/monitor/stop`
+Stops the KNX Group Monitor socket listener.
+
+- **Response (`KNXMonitorStatusResponse`):**
+  ```json
+  {
+    "running": false,
+    "message": "KNX Group Monitor arrestato"
+  }
+  ```
+
+---
+
+### `GET /api/v1/knx/telegrams`
+Retrieves captured KNX telegrams from the in-memory circular buffer (up to 1,000 entries).
+
+- **Query Parameters:**
+  - `limit`: (int, optional, default: 200, range: 1..1000) Maximum telegram count to retrieve.
+  - `group`: (string, optional) Group address or individual address filter (e.g. `1/1/10` or `1.1.2`).
+- **Response (`list[KNXTelegram]`):**
+  ```json
+  [
+    {
+      "timestamp": "22:05:14.120",
+      "priority": "normal",
+      "source_address": "1.1.2",
+      "destination_group": "1/1/10",
+      "service": "GroupValueWrite",
+      "raw_hex": "0C 1A",
+      "data_bytes": [12, 26],
+      "dpt_guess": "DPT 9.001 (Temperatura)",
+      "decoded_value": 21.4,
+      "unit": "°C",
+      "hop_count": 6
+    }
+  ]
+  ```
+
+---
+
+### `DELETE /api/v1/knx/telegrams`
+Clears the in-memory circular telegram buffer and broadcasts a `knx_telegrams_cleared` event to all active WebSocket clients.
+
+- **Response:**
+  ```json
+  {
+    "cleared": true
+  }
+  ```

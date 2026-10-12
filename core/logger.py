@@ -55,8 +55,12 @@ def _build_logger(name: str = "bham") -> logging.Logger:
     logger.addHandler(sh)
 
     # Rotating file (5 MB × 3)
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
+    try:
+        from core.paths import get_logs_dir
+        log_dir = get_logs_dir()
+    except Exception:
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
     fh = RotatingFileHandler(
         log_dir / "bham.log", maxBytes=5 * 1024 * 1024, backupCount=3
     )
@@ -98,8 +102,12 @@ def start_session_log(session_name: str) -> Path:
 
     stop_session_log()  # chiudi eventuale handler precedente
 
-    sessions_dir = Path("sessions")
-    sessions_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        from core.paths import get_sessions_dir
+        sessions_dir = get_sessions_dir()
+    except Exception:
+        sessions_dir = Path("sessions")
+        sessions_dir.mkdir(parents=True, exist_ok=True)
 
     ts = time.strftime("%Y%m%d_%H%M%S")
     safe = "".join(c if c.isalnum() or c in " _-" else "_" for c in session_name)

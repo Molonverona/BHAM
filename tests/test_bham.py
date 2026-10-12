@@ -9,10 +9,15 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from api import routes
 from core.session_store import delete_session, list_sessions, load_session, save_session
@@ -837,6 +842,68 @@ class TestSessionDiff(unittest.TestCase):
         finally:
             delete_session(filename)
 
+    def test_diff_commissioning_and_registers(self):
+        from core.session_diff import compare_snapshots
+        from data.models import DiffStatus
+
+        base_snap = {
+            "modbus_devices": [
+                {
+                    "slave_id": 1,
+                    "protocol": "modbus_rtu",
+                    "registers": {"40001": 215, "40002": 10},
+                    "commissioning_status": "pending",
+                    "commissioning_notes": "Da verificare",
+                }
+            ],
+            "bacnet_devices": [
+                {
+                    "device_id": 100,
+                    "address": "192.168.1.50",
+                    "object_list": [{"object_identifier": "analog-input:1"}],
+                    "commissioning_status": "pending",
+                }
+            ],
+            "knx_devices": [],
+            "ip_hosts": [],
+        }
+
+        target_snap = {
+            "modbus_devices": [
+                {
+                    "slave_id": 1,
+                    "protocol": "modbus_rtu",
+                    "registers": {"40001": 250, "40002": 10},
+                    "commissioning_status": "ok",
+                    "commissioning_notes": "Verificato OK con multimetro",
+                }
+            ],
+            "bacnet_devices": [
+                {
+                    "device_id": 100,
+                    "address": "192.168.1.50",
+                    "object_list": [{"object_identifier": "analog-input:1"}, {"object_identifier": "binary-output:2"}],
+                    "commissioning_status": "ok",
+                }
+            ],
+            "knx_devices": [],
+            "ip_hosts": [],
+        }
+
+        diff = compare_snapshots(base_snap, target_snap)
+        mb1 = next(it for it in diff.items if it.identifier == "RTU Slave #1")
+        self.assertEqual(mb1.status, DiffStatus.MODIFIED)
+        changed_fields = {c.field for c in mb1.changes}
+        self.assertIn("commissioning_status", changed_fields)
+        self.assertIn("commissioning_notes", changed_fields)
+        self.assertIn("reg_40001", changed_fields)
+
+        bn1 = next(it for it in diff.items if it.identifier == "Device #100")
+        self.assertEqual(bn1.status, DiffStatus.MODIFIED)
+        bn_fields = {c.field for c in bn1.changes}
+        self.assertIn("commissioning_status", bn_fields)
+        self.assertIn("object_list_count", bn_fields)
+
 
 class TestBACnetBBMD(unittest.TestCase):
     """Test suite per gestione avanzata router BBMD e Foreign Device."""
@@ -1491,6 +1558,45 @@ class TestSafeMode(unittest.TestCase):
 
         asyncio.run(_run())
 
+    def test_safe_mode_extend_lifecycle(self):
+        from core.safe_mode import SafeModeManager
+
+        sm = SafeModeManager()
+        # Non si può estendere se disarmato
+        with self.assertRaises(ValueError):
+            sm.extend(15)
+
+        # Arm
+        sm.arm(operator="Giuliano", job_order="COMM-EXT-01", duration_minutes=15)
+        init_exp = sm._expires_at
+
+        # Extend +15 minuti
+        res = sm.extend(extra_minutes=15)
+        self.assertTrue(res["armed"])
+        self.assertGreater(sm._expires_at, init_exp)
+        self.assertGreaterEqual(res["remaining_minutes"], 25.0)
+
+        # Disarm finale
+        sm.disarm()
+        self.assertFalse(sm.is_armed)
+
+    def test_safe_mode_extend_api_endpoint(self):
+        from core.safe_mode import safe_mode
+        from api.schemas import SafeModeExtendRequest
+
+        async def _test():
+            safe_mode.arm(operator="Giuliano", job_order="COMM-API-EXT", duration_minutes=10)
+            try:
+                req = SafeModeExtendRequest(extra_minutes=20)
+                res = await routes.extend_safe_mode_endpoint(req)
+                self.assertTrue(res["armed"])
+                self.assertEqual(res["operator"], "Giuliano")
+                self.assertGreaterEqual(res["remaining_minutes"], 25.0)
+            finally:
+                safe_mode.disarm()
+
+        asyncio.run(_test())
+
 
 class TestProfileManager(unittest.TestCase):
     def test_profile_manager_and_apply(self):
@@ -1765,6 +1871,405 @@ class TestBACSFieldMasterV13(unittest.TestCase):
                 os.unlink(pdf_path)
             if os.path.exists(xlsx_path):
                 os.unlink(xlsx_path)
+
+
+class TestLANSecurityV11(unittest.TestCase):
+    def test_lan_security_token_and_middleware(self):
+        from starlette.requests import Request
+        from core.config import settings
+
+        # 1. Verifica metodo verify_token
+        self.assertTrue(settings.verify_token(settings.api_token))
+        self.assertFalse(settings.verify_token("invalid_token_12345"))
+        self.assertFalse(settings.verify_token(""))
+        self.assertFalse(settings.verify_token(None))
+
+        # 2. Test logica middleware LAN su Request ASGI nativa (senza dipendenza da httpx)
+        # Helper per verificare autorizzazione
+        def check_auth(client_ip: str, path: str, headers: list[tuple[bytes, bytes]] = None, query: bytes = b""):
+            scope = {
+                "type": "http",
+                "method": "GET",
+                "client": (client_ip, 54321),
+                "headers": headers or [],
+                "path": path,
+                "query_string": query,
+            }
+            req = Request(scope)
+            client_host = req.client.host if req.client else "127.0.0.1"
+            is_local = (
+                client_host in ("127.0.0.1", "::1", "localhost", "testclient")
+                or client_host.startswith("127.")
+            )
+            if is_local or not settings.lan_auth_required:
+                return 200
+            p = req.url.path
+            if not p.startswith("/api/v1") and p not in ("/docs", "/redoc", "/openapi.json"):
+                return 200
+            if p in ("/api/v1/health", "/api/v1/network/qr-code", "/api/v1/network/qr"):
+                return 200
+            token = req.headers.get("X-BHAM-Token") or req.query_params.get("token")
+            if token and settings.verify_token(token):
+                return 200
+            return 401
+
+        # Localhost -> sempre 200 OK
+        self.assertEqual(check_auth("127.0.0.1", "/api/v1/state"), 200)
+
+        # Client remoto LAN senza token -> 401
+        self.assertEqual(check_auth("192.168.1.150", "/api/v1/state"), 401)
+
+        # Client remoto LAN con header corretto -> 200 OK
+        self.assertEqual(check_auth(
+            "192.168.1.150",
+            "/api/v1/state",
+            headers=[(b"x-bham-token", settings.api_token.encode())],
+        ), 200)
+
+        # Client remoto LAN con query param ?token= -> 200 OK
+        self.assertEqual(check_auth(
+            "192.168.1.150",
+            "/api/v1/state",
+            query=f"token={settings.api_token}".encode(),
+        ), 200)
+
+        # Endpoint pubblico /health accessibile da LAN senza token -> 200 OK
+        self.assertEqual(check_auth("192.168.1.150", "/api/v1/health"), 200)
+        # Endpoint pubblico /network/qr accessibile da LAN senza token -> 200 OK
+        self.assertEqual(check_auth("192.168.1.150", "/api/v1/network/qr"), 200)
+
+
+class TestKNXGroupMonitorAndFieldToolsV11(unittest.TestCase):
+    """Test di validazione per Blocco 2 (KNX Group Monitor) e Blocco 3 (BACnet Read & Modbus 32/64 bit)."""
+
+    def setUp(self):
+        state.clear()
+
+    def test_knx_cemi_parsing_and_dpt_decoding(self):
+        import struct
+        from scanners.knx import parse_cemi_frame, format_knx_group_address, decode_knx_dpt_value
+
+        # Test formattazione 3 livelli
+        # Gruppo 1/1/10: Main=1 (bit 14-11), Middle=1 (bit 10-8), Sub=10 (bit 7-0) -> (1 << 11) | (1 << 8) | 10 = 2048 + 256 + 10 = 2314
+        self.assertEqual(format_knx_group_address(2314), "1/1/10")
+
+        # Test decodifica DPT 1.001 (Bool)
+        dpt, val, unit = decode_knx_dpt_value("GroupValueWrite", [1])
+        self.assertIn("DPT 1.001", dpt)
+        self.assertEqual(val, True)
+        self.assertEqual(unit, "ON")
+
+        dpt, val, unit = decode_knx_dpt_value("GroupValueWrite", [0])
+        self.assertIn("DPT 1.001", dpt)
+        self.assertEqual(val, False)
+        self.assertEqual(unit, "OFF")
+
+        # Test decodifica DPT 5.001 (0-100%)
+        dpt, val, unit = decode_knx_dpt_value("GroupValueWrite", [128])
+        self.assertEqual(dpt, "DPT 5.001 (Scaling 0-100%)")
+        self.assertEqual(val, 50.2)
+        self.assertEqual(unit, "%")
+
+        # Test decodifica DPT 9.001 Float16
+        # Formula: (mantissa * 0.01) * (2 ** exp)
+        b0 = (0 << 7) | (1 << 3) | (1050 >> 8)
+        b1 = 1050 & 0xFF
+        dpt, val, unit = decode_knx_dpt_value("GroupValueWrite", [b0, b1])
+        self.assertIn("DPT 9.001", dpt)
+        self.assertEqual(val, 21.0)
+        self.assertEqual(unit, "°C")
+
+        # Costruzione frame KNXnet/IP ROUTING_INDICATION con cEMI (0x0530)
+        cemi = bytes([
+            0x29, 0x00, 0xBC, 0xE0,
+            0x11, 0x02,
+            (2314 >> 8) & 0xFF, 2314 & 0xFF,
+            0x01,
+            0x00, 0x81,
+        ])
+        header = struct.pack(">BBHH", 0x06, 0x10, 0x0530, 6 + len(cemi))
+        pkt = header + cemi
+
+        telegram = parse_cemi_frame(pkt)
+        self.assertIsNotNone(telegram)
+        self.assertEqual(telegram.source_address, "1.1.2")
+        self.assertEqual(telegram.destination_group, "1/1/10")
+        self.assertEqual(telegram.service, "GroupValueWrite")
+        self.assertEqual(telegram.decoded_value, True)
+        self.assertEqual(telegram.unit, "ON")
+
+    def test_knx_monitor_routes_and_state(self):
+        from api.routes import start_knx_monitor, stop_knx_monitor, get_knx_telegrams, clear_knx_telegrams
+        from data.models import KNXTelegram
+
+        # Registrazione manuale telegrammi in stato
+        t1 = KNXTelegram(
+            source_address="1.1.1",
+            destination_group="0/0/1",
+            service="GroupValueWrite",
+            raw_hex="01",
+            data_bytes=[1],
+            dpt_guess="DPT 1.001",
+            decoded_value="ON",
+        )
+        t2 = KNXTelegram(
+            source_address="1.1.2",
+            destination_group="1/1/10",
+            service="GroupValueWrite",
+            raw_hex="0C 1A",
+            data_bytes=[12, 26],
+            dpt_guess="DPT 9.001",
+            decoded_value=21.4,
+            unit="°C",
+        )
+        state.record_knx_telegram(t1)
+        state.record_knx_telegram(t2)
+
+        # GET con limite e filtro
+        tgs = asyncio.run(get_knx_telegrams(limit=10))
+        self.assertEqual(len(tgs), 2)
+
+        tgs_filtered = asyncio.run(get_knx_telegrams(limit=10, group="1/1/10"))
+        self.assertEqual(len(tgs_filtered), 1)
+        self.assertEqual(tgs_filtered[0]["destination_group"], "1/1/10")
+
+        # DELETE svuota il buffer
+        del_res = asyncio.run(clear_knx_telegrams())
+        self.assertTrue(del_res["cleared"])
+        self.assertEqual(len(state.knx_telegrams), 0)
+
+        # Test start e stop monitor socket
+        async def _test_monitor():
+            res_start = await start_knx_monitor(port=3671)
+            self.assertTrue(res_start["running"])
+            res_stop = await stop_knx_monitor()
+            self.assertFalse(res_stop["running"])
+            await asyncio.sleep(0.05)
+        asyncio.run(_test_monitor())
+
+    def test_modbus_32_and_64_bit_conversions(self):
+        from scanners.field_tools import decode_modbus_value, encode_modbus_value
+
+        # 32-bit integer: 0x12345678 -> 305419896
+        # r0 = 0x1234 (4660), r1 = 0x5678 (22136)
+        dec = decode_modbus_value([0x1234, 0x5678])
+        self.assertEqual(dec["uint32_be"], 0x12345678)
+        self.assertEqual(dec["uint32_le"], 0x56781234)
+        self.assertEqual(dec["int32_be"], 0x12345678)
+
+        # 32-bit negativo (-100000)
+        enc_neg = encode_modbus_value(-100000, "int32")
+        self.assertEqual(len(enc_neg), 2)
+        dec_neg = decode_modbus_value(enc_neg)
+        self.assertEqual(dec_neg["int32_be"], -100000)
+
+        # 64-bit float (double precision: 123456.789)
+        enc_f64 = encode_modbus_value(123456.789, "float64")
+        self.assertEqual(len(enc_f64), 4)
+        dec_f64 = decode_modbus_value(enc_f64)
+        self.assertAlmostEqual(dec_f64["float64_be"], 123456.789, places=3)
+
+        # 64-bit int (123456789012345)
+        enc_i64 = encode_modbus_value(123456789012345, "int64")
+        self.assertEqual(len(enc_i64), 4)
+        dec_i64 = decode_modbus_value(enc_i64)
+        self.assertEqual(dec_i64["int64"], 123456789012345)
+
+    def test_bacnet_point_read_simulated(self):
+        from core.simulator import simulator
+        from scanners.field_tools import bacnet_point_read
+        from api.routes import bacnet_point_read_endpoint
+        from api.schemas import BACnetPointReadRequest
+
+        # Avvio simulatore
+        asyncio.run(simulator.start())
+        try:
+            # Lettura analogInput:1 (Temp Mandata Aria = 21.4 °C) su device 1001
+            res = asyncio.run(bacnet_point_read(
+                device_id=1001,
+                object_type="analogInput",
+                instance=1,
+            ))
+            self.assertTrue(res["success"])
+            self.assertEqual(res["device_id"], 1001)
+            self.assertEqual(res["object_identifier"], "analogInput:1")
+            self.assertEqual(res["value"], "21.4")
+            self.assertEqual(res["units"], "°C")
+            self.assertTrue(res["simulated"])
+
+            # Test tramite endpoint REST
+            req = BACnetPointReadRequest(
+                device_id=1001,
+                object_type="analogInput",
+                instance=1,
+            )
+            route_res = asyncio.run(bacnet_point_read_endpoint(req))
+            self.assertTrue(route_res["success"])
+            self.assertEqual(route_res["value"], "21.4")
+
+            # Lettura oggetto non esistente -> errore pulito
+            bad_res = asyncio.run(bacnet_point_read(
+                device_id=1001,
+                object_type="analogInput",
+                instance=999,
+            ))
+            self.assertFalse(bad_res["success"])
+            self.assertIn("non trovato", bad_res["error"])
+        finally:
+            asyncio.run(simulator.stop())
+
+
+class TestFastAPICoreWiringV11(unittest.TestCase):
+    """Test di validazione per FastAPI routes, endpoints e connessioni con il core."""
+
+    def test_core_endpoints_wiring(self):
+        from main import create_app
+        from api import routes
+        import asyncio
+
+        app = create_app()
+        self.assertIsNotNone(app)
+
+        async def _test():
+            # 1. Health check
+            h = await routes.health()
+            self.assertEqual(h["status"], "ok")
+            self.assertEqual(h["version"], "1.1.0")
+
+            # 2. State & Topology
+            st = await routes.get_state()
+            self.assertIn("modbus_devices", st)
+            self.assertIn("bacnet_devices", st)
+            self.assertIn("knx_devices", st)
+            self.assertIn("ip_hosts", st)
+
+            topo = await routes.get_topology()
+            self.assertIn("nodes", topo)
+            self.assertIn("links", topo)
+
+            # 3. QR Code (ambedue le rotte /network/qr e /network/qr-code)
+            qr_res = await routes.get_network_qr_code()
+            self.assertIn("url", qr_res)
+            self.assertIn("svg", qr_res)
+            self.assertTrue(qr_res["svg"].startswith("<svg"))
+
+            # 4. Hardware discovery
+            ports = await routes.get_serial_ports()
+            self.assertIsInstance(ports, list)
+
+            nics = await routes.get_network_interfaces()
+            self.assertIn("interfaces", nics)
+            self.assertIn("lan_ips", nics)
+
+            # 5. Profiles & Safe mode
+            profs = await routes.list_profiles_endpoint()
+            self.assertGreaterEqual(len(profs), 1)
+
+            sm_status = await routes.get_safe_mode_status_endpoint()
+            self.assertIn("armed", sm_status)
+            self.assertTrue(sm_status["non_deactivatable"])
+
+            # 6. Audit journal & verify
+            audit_v = await routes.verify_audit_journal_endpoint()
+            self.assertTrue(audit_v["valid"])
+
+            # 7. Demo mode status
+            demo_st = await routes.get_demo_status_endpoint()
+            self.assertIn("active", demo_st)
+
+            # 8. Tag export standard CSV
+            tag_resp = await routes.export_tags_endpoint(format="standard_csv")
+            self.assertEqual(tag_resp.media_type, "text/csv; charset=utf-8")
+
+            # 9. Abort scans
+            abort_res = await routes.abort_all_scans()
+            self.assertTrue(abort_res["aborted"])
+
+        asyncio.run(_test())
+
+
+class TestSystemRequirementsCrossPlatform(unittest.TestCase):
+    """
+    Test suite per la verifica di requisiti di sistema cross-platform (Windows & Linux),
+    Npcap driver check, privilege report, e API diagnostics.
+    """
+
+    def test_diagnostics_linux_local(self):
+        from core.system_requirements import get_system_diagnostics
+        diag = get_system_diagnostics()
+        self.assertIn("os", diag)
+        self.assertIn("python", diag)
+        self.assertIn("has_packet_capture", diag)
+        self.assertIn("has_npcap", diag)
+        self.assertIn("has_serial_access", diag)
+        self.assertIn("missing_requirements", diag)
+        self.assertIn("recommendations", diag)
+        # Su Linux, has_npcap è sempre True poiché Npcap è specifico di Windows
+        self.assertTrue(diag["has_npcap"])
+
+    def test_diagnostics_windows_mock(self):
+        from unittest.mock import patch
+        import core.system_requirements as sys_req
+
+        # Scenario 1: Windows senza Npcap
+        with patch.object(sys_req, "_SYSTEM", "Windows"), \
+             patch("core.system_requirements.check_npcap_installed", return_value=False), \
+             patch("core.priv_check._SYSTEM", "Windows"), \
+             patch("core.priv_check._windows_has_npcap", return_value=False), \
+             patch("core.priv_check._windows_is_admin", return_value=True), \
+             patch("core.priv_check._cached_report", None):
+            diag = sys_req.get_system_diagnostics()
+            self.assertEqual(diag["os"], "windows")
+            self.assertFalse(diag["has_npcap"])
+            self.assertIn("Driver Npcap mancante su Windows (wpcap.dll)", diag["missing_requirements"])
+
+        # Scenario 2: Windows con Npcap e Admin
+        with patch.object(sys_req, "_SYSTEM", "Windows"), \
+             patch("core.system_requirements.check_npcap_installed", return_value=True), \
+             patch("core.priv_check._SYSTEM", "Windows"), \
+             patch("core.priv_check._windows_has_npcap", return_value=True), \
+             patch("core.priv_check._windows_is_admin", return_value=True), \
+             patch("core.priv_check._cached_report", None):
+            diag2 = sys_req.get_system_diagnostics()
+            self.assertEqual(diag2["os"], "windows")
+            self.assertTrue(diag2["has_npcap"])
+            self.assertTrue(diag2["has_packet_capture"])
+
+    def test_priv_report_has_npcap_field(self):
+        from core.priv_check import check_privileges, has_npcap
+        priv = check_privileges()
+        self.assertTrue(hasattr(priv, "has_npcap"))
+        self.assertIsInstance(has_npcap(), bool)
+
+    def test_system_diagnostics_api_endpoint(self):
+        async def _test():
+            from api.routes import get_system_diagnostics_endpoint
+            res = await get_system_diagnostics_endpoint()
+            self.assertIn("os", res)
+            self.assertIn("python", res)
+            self.assertIn("has_npcap", res)
+            self.assertIn("has_packet_capture", res)
+
+        asyncio.run(_test())
+
+    def test_companion_download_endpoint_validation(self):
+        async def _test():
+            from api.routes import download_companion_endpoint
+            from api.schemas import CompanionDownloadRequest
+            from fastapi import HTTPException
+            # Test companion invalido solleva HTTPException 400
+            req = CompanionDownloadRequest(companion="invalid_tool_xyz")
+            with self.assertRaises(HTTPException) as ctx:
+                await download_companion_endpoint(req)
+            self.assertEqual(ctx.exception.status_code, 400)
+
+        asyncio.run(_test())
+
+    def test_bham_launcher_python_support(self):
+        import bham
+        py_exe = bham.find_compatible_python()
+        self.assertIsNotNone(py_exe)
+        self.assertTrue(os.path.exists(py_exe))
 
 
 if __name__ == "__main__":

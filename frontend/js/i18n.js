@@ -14,7 +14,7 @@ const I18N = {
   translations: {
     it: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v1.0.0",
+      brand_sub: "BACS Help Auto Mapper v1.1.0",
       rapid_scan: "AVVIA SCAN RAPIDO",
       rapid_scan_title: "Avvia scansione sequenziale RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -76,10 +76,11 @@ const I18N = {
       arp_title: "ARP Sniffer (L2)",
       duration_sec: "Durata (sec)",
       btn_start_arp: "Avvia Sniffing",
-      fc43_title: "FC43 Device ID (Modbus MEI)",
+      fc43_title: "Diagnostica FC43 MEI",
       serial_port_label: "Porta Seriale",
       slave_id_label: "Slave ID",
       btn_run_fc43: "Leggi FC43",
+      sniff_title: "Sniffer RS485",
       serial_sniff_title: "Sniffer Passivo (RS485)",
       zero_tx_badge: "Zero-TX Stealth",
       protocol_label: "Protocollo",
@@ -93,6 +94,7 @@ const I18N = {
       btn_open_inspector: "Mostra Frame RS485",
       console_tab_log: "Live Log",
       console_tab_inspector: "RS485 Inspector",
+      console_tab_knx: "KNX Monitor",
       console_reduce: "Riduci",
       console_expand: "Console",
       btn_toggle_console: "Console & Sniffer",
@@ -186,6 +188,7 @@ const I18N = {
       tab_scan: "Connettività & Scansione",
       tab_sessions: "Sessioni Salvate",
       tab_security: "Sicurezza & Safe Mode",
+      tab_diagnostics: "Diagnostica & Requisiti",
       tab_appearance: "Tema & Lingua",
       tab_maps: "Mappe BACS Help",
       site_name_label: "Nome Sito / Impianto",
@@ -367,11 +370,29 @@ const I18N = {
       profile_target_slave_lbl: "Seleziona Slave ID Target (1..247)",
       btn_confirm_apply: "Conferma e Applica Mappa",
       toast_profile_applied: "Profilo '{name}' applicato con successo su slave #{sid} ({n} punti mappati).",
+
+      // v1.1.0 Cross-Platform, Diff, Safe Mode & Alerts
+      demo_mode_enabled_toast: "Modalità Demo Attivata: caricati dispositivi virtuali BACS.",
+      demo_mode_disabled_toast: "Modalità Demo Disattivata.",
+      hw_disconnect_alert: "Disconnessione hardware rilevata sulla porta seriale",
+      hw_reconnect_alert: "Hardware seriale riconnesso con successo",
+      diagnostics_title: "Diagnostica di Sistema & Requisiti Cross-Platform",
+      diagnostics_desc: "Verifica runtime Python, driver di cattura rete (Npcap/CAP_NET_RAW) e permessi operativi (Windows & Linux)",
+      btn_refresh_diagnostics: "🔄 Aggiorna Diagnostica",
+      diff_filter_all: "Tutti gli stati",
+      diff_filter_added: "🟢 Solo Aggiunti",
+      diff_filter_removed: "🔴 Solo Scomparsi",
+      diff_filter_modified: "🟡 Solo Modificati",
+      diff_search_placeholder: "Filtra per testo (IP, nome, slave...)",
+      safe_mode_extend_label: "Prolunga:",
+      safe_mode_extend_15: "+15 Min",
+      safe_mode_extend_30: "+30 Min",
+      safe_mode_remember_label: "Ricorda operatore e commessa su questo terminale",
     },
 
     en: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v1.0.0",
+      brand_sub: "BACS Help Auto Mapper v1.1.0",
       rapid_scan: "START RAPID SCAN",
       rapid_scan_title: "Start automated sequential scan RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -433,10 +454,11 @@ const I18N = {
       arp_title: "ARP Sniffer (L2)",
       duration_sec: "Duration (sec)",
       btn_start_arp: "Start Sniffing",
-      fc43_title: "FC43 Device ID (Modbus MEI)",
+      fc43_title: "FC43 MEI Diagnostics",
       serial_port_label: "Serial Port",
       slave_id_label: "Slave ID",
       btn_run_fc43: "Read FC43",
+      sniff_title: "RS485 Sniffer",
       serial_sniff_title: "Passive Sniffer (RS485)",
       zero_tx_badge: "Zero-TX Stealth",
       protocol_label: "Protocol",
@@ -450,6 +472,7 @@ const I18N = {
       btn_open_inspector: "Show RS485 Frames",
       console_tab_log: "Live Log",
       console_tab_inspector: "RS485 Inspector",
+      console_tab_knx: "KNX Monitor",
       console_reduce: "Collapse",
       console_expand: "Console",
       btn_toggle_console: "Console & Sniffer",
@@ -543,6 +566,7 @@ const I18N = {
       tab_scan: "Connectivity & Scanning",
       tab_sessions: "Saved Sessions",
       tab_security: "Security & Safe Mode",
+      tab_diagnostics: "Diagnostics & Prerequisites",
       tab_appearance: "Theme & Language",
       tab_maps: "BACS Help Maps",
       site_name_label: "Site / Plant Name",
@@ -724,11 +748,29 @@ const I18N = {
       profile_target_slave_lbl: "Select Target Slave ID (1..247)",
       btn_confirm_apply: "Confirm and Apply Map",
       toast_profile_applied: "Profile '{name}' applied successfully to slave #{sid} ({n} mapped points).",
+
+      // v1.1.0 Cross-Platform, Diff, Safe Mode & Alerts
+      demo_mode_enabled_toast: "Demo Mode Enabled: loaded virtual BACS devices.",
+      demo_mode_disabled_toast: "Demo Mode Disabled.",
+      hw_disconnect_alert: "Hardware disconnection detected on serial port",
+      hw_reconnect_alert: "Serial hardware successfully reconnected",
+      diagnostics_title: "System Diagnostics & Cross-Platform Prerequisites",
+      diagnostics_desc: "Verify Python runtime, packet capture drivers (Npcap/CAP_NET_RAW) and OS permissions (Windows & Linux)",
+      btn_refresh_diagnostics: "🔄 Refresh Diagnostics",
+      diff_filter_all: "All states",
+      diff_filter_added: "🟢 Added Only",
+      diff_filter_removed: "🔴 Offline Only",
+      diff_filter_modified: "🟡 Modified Only",
+      diff_search_placeholder: "Filter by text (IP, name, slave...)",
+      safe_mode_extend_label: "Extend:",
+      safe_mode_extend_15: "+15 Min",
+      safe_mode_extend_30: "+30 Min",
+      safe_mode_remember_label: "Remember operator and job order on this device",
     },
 
     es: {
       // Header & Brand
-      brand_sub: "BACS Help Auto Mapper v1.0.0",
+      brand_sub: "BACS Help Auto Mapper v1.1.0",
       rapid_scan: "INICIAR ESCANEO RÁPIDO",
       rapid_scan_title: "Iniciar escaneo secuencial RTU + BACnet + KNX + ARP",
       abort_scan: "ABORT SCAN",
@@ -790,10 +832,11 @@ const I18N = {
       arp_title: "Sniffer ARP (L2)",
       duration_sec: "Duración (seg)",
       btn_start_arp: "Iniciar Sniffing",
-      fc43_title: "FC43 ID Dispositivo (Modbus MEI)",
+      fc43_title: "Diagnóstico FC43 MEI",
       serial_port_label: "Puerto Serie",
       slave_id_label: "ID Slave",
       btn_run_fc43: "Leer FC43",
+      sniff_title: "Sniffer RS485",
       serial_sniff_title: "Sniffer Pasivo (RS485)",
       zero_tx_badge: "Zero-TX Stealth",
       protocol_label: "Protocolo",
@@ -807,6 +850,7 @@ const I18N = {
       btn_open_inspector: "Ver Tramas RS485",
       console_tab_log: "Registro en Vivo",
       console_tab_inspector: "Inspector RS485",
+      console_tab_knx: "Monitor KNX",
       console_reduce: "Reducir",
       console_expand: "Consola",
       btn_toggle_console: "Consola y Sniffer",
@@ -900,6 +944,7 @@ const I18N = {
       tab_scan: "Conectividad y Escaneo",
       tab_sessions: "Sesiones Guardadas",
       tab_security: "Seguridad y Safe Mode",
+      tab_diagnostics: "Diagnóstico y Requisitos",
       tab_appearance: "Tema e Idioma",
       tab_maps: "Mapas BACS Help",
       site_name_label: "Nombre Sitio / Instalación",
@@ -1081,6 +1126,24 @@ const I18N = {
       profile_target_slave_lbl: "Seleccione ID Esclavo Destino (1..247)",
       btn_confirm_apply: "Confirmar y Aplicar Mapeo",
       toast_profile_applied: "Perfil '{name}' aplicado con éxito al esclavo #{sid} ({n} puntos mapeados).",
+
+      // v1.1.0 Cross-Platform, Diff, Safe Mode & Alerts
+      demo_mode_enabled_toast: "Modo Demo Activado: cargados dispositivos virtuales BACS.",
+      demo_mode_disabled_toast: "Modo Demo Desactivado.",
+      hw_disconnect_alert: "Desconexión de hardware detectada en el puerto serie",
+      hw_reconnect_alert: "Hardware serie reconectado con éxito",
+      diagnostics_title: "Diagnóstico del Sistema y Requisitos Multiplataforma",
+      diagnostics_desc: "Verificación de runtime Python, controladores de captura de red (Npcap/CAP_NET_RAW) y permisos (Windows y Linux)",
+      btn_refresh_diagnostics: "🔄 Actualizar Diagnóstico",
+      diff_filter_all: "Todos los estados",
+      diff_filter_added: "🟢 Solo Añadidos",
+      diff_filter_removed: "🔴 Solo Desconectados",
+      diff_filter_modified: "🟡 Solo Modificados",
+      diff_search_placeholder: "Filtrar por texto (IP, nombre, slave...)",
+      safe_mode_extend_label: "Extender:",
+      safe_mode_extend_15: "+15 Min",
+      safe_mode_extend_30: "+30 Min",
+      safe_mode_remember_label: "Recordar operador y orden de trabajo en este terminal",
     }
   },
 
@@ -1131,21 +1194,21 @@ const I18N = {
     document.querySelectorAll("[data-i18n]").forEach(el => {
       const key = el.getAttribute("data-i18n");
       const trans = this.t(key);
-      if (trans) el.textContent = trans;
+      if (trans && trans !== key) el.textContent = trans;
     });
 
     // Placeholders
     document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
       const key = el.getAttribute("data-i18n-placeholder");
       const trans = this.t(key);
-      if (trans) el.setAttribute("placeholder", trans);
+      if (trans && trans !== key) el.setAttribute("placeholder", trans);
     });
 
     // Titles / Tooltips
     document.querySelectorAll("[data-i18n-title]").forEach(el => {
       const key = el.getAttribute("data-i18n-title");
       const trans = this.t(key);
-      if (trans) el.setAttribute("title", trans);
+      if (trans && trans !== key) el.setAttribute("title", trans);
     });
   },
 

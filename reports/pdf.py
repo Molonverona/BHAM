@@ -31,6 +31,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from core.config import settings
 from data.state import state
 
 
@@ -66,7 +67,7 @@ class NumberedCanvas(canvas.Canvas):
             self.line(40, 804, 555, 804)
 
         # Footer su tutte le pagine
-        self.drawString(40, 28, "BACS Help Auto Mapper – Documento di Collaudo")
+        self.drawString(40, 28, f"BACS Help Auto Mapper v{settings.app_version} – Documento di Collaudo")
         page_str = f"Pagina {self._pageNumber} di {total_pages}"
         self.drawRightString(555, 28, page_str)
         self.setStrokeColor(colors.HexColor("#CBD5E1"))

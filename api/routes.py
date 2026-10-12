@@ -22,6 +22,8 @@ from api.schemas import (
     BACnetObjectExplorerResponse,
     BACnetPointOverrideRequest,
     BACnetPointOverrideResponse,
+    BACnetPointReadRequest,
+    BACnetPointReadResponse,
     BACnetRelinquishRequest,
     ConfigActiveResponse,
     ConfigureRequest,
@@ -37,6 +39,7 @@ from api.schemas import (
     HealthResponse,
     IPScanRequest,
     KNXIPScanRequest,
+    KNXMonitorStatusResponse,
     MapsImportResponse,
     ModbusBenchmarkRequest,
     ModbusBenchmarkResponse,
@@ -56,6 +59,7 @@ from api.schemas import (
     SaveSessionRequest,
     SaveSessionResponse,
     SafeModeArmRequest,
+    SafeModeExtendRequest,
     SafeModeStatusResponse,
     ScanAbortResponse,
     ScanAbortSingleResponse,
@@ -71,6 +75,9 @@ from api.schemas import (
     ApplyProfileResponse,
     ProfileDetail,
     ProfileMeta,
+    SystemDiagnosticsResponse,
+    CompanionDownloadRequest,
+    CompanionDownloadResponse,
 )
 from api.websockets import manager
 from core.config import settings
@@ -83,6 +90,7 @@ from data.models import (
     FDTEntry,
     IPHost,
     KNXDevice,
+    KNXTelegram,
     ModbusDevice,
     Protocol,
     SavedSessionMeta,
@@ -351,6 +359,59 @@ async def get_knx_devices() -> list[dict]:
     return [k.model_dump(mode="json") for k in state.knx_devices.values()]
 
 
+@router.post(
+    "/knx/monitor/start",
+    tags=["knx"],
+    response_model=KNXMonitorStatusResponse,
+    summary="Avvia KNX Group Monitor passivo",
+    description="Attiva la ricezione multicast UDP 224.0.23.12:3671 per decodificare in tempo reale tutti i telegrammi cEMI scambiati sul bus KNX.",
+)
+async def start_knx_monitor(port: int = Query(3671, description="Porta UDP KNX (default 3671)")) -> dict:
+    from scanners.knx import knx_group_monitor
+    ok = await knx_group_monitor.start(port=port)
+    return {"running": ok, "message": "KNX Group Monitor avviato" if ok else "Impossibile avviare socket KNX"}
+
+
+@router.post(
+    "/knx/monitor/stop",
+    tags=["knx"],
+    response_model=KNXMonitorStatusResponse,
+    summary="Arresta KNX Group Monitor",
+    description="Ferma la cattura dei telegrammi KNX rilasciando il socket UDP.",
+)
+async def stop_knx_monitor() -> dict:
+    from scanners.knx import knx_group_monitor
+    await knx_group_monitor.stop()
+    return {"running": False, "message": "KNX Group Monitor arrestato"}
+
+
+@router.get(
+    "/knx/telegrams",
+    tags=["knx"],
+    response_model=list[KNXTelegram],
+    summary="Elenco telegrammi KNX catturati",
+    description="Restituisce la cronologia dei telegrammi KNX registrati nel buffer circolare con opzioni di filtraggio per gruppo o indirizzo individuale.",
+)
+async def get_knx_telegrams(
+    limit: int = Query(200, ge=1, le=1000, description="Numero massimo di telegrammi da restituire"),
+    group: Optional[str] = Query(None, description="Filtro per indirizzo di gruppo o individuale (es. 1/1/10 o 1.1.2)"),
+) -> list[dict]:
+    lim = limit if isinstance(limit, int) else 200
+    grp = group if isinstance(group, str) else None
+    return state.get_knx_telegrams(limit=lim, group_filter=grp)
+
+
+@router.delete(
+    "/knx/telegrams",
+    tags=["knx"],
+    summary="Azzera cronologia telegrammi KNX",
+    description="Svuota il buffer circolare dei telegrammi KNX.",
+)
+async def clear_knx_telegrams() -> dict:
+    state.clear_knx_telegrams()
+    return {"cleared": True}
+
+
 @router.get(
     "/devices/hosts",
     tags=["data"],
@@ -370,6 +431,17 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     Canale bidirezionale di telemetria industriale in tempo reale.
     Effettua broadcast degli eventi: scan_progress, device_found, bus_health_update, log_record.
     """
+    client_host = websocket.client.host if websocket.client else "127.0.0.1"
+    is_local = (
+        client_host in ("127.0.0.1", "::1", "localhost", "testclient")
+        or client_host.startswith("127.")
+    )
+    if not is_local and settings.lan_auth_required:
+        token = websocket.query_params.get("token") or websocket.headers.get("x-bham-token")
+        if not token or not settings.verify_token(token):
+            await websocket.close(code=1008)
+            return
+
     await manager.connect(websocket)
     try:
         while True:
@@ -924,6 +996,24 @@ async def modbus_quick_write_endpoint(req: ModbusQuickWriteRequest) -> dict:
 
 
 @router.post(
+    "/tools/bacnet/read",
+    tags=["bacnet"],
+    response_model=BACnetPointReadResponse,
+    summary="BACnet Point Commander: Lettura real-time presentValue e unità",
+    description="Interroga un oggetto BACnet su dispositivo reale o virtuale per leggerne il valore presentValue e l'unità ingegneristica per la Watch List e trend viewer.",
+)
+async def bacnet_point_read_endpoint(req: BACnetPointReadRequest) -> dict:
+    from scanners.field_tools import bacnet_point_read
+    return await bacnet_point_read(
+        device_id=req.device_id,
+        address=req.address,
+        object_type=req.object_type,
+        instance=req.instance,
+        timeout=req.timeout,
+    )
+
+
+@router.post(
     "/tools/bacnet/write",
     tags=["bacnet"],
     response_model=BACnetPointOverrideResponse,
@@ -1046,6 +1136,21 @@ async def arm_safe_mode_endpoint(req: SafeModeArmRequest) -> dict:
             job_order=req.job_order,
             duration_minutes=req.duration_minutes,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post(
+    "/safe-mode/extend",
+    tags=["system"],
+    response_model=SafeModeStatusResponse,
+    summary="Prolunga la sessione attiva di Safe Mode",
+    description="Aggiunge minuti alla finestra temporale attiva senza richiedere un nuovo sblocco o disarmo intermedio.",
+)
+async def extend_safe_mode_endpoint(req: SafeModeExtendRequest) -> dict:
+    from core.safe_mode import safe_mode
+    try:
+        return safe_mode.extend(extra_minutes=req.extra_minutes)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -1286,6 +1391,12 @@ async def update_device_commissioning_endpoint(req: DeviceCommissioningRequest) 
     summary="Genera QR Code SVG per accesso rapido da smartphone/tablet LAN",
     description="Restituisce il codice QR vettoriale SVG per connettere istantaneamente un dispositivo mobile all'interfaccia BHAM.",
 )
+@router.get(
+    "/network/qr",
+    tags=["system"],
+    response_model=QRCodeResponse,
+    include_in_schema=False,
+)
 async def get_network_qr_code(url: Optional[str] = Query(default=None, description="URL personalizzato (default auto-rilevato LAN)")) -> dict:
     from core.hw_discovery import get_host_lan_ips, list_network_interfaces
     from core.qr_svg import generate_qr_svg
@@ -1300,12 +1411,77 @@ async def get_network_qr_code(url: Optional[str] = Query(default=None, descripti
             lan_ip = nic_list[0].get("ip", "127.0.0.1") if nic_list else "127.0.0.1"
         port = getattr(settings, "port", 8765)
         target_url = f"http://{lan_ip}:{port}"
+        if settings.api_token and settings.lan_auth_required and "token=" not in target_url:
+            delim = "&" if "?" in target_url else "?"
+            target_url = f"{target_url}{delim}token={settings.api_token}"
 
     svg_data = generate_qr_svg(target_url, margin=3, scale=5)
     return {
         "url": target_url,
         "svg": svg_data,
     }
+
+
+# ── Diagnostica di Sistema & Companion Tools ─────────────────────────────────
+
+@router.get(
+    "/system/diagnostics",
+    response_model=SystemDiagnosticsResponse,
+    summary="Diagnostica requisiti di sistema cross-platform (Windows & Linux)",
+)
+async def get_system_diagnostics_endpoint():
+    """
+    Restituisce un quadro diagnostico unificato di tutti i requisiti di sistema:
+    - OS, architettura e interprete Python
+    - Driver di cattura pacchetti (Npcap su Windows, cap_net_raw su Linux)
+    - Porte seriali RS485 e permessi
+    - Companion tools disponibili (Wireshark/tshark, installer Npcap in cache)
+    """
+    from core.system_requirements import get_system_diagnostics
+    return get_system_diagnostics()
+
+
+@router.post(
+    "/system/companions/download",
+    response_model=CompanionDownloadResponse,
+    summary="Download assistito di strumenti a corredo (Npcap per Windows)",
+)
+async def download_companion_endpoint(req: CompanionDownloadRequest = Body(...)):
+    """
+    Scarica su richiesta esplicita dell'utente gli strumenti a corredo necessari:
+    - companion 'npcap': scarica l'installer ufficiale di Npcap per Windows.
+    """
+    from core.system_requirements import download_npcap, is_windows
+    if req.companion.lower() == "npcap":
+        try:
+            loop = asyncio.get_running_loop()
+            dest_path = await loop.run_in_executor(None, download_npcap)
+            size = dest_path.stat().st_size
+            from core.audit_journal import audit_journal
+            audit_journal.record_event(
+                action="companion_downloaded",
+                operator="user",
+                job_order="SYSTEM",
+                details={"companion": "npcap", "file": str(dest_path), "size": size},
+            )
+            return {
+                "status": "ok",
+                "companion": "npcap",
+                "file_path": str(dest_path),
+                "size_bytes": size,
+                "message": f"Installer Npcap scaricato con successo ({size // 1024} KB). Eseguilo con privilegi di Amministratore per completare l'installazione.",
+            }
+        except Exception as exc:
+            logger.error("Download Npcap fallito: %s", exc)
+            return {
+                "status": "error",
+                "companion": "npcap",
+                "file_path": None,
+                "size_bytes": None,
+                "message": f"Errore durante il download di Npcap: {exc}. Puoi scaricarlo manualmente da https://npcap.com",
+            }
+    else:
+        raise HTTPException(status_code=400, detail=f"Companion '{req.companion}' non supportato.")
 
 
 

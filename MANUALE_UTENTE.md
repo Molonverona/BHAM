@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.0.0)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.1.0)
 
 ---
 
@@ -509,6 +509,39 @@ Dal menu Esporta, è possibile generare e scaricare con un click:
 - **Generazione Vettoriale SVG Offline:** Cliccando sull'icona 📱 QR Code nella barra di stato, BHAM produce un codice QR vettoriale SVG calcolato interamente dal server locale, senza richiedere connettività a Internet.
 - **Risoluzione IP di Rete Locale:** Il QR Code codifica l'indirizzo IP e la porta della scheda di rete selezionata (es. `http://192.168.1.50:8765`).
 - **Accoppiamento Immediato con Tablet da Campo:** Il tecnico inquadra il codice QR con lo smartphone o il tablet collegato alla rete Wi-Fi del cantiere o dell'access point d'impianto: la console di collaudo si apre istantaneamente a schermo intero nel browser del dispositivo mobile.
+
+---
+
+## 23. KNX Group Monitor, BACnet Trend Watch List & Sicurezza LAN Token (v1.1.0)
+
+### 23.1 KNX Group Monitor & Live Telegram Sniffer
+Nella versione 1.1.0, BHAM introduce un potente sniffer passivo per bus KNX:
+- **Ascolto Multicast UDP:** Cattura continua su gruppo multicast `224.0.23.12:3671` (standard KNXnet/IP) per intercettare frame `ROUTING_INDICATION` (0x0530) e `TUNNELING_REQUEST` (0x0420).
+- **Decodifica cEMI Nativa:** Estrazione istantanea di Control Field (priorità: system, urgent, normal, low), Hop Count (TTL), Indirizzo Individuale Sorgente (Area.Linea.Dispositivo), Indirizzo di Gruppo Destinazione (3 livelli: Main/Middle/Sub, es. `1/1/10`), TPCI/APCI Service (`GroupValueWrite`, `GroupValueResponse`, `GroupValueRead`).
+- **Euristica DPT Standard:**
+  - **DPT 1.001 (Switch/Bool):** Decodifica compatta 1-bit (`ON` / `OFF`).
+  - **DPT 5.001 (Percent 0-100%):** Decodifica scaling 8-bit con unità `%`.
+  - **DPT 9.001 (Float16 2-octet):** Decodifica mantissa/esponente per sonde di temperatura, pressione e umidità con unità `°C`.
+  - **DPT 14.xxx (Float32 IEEE 754):** Decodifica virgola mobile a 32 bit per contatori ed energia.
+- **Dock UI Dedicata & Esportazione:** Tab "KNX Monitor" nella console di collaudo con contatore telegrammi live, filtro dinamico per gruppo/indirizzo, auto-scroll e pulsante per esportare la sequenza telegrammi in CSV.
+- **Supporto Virtual Plant:** Il simulatore genera telegrammi realistici per collaudi offline e dimostrazioni.
+
+### 23.2 BACnet Point Trend Polling & Estensione Watch List
+- **Integrazione BACnet nella Watch List:** Nel modal *BACnet Object Explorer*, ogni oggetto espone il pulsante **📈 Segui**: con un click, sonde analogiche (`analogInput`, `analogValue`), uscite e stati binari vengono aggiunti alla Watch List.
+- **Polling Periodico:** Ciclo di campionamento automatico su endpoint `POST /api/v1/tools/bacnet/read` configurabile a 1s, 2s o 5s.
+- **Grafico Sparkline & Statistiche:** Visualizzazione mini-grafico SVG sparkline dell'andamento nel tempo, tracciamento dei valori minimo/massimo e calcolo delta real-time.
+- **Esportazione Unificata:** Il file CSV della Watch List include sia registri Modbus che oggetti BACnet con relative unità ingegneristiche e timestamp millisecondale.
+
+### 23.3 Modbus Decodifica & Scrittura Estesa 32-bit e 64-bit
+- **Tipi 32-bit:** Supporto completo per `uint32_be`, `uint32_le` (word-swapped CDAB), `int32_be`, `int32_le`.
+- **Tipi 64-bit:** Supporto per contatori energetici e grandezze a doppia precisione `float64_be` (IEEE 754 double a 4 registri) e `int64`.
+
+### 23.4 Sicurezza LAN Token & Hardening CORS
+- **Protezione Accesso Remoto:** Per prevenire accessi non autorizzati o comandi indesiderati da altri host sulla rete LAN, tutte le chiamate REST (tranne `/health` e il pairing QR) e le connessioni WebSocket provenienti da IP non-loopback richiedono un token crittografico (`X-BHAM-Token` o query param `?token=`).
+- **Trasparenza su Localhost:** Le connessioni locali (`127.0.0.1`, `::1`, loopback) rimangono prive di autenticazione per garantire la massima agilità di collaudo in cantiere.
+- **Accoppiamento Automatico Tablet:** Il generatore di codici QR inietta automaticamente il token valido negli URL LAN rilevati, permettendo al tablet del collaudatore di autenticarsi istantaneamente al semplice inquadramento del QR code.
+- **Hardening CORS:** Policy CORS ristretta e conforme alle specifiche di sicurezza OWASP.
+
 
 
 

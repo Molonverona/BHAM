@@ -16,6 +16,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from core.config import settings
 from data.maps_manager import maps_manager
 from data.state import state
 
@@ -175,7 +176,7 @@ def export_scada_tags(format_type: str = "standard_csv") -> tuple[str, str, str]
     if fmt == "json":
         data = {
             "application": "BHAM (BACS Help Auto Mapper)",
-            "version": "1.3.0",
+            "version": settings.app_version,
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "total_points": len(points),
             "points": points,

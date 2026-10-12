@@ -215,6 +215,38 @@ const API     = "/api/v1";
 const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL  = `${wsProto}//${location.host}/api/v1/ws`;
 
+// ── LAN Authentication Token (Zero-Config QR Pairing) ────────────────────────
+try {
+  const _urlParams = new URLSearchParams(window.location.search);
+  if (_urlParams.has("token")) {
+    const _t = _urlParams.get("token");
+    if (_t) localStorage.setItem("bham-lan-token", _t);
+  }
+} catch (_) {}
+
+function getLanToken() {
+  return localStorage.getItem("bham-lan-token") || "";
+}
+
+// Intercept fetch to automatically append X-BHAM-Token header for LAN clients
+const _nativeFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+  const token = getLanToken();
+  if (token && typeof url === "string" && (url.startsWith("/api/") || url.includes("/api/"))) {
+    options.headers = options.headers || {};
+    if (options.headers instanceof Headers) {
+      if (!options.headers.has("X-BHAM-Token")) {
+        options.headers.set("X-BHAM-Token", token);
+      }
+    } else if (Array.isArray(options.headers)) {
+      options.headers.push(["X-BHAM-Token", token]);
+    } else {
+      options.headers["X-BHAM-Token"] = token;
+    }
+  }
+  return _nativeFetch(url, options);
+};
+
 let ws = null;
 let currentFilter = "all";
 let currentSearch = "";
@@ -286,7 +318,9 @@ setThemeMode(localStorage.getItem("bham-theme-mode") || "light");
 
 function connectWS() {
   const pingStart = performance.now();
-  ws = new WebSocket(WS_URL);
+  const token = getLanToken();
+  const wsTarget = token ? `${WS_URL}?token=${encodeURIComponent(token)}` : WS_URL;
+  ws = new WebSocket(wsTarget);
 
   ws.onopen = () => {
     const latency = Math.round(performance.now() - pingStart);
@@ -365,6 +399,12 @@ function handleEvent(msg) {
       break;
     case "serial_frame":
       if (msg.frame) handleSerialFrame(msg.frame);
+      break;
+    case "knx_telegram":
+      if (msg.telegram) handleKNXTelegram(msg.telegram);
+      break;
+    case "knx_telegrams_cleared":
+      handleKNXTelegramsCleared();
       break;
     case "serial_bus_health":
       if (msg.health) handleBusHealth(msg.health);
@@ -1267,7 +1307,12 @@ async function postAPI(path, body) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    return await r.json();
+    const data = await r.json();
+    if (data && data.status === "safe_mode_locked") {
+      showToast(data.error || "Safe Mode ATTIVO: sbloccare Safe Mode per consentire manovre di scrittura.", "warning");
+      openSafeModeModal();
+    }
+    return data;
   } catch (e) {
     log("[ERROR] Errore chiamata API: " + e.message);
     return null;
@@ -1288,7 +1333,7 @@ function startRTU() {
   postAPI("/scan/modbus/rtu", { port, baudrates: [9600, 19200], id_range: ids });
 }
 
-// ── Console Tabs (Live Log vs RS485 Inspector) ────────────────────────────────
+// ── Console Tabs (Live Log vs RS485 Inspector vs KNX Monitor) ───────────────
 
 function switchConsoleTab(tab) {
   const col = document.getElementById("console-col");
@@ -1297,28 +1342,221 @@ function switchConsoleTab(tab) {
   }
   const logBtn = document.getElementById("view-tab-log");
   const serialBtn = document.getElementById("view-tab-serial");
+  const knxBtn = document.getElementById("view-tab-knx");
+  const centerLog = document.getElementById("center-tab-log");
+  const centerSerial = document.getElementById("center-tab-serial");
+  const centerKnx = document.getElementById("center-tab-knx");
+
   const logConsole = document.getElementById("log-console");
   const serialConsole = document.getElementById("serial-frames-console");
+  const knxConsole = document.getElementById("knx-telegrams-console");
+
+  [logBtn, serialBtn, knxBtn, centerLog, centerSerial, centerKnx].forEach(b => b?.classList.remove("active"));
+  [logConsole, serialConsole, knxConsole].forEach(c => c?.classList.add("hidden"));
+
+  const scrollCheck = document.getElementById("log-autoscroll");
 
   if (tab === "serial") {
-    logBtn?.classList.remove("active");
     serialBtn?.classList.add("active");
-    logConsole?.classList.add("hidden");
+    centerSerial?.classList.add("active");
     serialConsole?.classList.remove("hidden");
-    const scrollCheck = document.getElementById("log-autoscroll");
     if (serialConsole && (!scrollCheck || scrollCheck.checked)) {
       serialConsole.scrollTop = serialConsole.scrollHeight;
     }
+  } else if (tab === "knx") {
+    knxBtn?.classList.add("active");
+    centerKnx?.classList.add("active");
+    knxConsole?.classList.remove("hidden");
+    if (!knxTelegramsLoaded) {
+      loadKNXTelegrams();
+    }
+    if (knxConsole && (!scrollCheck || scrollCheck.checked)) {
+      knxConsole.scrollTop = knxConsole.scrollHeight;
+    }
   } else {
-    serialBtn?.classList.remove("active");
     logBtn?.classList.add("active");
-    serialConsole?.classList.add("hidden");
+    centerLog?.classList.add("active");
     logConsole?.classList.remove("hidden");
-    const scrollCheck = document.getElementById("log-autoscroll");
     if (logConsole && (!scrollCheck || scrollCheck.checked)) {
       logConsole.scrollTop = logConsole.scrollHeight;
     }
   }
+}
+
+// ── KNX Group Monitor & Live Telegram Sniffer ────────────────────────────────
+
+let knxMonitorRunning = false;
+let knxTelegrams = [];
+let knxTelegramsLoaded = false;
+
+async function toggleKNXMonitor() {
+  const btn = document.getElementById("btn-toggle-knx-monitor");
+  const lbl = document.getElementById("knx-monitor-state-label");
+  try {
+    if (!knxMonitorRunning) {
+      if (btn) btn.textContent = "⏳ Avvio...";
+      const res = await postAPI("/knx/monitor/start", {});
+      if (res && res.running) {
+        knxMonitorRunning = true;
+        if (btn) { btn.textContent = "⏹ Ferma Monitor"; btn.classList.add("bham-btn-danger"); }
+        if (lbl) { lbl.textContent = "Stato: In Ascolto (Multicast 3671)"; lbl.style.color = "#10b981"; }
+        showToast("KNX Group Monitor avviato in ascolto", "success");
+      } else {
+        if (btn) btn.textContent = "▶ Avvia Monitor";
+        showToast(res?.message || "Impossibile avviare KNX Monitor", "error");
+      }
+    } else {
+      if (btn) btn.textContent = "⏳ Arresto...";
+      await postAPI("/knx/monitor/stop", {});
+      knxMonitorRunning = false;
+      if (btn) { btn.textContent = "▶ Avvia Monitor"; btn.classList.remove("bham-btn-danger"); }
+      if (lbl) { lbl.textContent = "Stato: Standby"; lbl.style.color = "var(--bham-text-dim)"; }
+      showToast("KNX Group Monitor arrestato", "info");
+    }
+  } catch (err) {
+    showToast(`Errore KNX Monitor: ${err.message}`, "error");
+    if (btn) btn.textContent = knxMonitorRunning ? "⏹ Ferma Monitor" : "▶ Avvia Monitor";
+  }
+}
+
+async function loadKNXTelegrams() {
+  try {
+    const res = await fetch(`${API}/knx/telegrams?limit=200`).then(r => r.json());
+    if (Array.isArray(res)) {
+      knxTelegrams = res;
+      knxTelegramsLoaded = true;
+      updateKNXBadges();
+      renderKNXTelegramsTable();
+    }
+  } catch (err) {
+    console.error("Errore recupero telegrammi KNX:", err);
+  }
+}
+
+function updateKNXBadges() {
+  const count = knxTelegrams.length;
+  const b1 = document.getElementById("knx-telegram-badge");
+  const b2 = document.getElementById("center-knx-badge");
+  [b1, b2].forEach(b => {
+    if (b) {
+      b.textContent = count;
+      b.style.display = count > 0 ? "inline-block" : "none";
+    }
+  });
+}
+
+function handleKNXTelegram(telegram) {
+  knxTelegrams.push(telegram);
+  if (knxTelegrams.length > 1000) {
+    knxTelegrams.shift();
+  }
+  updateKNXBadges();
+
+  const filterInput = document.getElementById("knx-group-filter-input");
+  const filterVal = filterInput?.value.trim().toLowerCase() || "";
+  if (!filterVal || (telegram.destination_group && telegram.destination_group.toLowerCase().includes(filterVal)) || (telegram.source_address && telegram.source_address.toLowerCase().includes(filterVal))) {
+    appendKNXTelegramRow(telegram);
+  }
+}
+
+function appendKNXTelegramRow(t) {
+  const tbody = document.getElementById("knx-telegrams-tbody");
+  if (!tbody) return;
+
+  const prioClass = t.priority === "urgent" || t.priority === "system" ? "bham-badge-warn" : "bham-badge-proto";
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td class="cell-mono text-dim" style="font-size:10px">${escapeHtml(t.timestamp || "")}</td>
+    <td><span class="${prioClass}" style="font-size:9.5px;padding:1px 4px">${escapeHtml(t.priority || "normal")}</span></td>
+    <td class="cell-mono color-knx" style="font-weight:600">${escapeHtml(t.source_address || "")}</td>
+    <td class="cell-mono" style="font-weight:700;color:var(--bham-text-main)">${escapeHtml(t.destination_group || "")}</td>
+    <td class="cell-mono" style="font-size:10.5px">${escapeHtml(t.service || "")}</td>
+    <td class="cell-mono text-dim" style="font-size:10.5px">${escapeHtml(t.raw_hex || "")}</td>
+    <td class="cell-mono bham-live-val" style="font-weight:600">${escapeHtml(String(t.decoded_value !== null ? t.decoded_value : "—"))} ${escapeHtml(t.unit || "")}</td>
+    <td class="cell-mono text-dim" style="font-size:10px">${escapeHtml(t.dpt_guess || "—")}</td>
+    <td class="cell-mono text-dim" style="text-align:center">${escapeHtml(String(t.hop_count !== undefined ? t.hop_count : 6))}</td>
+  `;
+  tbody.appendChild(tr);
+
+  while (tbody.children.length > 500) {
+    tbody.removeChild(tbody.firstChild);
+  }
+
+  const scrollCheck = document.getElementById("log-autoscroll");
+  const knxConsole = document.getElementById("knx-telegrams-console");
+  if (knxConsole && (!scrollCheck || scrollCheck.checked)) {
+    knxConsole.scrollTop = knxConsole.scrollHeight;
+  }
+}
+
+function renderKNXTelegramsTable() {
+  const tbody = document.getElementById("knx-telegrams-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const filterInput = document.getElementById("knx-group-filter-input");
+  const filterVal = filterInput?.value.trim().toLowerCase() || "";
+
+  const filtered = filterVal
+    ? knxTelegrams.filter(t => (t.destination_group && t.destination_group.toLowerCase().includes(filterVal)) || (t.source_address && t.source_address.toLowerCase().includes(filterVal)))
+    : knxTelegrams;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="text-dim" style="text-align:center;padding:16px">Nessun telegramma KNX presente${filterVal ? " per il filtro impostato" : ""}.</td></tr>`;
+    return;
+  }
+
+  const slice = filtered.slice(-300);
+  slice.forEach(t => appendKNXTelegramRow(t));
+}
+
+function filterKNXTelegrams() {
+  renderKNXTelegramsTable();
+}
+
+async function clearKNXTelegrams() {
+  try {
+    await fetch(`${API}/knx/telegrams`, { method: "DELETE" });
+    handleKNXTelegramsCleared();
+    showToast("Buffer telegrammi KNX azzerato", "info");
+  } catch (err) {
+    showToast(`Errore cancellazione: ${err.message}`, "error");
+  }
+}
+
+function handleKNXTelegramsCleared() {
+  knxTelegrams = [];
+  updateKNXBadges();
+  const tbody = document.getElementById("knx-telegrams-tbody");
+  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-dim" style="text-align:center;padding:16px">Buffer telegrammi KNX azzerato.</td></tr>`;
+}
+
+function exportKNXTelegramsCSV() {
+  if (!knxTelegrams.length) {
+    showToast("Nessun telegramma KNX da esportare", "warning");
+    return;
+  }
+  const headers = ["Timestamp", "Priority", "Source_Address", "Destination_Group", "Service", "Raw_Hex", "Decoded_Value", "Unit", "DPT_Guess", "Hop_Count"];
+  const rows = knxTelegrams.map(t => [
+    `"${t.timestamp || ''}"`,
+    t.priority || "",
+    t.source_address || "",
+    t.destination_group || "",
+    t.service || "",
+    `"${t.raw_hex || ''}"`,
+    t.decoded_value !== null ? t.decoded_value : "",
+    `"${t.unit || ''}"`,
+    t.dpt_guess || "",
+    t.hop_count !== undefined ? t.hop_count : ""
+  ]);
+  const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `bham_knx_telegrams_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // ── Serial Sniffer (RS485 Zero-TX) ───────────────────────────────────────────
@@ -2692,9 +2930,12 @@ function renderBACnetObjectsTable(objList) {
         <td class="cell-text-main" style="font-weight:600">${nameStr}</td>
         <td class="cell-mono cell-latency" style="font-weight:600">${valStr}</td>
         <td class="cell-mono cell-text-muted">${unitsStr}</td>
-        <td style="text-align:center">
+        <td style="text-align:center;white-space:nowrap">
           <button class="bham-action-btn-sm" style="font-size:10px;padding:2px 7px" onclick="openBACnetOverrideModal('${idStr}', '${typeStr}', ${inst}, '${nameStr}', '${valStr}')" title="Forza o rilascia valore">
             ⚡ Override
+          </button>
+          <button class="bham-action-btn-sm" style="font-size:10px;padding:2px 7px;color:var(--bham-bacnet);font-weight:600;margin-left:4px" onclick="WatchListManager.addBACnetPoint(currentBACnetDeviceId, '${typeStr}', ${inst}, '${valStr}', '${nameStr}', '${unitsStr}')" title="Aggiungi alla Watch List">
+            📈 Segui
           </button>
         </td>
       </tr>
@@ -3215,7 +3456,7 @@ function closeSettingsModal() {
 }
 
 function switchSettingsTab(tabName) {
-  const tabs = ["hw", "scan", "appearance", "sessions", "maps", "security"];
+  const tabs = ["hw", "scan", "appearance", "sessions", "maps", "security", "diagnostics"];
   tabs.forEach(t => {
     const btn = document.getElementById(`tab-btn-${t}`);
     const panel = document.getElementById(`panel-settings-${t}`);
@@ -3232,6 +3473,141 @@ function switchSettingsTab(tabName) {
     refreshSavedSessionsList();
   } else if (tabName === "maps") {
     refreshMapsStatus();
+  } else if (tabName === "diagnostics") {
+    loadSystemDiagnosticsUI();
+  }
+}
+
+async function loadSystemDiagnosticsUI() {
+  const container = document.getElementById("diagnostics-content-area");
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--bham-text-muted)">Interrogazione requisiti di sistema e diagnostica in corso...</div>';
+
+  try {
+    const res = await fetch("/api/v1/system/diagnostics");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const isWin = data.os === "windows";
+    let npcapSection = "";
+    if (isWin) {
+      if (data.has_npcap) {
+        npcapSection = `
+          <div style="padding:8px 10px;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.3);border-radius:4px;margin-bottom:8px">
+            <span style="font-weight:600;color:var(--bham-green)">✅ Driver Npcap Installato:</span> wpcap.dll rilevato. Cattura pacchetti L2 / ARP pienamente operativa.
+          </div>
+        `;
+      } else {
+        npcapSection = `
+          <div style="padding:10px 12px;background:rgba(230,126,34,0.12);border:1px solid #e67e22;border-radius:4px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div>
+                <strong style="color:#e67e22">⚠️ Driver Npcap Non Rilevato su Windows</strong>
+                <p style="margin:2px 0 0 0;font-size:11px;color:var(--bham-text-muted)">
+                  Senza Npcap, lo sniffer di rete e la cattura ARP passiva non possono catturare pacchetti raw su Windows.
+                </p>
+              </div>
+              <button id="btn-dl-npcap" type="button" onclick="downloadNpcapCompanionUI()" class="bham-btn-action bham-btn-rtu" style="width:auto;height:28px;padding:0 12px;font-size:11px">
+                📥 Scarica Installer Npcap
+              </button>
+            </div>
+          </div>
+        `;
+      }
+    } else {
+      const capColor = data.has_packet_capture ? "var(--bham-green)" : "var(--bham-warning)";
+      const capLabel = data.has_packet_capture ? "✅ Operativo (CAP_NET_RAW / root)" : "⚠️ Privilegi mancanti (usa sudo setcap)";
+      npcapSection = `
+        <div style="padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--bham-border);border-radius:4px;margin-bottom:8px">
+          <strong>Cattura Pacchetti Linux:</strong> <span style="color:${capColor}">${capLabel}</span>
+        </div>
+      `;
+    }
+
+    let warningsHtml = "";
+    if (data.missing_requirements && data.missing_requirements.length > 0) {
+      warningsHtml = `
+        <div style="margin-top:10px;padding:8px 10px;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:4px">
+          <strong style="color:var(--bham-danger)">Requisiti o Driver Mancanti:</strong>
+          <ul style="margin:4px 0 0 16px;padding:0">
+            ${data.missing_requirements.map(m => `<li>${escapeHtml(m)}</li>`).join("")}
+          </ul>
+        </div>
+      `;
+    }
+
+    let recsHtml = "";
+    if (data.recommendations && data.recommendations.length > 0) {
+      recsHtml = `
+        <div style="margin-top:8px;padding:8px 10px;background:rgba(52,152,219,0.1);border:1px solid rgba(52,152,219,0.3);border-radius:4px">
+          <strong style="color:var(--bham-bacnet)">Azioni Correttive Consigliate:</strong>
+          <ul style="margin:4px 0 0 16px;padding:0">
+            ${data.recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join("")}
+          </ul>
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px;margin-bottom:12px">
+        <div style="padding:8px 10px;background:var(--bham-bg-surface);border:1px solid var(--bham-border);border-radius:4px">
+          <div style="font-size:10.5px;color:var(--bham-text-muted);text-transform:uppercase">Sistema Operativo</div>
+          <div style="font-weight:700;font-size:13px;color:var(--bham-text-main);margin-top:2px">${escapeHtml(data.os_name)} (${escapeHtml(data.arch)})</div>
+          <div style="font-size:10.5px;color:var(--bham-text-dim)">Release: ${escapeHtml(data.os_release)}</div>
+          <div style="margin-top:4px"><span class="bham-badge ${data.is_admin_or_root ? 'badge-safe' : ''}">${data.is_admin_or_root ? 'Privilegi Elevati (Admin/Root)' : 'Privilegi Standard'}</span></div>
+        </div>
+        <div style="padding:8px 10px;background:var(--bham-bg-surface);border:1px solid var(--bham-border);border-radius:4px">
+          <div style="font-size:10.5px;color:var(--bham-text-muted);text-transform:uppercase">Runtime Python</div>
+          <div style="font-weight:700;font-size:13px;color:var(--bham-text-main);margin-top:2px">Python ${escapeHtml(data.python.version)}</div>
+          <div style="font-size:10.5px;color:var(--bham-text-dim)">Ambiente Virtuale: ${data.python.is_venv ? '✅ Attivo (.venv)' : '⚠️ Globale'}</div>
+          <div style="font-size:10px;color:var(--bham-text-muted);word-break:break-all;margin-top:2px">${escapeHtml(data.python.executable)}</div>
+        </div>
+        <div style="padding:8px 10px;background:var(--bham-bg-surface);border:1px solid var(--bham-border);border-radius:4px">
+          <div style="font-size:10.5px;color:var(--bham-text-muted);text-transform:uppercase">Hardware &amp; Reti</div>
+          <div style="font-weight:700;font-size:13px;color:var(--bham-text-main);margin-top:2px">${data.serial_ports_count} Porte Seriali, ${data.network_interfaces_count} NIC</div>
+          <div style="font-size:10.5px;color:var(--bham-text-dim)">Accesso Seriale RS485: ${data.has_serial_access ? '✅ Consentito' : '❌ Limitato'}</div>
+          <div style="font-size:10.5px;color:var(--bham-text-dim)">Wireshark / TShark: ${data.tshark_available ? '✅ Disponibile' : 'Non rilevato'}</div>
+        </div>
+      </div>
+      ${npcapSection}
+      ${warningsHtml}
+      ${recsHtml}
+    `;
+  } catch (err) {
+    container.innerHTML = `<div style="color:var(--bham-danger)">Errore nel caricamento della diagnostica: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function downloadNpcapCompanionUI() {
+  const btn = document.getElementById("btn-dl-npcap");
+  const confirmed = confirm("Confermi il download dell'installer ufficiale di Npcap (npcap.com) per questo PC Windows?\\n\\nIl pacchetto verrà scaricato in sicurezza nella cartella data/downloads.");
+  if (!confirmed) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Download in corso...";
+  }
+
+  try {
+    const res = await fetch("/api/v1/system/companions/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companion: "npcap" })
+    });
+    const data = await res.json();
+    if (data.status === "ok") {
+      alert("✅ " + data.message + "\\n\\nFile salvato in: " + data.file_path);
+    } else {
+      alert("⚠️ " + data.message);
+    }
+  } catch (err) {
+    alert("❌ Errore durante il download: " + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "📥 Scarica Installer Npcap";
+    }
+    loadSystemDiagnosticsUI();
   }
 }
 
@@ -4748,6 +5124,12 @@ let _diffSessionsList = [];
 let _lastDiffResult = null;
 let _diffProtoFilter = "all";
 let _diffStatusFilter = "all";
+let _diffSearchTerm = "";
+
+function filterDiffSearch(val) {
+  _diffSearchTerm = (val || "").trim().toLowerCase();
+  renderDiffTable();
+}
 
 function escapeDiffHTML(str) {
   if (str === null || str === undefined) return "";
@@ -4942,6 +5324,16 @@ function renderDiffTable() {
     items = items.filter(it => it.status === _diffStatusFilter);
   }
 
+  if (_diffSearchTerm) {
+    items = items.filter(it => {
+      const matchId = (it.identifier || "").toLowerCase().includes(_diffSearchTerm);
+      const matchLbl = (it.label || "").toLowerCase().includes(_diffSearchTerm);
+      const matchProto = (it.protocol || "").toLowerCase().includes(_diffSearchTerm);
+      const matchChanges = it.changes && it.changes.some(ch => (ch.description || ch.field || "").toLowerCase().includes(_diffSearchTerm));
+      return matchId || matchLbl || matchProto || matchChanges;
+    });
+  }
+
   if (!items.length) {
     tbody.innerHTML = `<tr><td colspan="4" class="text-dim" style="text-align:center;padding:20px">Nessuna periferica corrisponde ai filtri selezionati.</td></tr>`;
     return;
@@ -4971,9 +5363,35 @@ function renderDiffTable() {
         const desc = ch.description || ch.field;
         const oldVal = ch.baseline !== null && ch.baseline !== undefined ? JSON.stringify(ch.baseline) : "—";
         const newVal = ch.target !== null && ch.target !== undefined ? JSON.stringify(ch.target) : "—";
+
+        if (ch.field === "commissioning_status") {
+          const pill = (st) => {
+            if (st === "ok") return `<span class="bham-comm-pill bham-comm-pill-ok" style="font-size:10px;padding:1px 6px">🟢 Conforme (OK)</span>`;
+            if (st === "warning") return `<span class="bham-comm-pill bham-comm-pill-warn" style="font-size:10px;padding:1px 6px">🟡 Con Riserva</span>`;
+            if (st === "failed") return `<span class="bham-comm-pill bham-comm-pill-fail" style="font-size:10px;padding:1px 6px">🔴 Non Conforme</span>`;
+            return `<span class="bham-comm-pill bham-comm-pill-pending" style="font-size:10px;padding:1px 6px">⚪ Non Testato</span>`;
+          };
+          return `
+            <div class="bham-diff-change-item" style="display:flex;align-items:center;gap:6px;margin:2px 0">
+              <b>📋 Esito Collaudo</b>: ${pill(ch.baseline)} ➔ ${pill(ch.target)}
+            </div>
+          `;
+        }
+
+        if (ch.field.startsWith("reg_") || ch.field === "registers_values") {
+          return `
+            <div class="bham-diff-change-item" style="margin:2px 0">
+              <b style="color:var(--bham-color-modbus)">📊 ${escapeDiffHTML(desc)}</b>:
+              <span class="bham-diff-change-val-old">${escapeDiffHTML(oldVal)}</span>
+              ➔
+              <span class="bham-diff-change-val-new" style="font-weight:700">${escapeDiffHTML(newVal)}</span>
+            </div>
+          `;
+        }
+
         return `
-          <div class="bham-diff-change-item">
-            <b>${desc}</b>:
+          <div class="bham-diff-change-item" style="margin:2px 0">
+            <b>${escapeDiffHTML(desc)}</b>:
             <span class="bham-diff-change-val-old">${escapeDiffHTML(oldVal)}</span>
             ➔
             <span class="bham-diff-change-val-new">${escapeDiffHTML(newVal)}</span>
@@ -5227,9 +5645,16 @@ function updateSafeModeUI(status) {
     badgeBtn.classList.add("bham-safe-mode-armed");
     const min = Math.ceil(status.remaining_minutes || 0);
     badgeText.textContent = t("safe_mode_armed_badge", { op: status.operator || "Tech", min: min });
-    badgeBtn.title = `Safe Mode SBLOCCATO per ${status.operator} (${status.job_order}). Clicca per disarmare.`;
+    badgeBtn.title = `Safe Mode SBLOCCATO per ${status.operator} (${status.job_order}). Clicca per estendere o disarmare.`;
+
+    if (status.remaining_seconds <= 120 && status.remaining_seconds > 0) {
+      badgeBtn.classList.add("bham-safe-mode-expiring");
+    } else {
+      badgeBtn.classList.remove("bham-safe-mode-expiring");
+    }
   } else {
     badgeBtn.classList.remove("bham-safe-mode-armed");
+    badgeBtn.classList.remove("bham-safe-mode-expiring");
     badgeBtn.classList.add("bham-safe-mode-locked");
     badgeText.textContent = t("safe_mode_disarmed_badge");
     badgeBtn.title = "Safe Mode ATTIVO: le forzature sul campo sono bloccate per sicurezza. Clicca per sbloccare.";
@@ -5258,6 +5683,14 @@ function openSafeModeModal() {
     } else {
       if (armedView) armedView.classList.add("hidden");
       if (disarmedView) disarmedView.classList.remove("hidden");
+
+      // Auto-fill operatore e commessa da localStorage se memorizzati
+      const savedOp = localStorage.getItem("bham-sm-op");
+      const savedJob = localStorage.getItem("bham-sm-job");
+      const opInput = document.getElementById("sm-input-operator");
+      const jobInput = document.getElementById("sm-input-job");
+      if (opInput && !opInput.value && savedOp) opInput.value = savedOp;
+      if (jobInput && !jobInput.value && savedJob) jobInput.value = savedJob;
     }
     if (modal) modal.classList.remove("hidden");
   });
@@ -5271,6 +5704,7 @@ async function executeArmSafeMode() {
   const op = document.getElementById("sm-input-operator")?.value.trim();
   const job = document.getElementById("sm-input-job")?.value.trim();
   const dur = parseInt(document.getElementById("sm-select-duration")?.value || "30", 10);
+  const remember = document.getElementById("sm-remember-me")?.checked;
 
   if (!op || !job) {
     showToast("Inserire Nome Operatore e Commessa per sbloccare Safe Mode.", "warning");
@@ -5290,10 +5724,76 @@ async function executeArmSafeMode() {
     const data = await res.json();
     currentSafeModeStatus = data;
     updateSafeModeUI(data);
+
+    if (remember) {
+      localStorage.setItem("bham-sm-op", op);
+      localStorage.setItem("bham-sm-job", job);
+    }
+
     closeSafeModeModal();
     showToast(t("toast_safe_mode_armed", { min: dur }), "success");
   } catch (err) {
     showToast(`Errore Safe Mode: ${err.message}`, "error");
+  }
+}
+
+async function executeExtendSafeMode(extraMinutes = 15) {
+  try {
+    const res = await fetch("/api/v1/safe-mode/extend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ extra_minutes: extraMinutes }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Errore durante l'estensione");
+    }
+    const data = await res.json();
+    currentSafeModeStatus = data;
+    updateSafeModeUI(data);
+
+    const cdEl = document.getElementById("sm-active-countdown");
+    if (cdEl) {
+      const m = Math.floor(data.remaining_seconds / 60);
+      const s = data.remaining_seconds % 60;
+      cdEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    showToast(`Safe Mode prolungato di +${extraMinutes} minuti! (Totale: ${Math.ceil(data.remaining_minutes)}m)`, "success");
+  } catch (err) {
+    showToast(`Errore estensione Safe Mode: ${err.message}`, "error");
+  }
+}
+
+function tickSafeModeCountdown() {
+  if (!currentSafeModeStatus || !currentSafeModeStatus.armed) return;
+  if (currentSafeModeStatus.remaining_seconds > 0) {
+    currentSafeModeStatus.remaining_seconds--;
+    currentSafeModeStatus.remaining_minutes = currentSafeModeStatus.remaining_seconds / 60;
+  }
+  const sec = currentSafeModeStatus.remaining_seconds;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+  const cdEl = document.getElementById("sm-active-countdown");
+  if (cdEl) cdEl.textContent = timeStr;
+
+  const badgeBtn = document.getElementById("btn-safe-mode");
+  const badgeText = document.getElementById("safe-mode-badge-text");
+  if (badgeBtn && badgeText) {
+    if (sec <= 120 && sec > 0) {
+      badgeBtn.classList.add("bham-safe-mode-expiring");
+      badgeText.textContent = `⚠️ SCADENZA IMMINENTE (${timeStr})`;
+    } else {
+      badgeBtn.classList.remove("bham-safe-mode-expiring");
+      const minCeil = Math.ceil(sec / 60);
+      badgeText.textContent = t("safe_mode_armed_badge", { op: currentSafeModeStatus.operator || "Tech", min: minCeil });
+    }
+  }
+
+  if (sec <= 0) {
+    fetchSafeModeStatus();
   }
 }
 
@@ -6225,6 +6725,9 @@ const WatchListManager = {
         slave_id: p.slave_id,
         address: p.address,
         reg_type: p.reg_type,
+        device_id: p.device_id,
+        object_type: p.object_type,
+        instance: p.instance,
         label: p.label,
         unit: p.unit,
         scale: p.scale,
@@ -6330,6 +6833,39 @@ const WatchListManager = {
     }
   },
 
+  addBACnetPoint(deviceId, objectType, instance, initialVal = null, label = null, unit = null, address = null) {
+    const id = `bac-${deviceId}-${objectType}-${instance}`;
+    const existing = this.points.find(p => p.id === id);
+    if (existing) {
+      showToast(`Punto BACnet #${deviceId} ${objectType}:${instance} già presente nella Watch List`, "info");
+      return;
+    }
+    const numInitVal = (initialVal !== null && initialVal !== undefined && initialVal !== "—" && !isNaN(parseFloat(initialVal))) ? parseFloat(initialVal) : null;
+    const newPt = {
+      id,
+      protocol: "bacnet",
+      device_id: parseInt(deviceId),
+      object_type: objectType,
+      instance: parseInt(instance),
+      address: address || "",
+      label: label || `${objectType}:${instance}`,
+      unit: unit && unit !== "—" ? unit : "",
+      scale: 1.0,
+      lastVal: numInitVal,
+      lastDelta: null,
+      min: numInitVal,
+      max: numInitVal,
+      history: numInitVal !== null ? [numInitVal] : [],
+      lastUpdated: new Date().toLocaleTimeString()
+    };
+    this.points.push(newPt);
+    this.save();
+    showToast(`Punto BACnet #${deviceId} ${objectType}:${instance} aggiunto alla Watch List`, "success");
+    if (!document.getElementById("modal-watchlist")?.classList.contains("hidden")) {
+      this.renderTable();
+    }
+  },
+
   removePoint(id) {
     this.points = this.points.filter(p => p.id !== id);
     this.save();
@@ -6354,7 +6890,7 @@ const WatchListManager = {
     for (const pt of this.points) {
       try {
         let val = null;
-        if (pt.protocol.startsWith("modbus")) {
+        if (pt.protocol && pt.protocol.startsWith("modbus")) {
           const fc = pt.reg_type === "input" ? 4 : (pt.reg_type === "coil" ? 1 : (pt.reg_type === "discrete" ? 2 : 3));
           const reqBody = {
             protocol: pt.ip ? "tcp" : "rtu",
@@ -6368,6 +6904,20 @@ const WatchListManager = {
           const res = await postAPI("/tools/modbus/read", reqBody);
           if (res && res.registers && res.registers.length) {
             val = res.registers[0] * pt.scale;
+          }
+        } else if (pt.protocol === "bacnet") {
+          const reqBody = {
+            device_id: pt.device_id,
+            address: pt.address || null,
+            object_type: pt.object_type,
+            instance: pt.instance
+          };
+          const res = await postAPI("/tools/bacnet/read", reqBody);
+          if (res && res.success && res.value !== null && res.value !== undefined) {
+            const parsed = parseFloat(res.value);
+            if (!isNaN(parsed)) {
+              val = parsed;
+            }
           }
         }
         if (val !== null) {
@@ -6417,7 +6967,7 @@ const WatchListManager = {
     const tbody = document.getElementById("watchlist-table-body");
     if (!tbody) return;
     if (!this.points.length) {
-      tbody.innerHTML = `<tr><td colspan="10" class="text-dim" style="text-align:center;padding:24px">Nessun punto nella Watch List. Clicca <b>➕ Aggiungi Punto</b> o usa il pulsante <b>📈 Segui</b> nell'Inspector di uno slave.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="text-dim" style="text-align:center;padding:24px">Nessun punto nella Watch List. Clicca <b>➕ Aggiungi Punto</b> o usa il pulsante <b>📈 Segui</b> nell'Inspector o BACnet Explorer.</td></tr>`;
       return;
     }
     tbody.innerHTML = this.points.map(pt => {
@@ -6431,12 +6981,15 @@ const WatchListManager = {
         else deltaBadge = `<span class="text-dim">0</span>`;
       }
       const sparkSvg = this.renderSparkline(pt.history);
+      const protoClass = pt.protocol.includes('tcp') ? 'proto-tcp' : (pt.protocol === 'bacnet' ? 'proto-knx' : 'proto-rtu');
+      const devStr = pt.protocol === 'bacnet' ? `Dev #${pt.device_id}` : `ID ${pt.slave_id}`;
+      const addrStr = pt.protocol === 'bacnet' ? `${pt.object_type}:${pt.instance}` : `${(pt.reg_type || 'HOLDING').toUpperCase()} #${pt.address}`;
       return `
         <tr>
-          <td><span class="bham-badge-proto ${pt.protocol.includes('tcp') ? 'proto-tcp' : 'proto-rtu'}">${pt.protocol.toUpperCase()}</span></td>
-          <td class="cell-mono cell-text-main">ID ${pt.slave_id}</td>
+          <td><span class="bham-badge-proto ${protoClass}">${pt.protocol.toUpperCase()}</span></td>
+          <td class="cell-mono cell-text-main">${devStr}</td>
           <td class="cell-text-main" style="font-weight:600">${escapeHtml(pt.label)}</td>
-          <td class="cell-mono text-dim">${pt.reg_type.toUpperCase()} #${pt.address}</td>
+          <td class="cell-mono text-dim">${addrStr}</td>
           <td class="cell-mono bham-live-val">${valStr}</td>
           <td class="cell-mono text-dim">${minStr}</td>
           <td class="cell-mono text-dim">${maxStr}</td>
@@ -6455,13 +7008,13 @@ const WatchListManager = {
       showToast("Nessun punto da esportare nella Watch List.", "warning");
       return;
     }
-    const headers = ["ID", "Protocol", "Slave_ID", "Address", "Type", "Label", "Last_Value", "Unit", "Min", "Max", "Samples_Count", "Last_Updated"];
+    const headers = ["ID", "Protocol", "Device_Slave_ID", "Address_Object", "Type", "Label", "Last_Value", "Unit", "Min", "Max", "Samples_Count", "Last_Updated"];
     const rows = this.points.map(p => [
       p.id,
       p.protocol,
-      p.slave_id,
-      p.address,
-      p.reg_type,
+      p.protocol === "bacnet" ? p.device_id : p.slave_id,
+      p.protocol === "bacnet" ? `${p.object_type}:${p.instance}` : p.address,
+      p.protocol === "bacnet" ? p.object_type : p.reg_type,
       `"${(p.label || '').replace(/"/g, '""')}"`,
       p.lastVal !== null ? p.lastVal : "",
       `"${p.unit || ''}"`,
@@ -6686,8 +7239,9 @@ if (window.BhamAudio) BhamAudio.updateUI();
 if (window.WatchListManager) WatchListManager.init();
 updateCommissioningSummaryBadge();
 
-// Inizializza monitoraggio periodico Safe Mode
+// Inizializza monitoraggio periodico Safe Mode e ticker al secondo
 setInterval(fetchSafeModeStatus, 10000);
+setInterval(tickSafeModeCountdown, 1000);
 fetchSafeModeStatus();
 
 setTimeout(() => {

@@ -154,7 +154,9 @@ class ProfileManager:
         if p.get("is_builtin"):
             raise ValueError(f"Impossibile eliminare un profilo factory di fabbrica ({profile_id}).")
 
-        target_file = self._custom_dir / f"{profile_id}.json"
+        target_file = (self._custom_dir / f"{profile_id}.json").resolve()
+        if not target_file.is_relative_to(self._custom_dir.resolve()):
+            raise ValueError(f"Percorso profilo non consentito ({profile_id}).")
         if target_file.exists():
             target_file.unlink()
 
@@ -171,7 +173,14 @@ class ProfileManager:
         if not profile:
             raise ValueError(f"Profilo '{profile_id}' non trovato nella libreria.")
 
+        # Cerca il dispositivo tra quelli scoperti per slave_id
         dev = state.modbus_devices.get(slave_id)
+        if not dev:
+            for d in state.modbus_devices.values():
+                if d.slave_id == slave_id:
+                    dev = d
+                    break
+
         if not dev:
             # Create placeholder if slave not yet discovered
             from data.models import ModbusDevice

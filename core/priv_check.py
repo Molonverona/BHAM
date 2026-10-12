@@ -29,6 +29,7 @@ class PrivReport(NamedTuple):
     has_cap_net_raw: bool   # Linux only (always True on Windows / if root)
     has_dialout: bool       # Linux only (always True on Windows)
     warnings: list[str]
+    has_npcap: bool = True  # Windows: True se Npcap/WinPcap presente; Linux: True
 
 
 # ── Linux helpers ─────────────────────────────────────────────────────────────
@@ -109,7 +110,7 @@ def _linux_report() -> PrivReport:
             "   Poi esegui di nuovo BHAM."
         )
 
-    return PrivReport(is_root, cap_net_raw, dialout, warnings)
+    return PrivReport(is_root, cap_net_raw, dialout, warnings, True)
 
 
 # ── Windows helpers ───────────────────────────────────────────────────────────
@@ -123,8 +124,21 @@ def _windows_is_admin() -> bool:
         return False
 
 
+def _windows_has_npcap() -> bool:
+    """True se il driver Npcap (o WinPcap legacy wpcap.dll) è presente nel sistema."""
+    sysroot = os.environ.get("SystemRoot", r"C:\Windows")
+    candidates = [
+        os.path.join(sysroot, "System32", "Npcap", "wpcap.dll"),
+        os.path.join(sysroot, "System32", "wpcap.dll"),
+        os.path.join(sysroot, "SysWOW64", "Npcap", "wpcap.dll"),
+        os.path.join(sysroot, "SysWOW64", "wpcap.dll"),
+    ]
+    return any(os.path.isfile(c) for c in candidates)
+
+
 def _windows_report() -> PrivReport:
     is_admin = _windows_is_admin()
+    has_npcap = _windows_has_npcap()
     warnings: list[str] = []
 
     if not is_admin:
@@ -136,7 +150,15 @@ def _windows_report() -> PrivReport:
             "   L'ARP sniffer verrà disabilitato automaticamente."
         )
 
-    return PrivReport(is_admin, is_admin, True, warnings)
+    if not has_npcap:
+        warnings.append(
+            "⚠️  Driver Npcap non rilevato su Windows (wpcap.dll mancante).\n"
+            "   Lo sniffer di rete (ARP, L2) richiede Npcap per catturare i pacchetti.\n"
+            "   Scarica l'installer da https://npcap.com oppure usa il download companion."
+        )
+
+    can_sniff = is_admin and has_npcap
+    return PrivReport(is_admin, can_sniff, True, warnings, has_npcap)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -161,7 +183,7 @@ def check_privileges() -> PrivReport:
         else:
             # macOS / other: minimal checks
             is_root = os.geteuid() == 0
-            report = PrivReport(is_root, is_root, is_root, [])
+            report = PrivReport(is_root, is_root, is_root, [], True)
 
         for warn in report.warnings:
             log.warning("%s", warn)
@@ -173,7 +195,7 @@ def check_privileges() -> PrivReport:
         return report
     except Exception as exc:
         log.error("priv_check failed: %s", exc)
-        fallback = PrivReport(False, False, False, [])
+        fallback = PrivReport(False, False, False, [], False)
         _cached_report = fallback
         return fallback
 
@@ -186,6 +208,11 @@ def has_cap_net_raw() -> bool:
 def has_dialout() -> bool:
     """Convenience shortcut."""
     return check_privileges().has_dialout
+
+
+def has_npcap() -> bool:
+    """Convenience shortcut."""
+    return check_privileges().has_npcap
 
 
 def is_admin() -> bool:

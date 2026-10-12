@@ -155,6 +155,55 @@ def _compare_modbus(
                     description=f"Conteggio registri letti: {len(b_regs)} ➔ {len(t_regs)}",
                 ))
 
+            # Variazioni di valore nei registri condivisi
+            reg_diffs: list[tuple[str, Any, Any]] = []
+            common_reg_keys = sorted(set(b_regs.keys()) & set(t_regs.keys()))
+            for rk in common_reg_keys:
+                b_val = b_regs[rk]
+                t_val = t_regs[rk]
+                bv = b_val.get("value") if isinstance(b_val, dict) else b_val
+                tv = t_val.get("value") if isinstance(t_val, dict) else t_val
+                if bv != tv:
+                    reg_diffs.append((str(rk), bv, tv))
+
+            if reg_diffs:
+                if len(reg_diffs) <= 3:
+                    for rk, bv, tv in reg_diffs:
+                        changes.append(FieldChange(
+                            field=f"reg_{rk}",
+                            baseline=bv,
+                            target=tv,
+                            description=f"Valore registro {rk} variato: {bv} ➔ {tv}",
+                        ))
+                else:
+                    first_rk, first_bv, first_tv = reg_diffs[0]
+                    changes.append(FieldChange(
+                        field="registers_values",
+                        baseline=f"{len(reg_diffs)} registri",
+                        target=f"{len(reg_diffs)} modificati",
+                        description=f"{len(reg_diffs)} valori di registro modificati (es. reg {first_rk}: {first_bv} ➔ {first_tv})",
+                    ))
+
+            # Stato di collaudo As-Built (Commissioning)
+            b_comm = b_dev.get("commissioning_status")
+            t_comm = t_dev.get("commissioning_status")
+            if b_comm != t_comm and (b_comm or t_comm):
+                changes.append(FieldChange(
+                    field="commissioning_status",
+                    baseline=b_comm,
+                    target=t_comm,
+                    description=f"Esito collaudo: {b_comm or 'non testato'} ➔ {t_comm or 'non testato'}",
+                ))
+            b_notes = (b_dev.get("commissioning_notes") or "").strip()
+            t_notes = (t_dev.get("commissioning_notes") or "").strip()
+            if b_notes != t_notes and (b_notes or t_notes):
+                changes.append(FieldChange(
+                    field="commissioning_notes",
+                    baseline=b_notes,
+                    target=t_notes,
+                    description="Note di collaudo/perizia aggiornate",
+                ))
+
             # Latenza risposta (se scostamento > 200ms)
             b_rt = b_dev.get("response_time_ms")
             t_rt = t_dev.get("response_time_ms")
@@ -239,14 +288,51 @@ def _compare_bacnet(
                         description=f"{desc} variato",
                     ))
 
-            b_objs = len(b_dev.get("object_list") or [])
-            t_objs = len(t_dev.get("object_list") or [])
+            b_raw_objs = b_dev.get("object_list") or []
+            t_raw_objs = t_dev.get("object_list") or []
+            b_objs = len(b_raw_objs)
+            t_objs = len(t_raw_objs)
             if b_objs != t_objs:
                 changes.append(FieldChange(
                     field="object_list_count",
                     baseline=b_objs,
                     target=t_objs,
                     description=f"Oggetti BACnet censiti: {b_objs} ➔ {t_objs}",
+                ))
+            elif b_objs > 0:
+                def _obj_id(o: Any) -> str:
+                    if isinstance(o, dict):
+                        return str(o.get("object-identifier") or o.get("object_identifier") or "")
+                    return str(o)
+                b_ids = set(_obj_id(o) for o in b_raw_objs if _obj_id(o))
+                t_ids = set(_obj_id(o) for o in t_raw_objs if _obj_id(o))
+                if b_ids != t_ids:
+                    diff_objs = (t_ids - b_ids) | (b_ids - t_ids)
+                    changes.append(FieldChange(
+                        field="object_list_items",
+                        baseline=list(b_ids)[:5],
+                        target=list(t_ids)[:5],
+                        description=f"Elenco oggetti BACnet variato ({len(diff_objs)} oggetti modificati/sostituiti)",
+                    ))
+
+            # Stato di collaudo As-Built (Commissioning)
+            b_comm = b_dev.get("commissioning_status")
+            t_comm = t_dev.get("commissioning_status")
+            if b_comm != t_comm and (b_comm or t_comm):
+                changes.append(FieldChange(
+                    field="commissioning_status",
+                    baseline=b_comm,
+                    target=t_comm,
+                    description=f"Esito collaudo: {b_comm or 'non testato'} ➔ {t_comm or 'non testato'}",
+                ))
+            b_notes = (b_dev.get("commissioning_notes") or "").strip()
+            t_notes = (t_dev.get("commissioning_notes") or "").strip()
+            if b_notes != t_notes and (b_notes or t_notes):
+                changes.append(FieldChange(
+                    field="commissioning_notes",
+                    baseline=b_notes,
+                    target=t_notes,
+                    description="Note di collaudo/perizia aggiornate",
                 ))
 
             status = DiffStatus.MODIFIED if changes else DiffStatus.UNCHANGED
@@ -321,6 +407,26 @@ def _compare_knx(
                         target=t_dev.get(prop),
                         description=f"{desc} variato",
                     ))
+
+            # Stato di collaudo As-Built (Commissioning)
+            b_comm = b_dev.get("commissioning_status")
+            t_comm = t_dev.get("commissioning_status")
+            if b_comm != t_comm and (b_comm or t_comm):
+                changes.append(FieldChange(
+                    field="commissioning_status",
+                    baseline=b_comm,
+                    target=t_comm,
+                    description=f"Esito collaudo: {b_comm or 'non testato'} ➔ {t_comm or 'non testato'}",
+                ))
+            b_notes = (b_dev.get("commissioning_notes") or "").strip()
+            t_notes = (t_dev.get("commissioning_notes") or "").strip()
+            if b_notes != t_notes and (b_notes or t_notes):
+                changes.append(FieldChange(
+                    field="commissioning_notes",
+                    baseline=b_notes,
+                    target=t_notes,
+                    description="Note di collaudo/perizia aggiornate",
+                ))
 
             status = DiffStatus.MODIFIED if changes else DiffStatus.UNCHANGED
             items.append(DeviceDiffItem(
@@ -401,6 +507,26 @@ def _compare_ip_hosts(
                 description=f"Porte aperte variate: {b_ports} ➔ {t_ports}",
             ))
 
+        # Stato di collaudo As-Built (Commissioning)
+        b_comm = b_h.get("commissioning_status")
+        t_comm = t_h.get("commissioning_status")
+        if b_comm != t_comm and (b_comm or t_comm):
+            changes.append(FieldChange(
+                field="commissioning_status",
+                baseline=b_comm,
+                target=t_comm,
+                description=f"Esito collaudo: {b_comm or 'non testato'} ➔ {t_comm or 'non testato'}",
+            ))
+        b_notes = (b_h.get("commissioning_notes") or "").strip()
+        t_notes = (t_h.get("commissioning_notes") or "").strip()
+        if b_notes != t_notes and (b_notes or t_notes):
+            changes.append(FieldChange(
+                field="commissioning_notes",
+                baseline=b_notes,
+                target=t_notes,
+                description="Note di collaudo/perizia aggiornate",
+            ))
+
         status = DiffStatus.MODIFIED if changes else DiffStatus.UNCHANGED
         items.append(DeviceDiffItem(
             protocol="ip_host",
@@ -465,6 +591,26 @@ def _compare_ip_hosts(
                 baseline=b_ports,
                 target=t_ports,
                 description=f"Porte aperte variate: {b_ports} ➔ {t_ports}",
+            ))
+
+        # Stato di collaudo As-Built (Commissioning)
+        b_comm = b_h.get("commissioning_status")
+        t_comm = t_h.get("commissioning_status")
+        if b_comm != t_comm and (b_comm or t_comm):
+            changes.append(FieldChange(
+                field="commissioning_status",
+                baseline=b_comm,
+                target=t_comm,
+                description=f"Esito collaudo: {b_comm or 'non testato'} ➔ {t_comm or 'non testato'}",
+            ))
+        b_notes = (b_h.get("commissioning_notes") or "").strip()
+        t_notes = (t_h.get("commissioning_notes") or "").strip()
+        if b_notes != t_notes and (b_notes or t_notes):
+            changes.append(FieldChange(
+                field="commissioning_notes",
+                baseline=b_notes,
+                target=t_notes,
+                description="Note di collaudo/perizia aggiornate",
             ))
 
         status = DiffStatus.MODIFIED if changes else DiffStatus.UNCHANGED

@@ -155,6 +155,21 @@ class KNXDevice(BaseModel):
     commissioned_at: Optional[datetime] = None
 
 
+class KNXTelegram(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    timestamp: datetime = Field(default_factory=utc_now)
+    source_address: str                   # es. "1.1.5" (Indirizzo Individuale)
+    destination_group: str                # es. "1/2/10" (Indirizzo di Gruppo 3-level)
+    service: str                          # "GroupValueWrite" | "GroupValueResponse" | "GroupValueRead"
+    raw_hex: str                          # es. "00 81" o "07 1A"
+    data_bytes: list[int] = Field(default_factory=list)
+    dpt_guess: Optional[str] = None       # es. "DPT 9.001 (Temperatura)"
+    decoded_value: Any = None             # es. 21.5, True, 75
+    unit: Optional[str] = None            # es. "°C", "%"
+    hop_count: int = 6
+    priority: str = "low"                 # "system" | "urgent" | "normal" | "low"
+
+
 class IPHost(BaseModel):
     ip: str
     mac: Optional[str] = None

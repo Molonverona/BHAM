@@ -15,6 +15,7 @@ from data.models import (
     FDTEntry,
     IPHost,
     KNXDevice,
+    KNXTelegram,
     ModbusDevice,
     Parity,
     Protocol,
@@ -409,6 +410,10 @@ class SafeModeArmRequest(BaseModel):
     duration_minutes: int = Field(30, description="Finestra temporale di sblocco in minuti (1..480, default 30)")
 
 
+class SafeModeExtendRequest(BaseModel):
+    extra_minutes: int = Field(15, ge=1, le=240, description="Minuti aggiuntivi da sommare alla finestra attiva (1..240, default 15)")
+
+
 # ── Registro Manovre (Crash-Proof Audit Journal) ─────────────────────────────
 
 class AuditJournalEntry(BaseModel):
@@ -577,6 +582,69 @@ class DeviceCommissioningResponse(BaseModel):
 class QRCodeResponse(BaseModel):
     url: str
     svg: str
+
+
+# ── KNX Group Monitor & BACnet Watch List ─────────────────────────────────────
+
+class KNXMonitorStatusResponse(BaseModel):
+    running: bool = Field(..., description="Stato di esecuzione del monitor KNXnet/IP")
+    message: str = Field("", description="Messaggio di stato operativo")
+
+
+class BACnetPointReadRequest(BaseModel):
+    device_id: int = Field(..., description="Device ID BACnet numerico (es. 1001)")
+    address: Optional[str] = Field(None, description="Indirizzo IP:Porta BACnet opzionale (es. 192.168.1.100:47808)")
+    object_type: str = Field("analogInput", description="Tipo oggetto BACnet ('analogInput', 'analogValue', 'analogOutput', 'binaryInput', 'binaryValue', 'binaryOutput')")
+    instance: int = Field(1, ge=0, description="Numero di istanza dell'oggetto (es. 1)")
+    timeout: float = Field(2.0, ge=0.1, le=10.0, description="Timeout di lettura in secondi")
+
+
+class BACnetPointReadResponse(BaseModel):
+    success: bool = Field(..., description="Esito della lettura BACnet")
+    status: str = Field("ok", description="'ok' o 'error'")
+    device_id: int = Field(..., description="Device ID BACnet")
+    object_identifier: str = Field(..., description="Identificatore oggetto (es. analogInput:1)")
+    object_type: str = Field(..., description="Tipo oggetto BACnet")
+    instance: int = Field(..., description="Numero di istanza")
+    value: Optional[str] = Field(None, description="Valore present_value letto come stringa o decodificato")
+    units: Optional[str] = Field("", description="Unità ingegneristica dell'oggetto")
+    simulated: bool = Field(False, description="True se letto da impianto simulato")
+    elapsed_ms: float = Field(0.0, description="Tempo di risposta in ms")
+    error: Optional[str] = Field(None, description="Eventuale messaggio di errore")
+
+
+# ── Diagnostica di Sistema e Companion Tools ─────────────────────────────────
+
+class SystemDiagnosticsResponse(BaseModel):
+    os: str = Field(..., description="Nome OS normalizzato: 'windows', 'linux', 'darwin'")
+    os_name: str = Field(..., description="Nome esteso del sistema operativo")
+    os_release: str = Field(..., description="Release del sistema operativo")
+    os_version: str = Field(..., description="Versione kernel / build OS")
+    arch: str = Field(..., description="Architettura hardware (x86_64, AMD64, aarch64, armv7l)")
+    python: dict[str, Any] = Field(..., description="Dettagli runtime Python (versione, venv, eseguibile)")
+    is_admin_or_root: bool = Field(..., description="True se l'utente ha privilegi Administrator o root")
+    has_packet_capture: bool = Field(..., description="True se lo sniffing L2/ARP è pienamente operativo")
+    has_npcap: bool = Field(..., description="True se Npcap/WinPcap è presente (sempre True su Linux)")
+    npcap_cached: bool = Field(False, description="True se l'installer Npcap è presente nella cache locale")
+    has_serial_access: bool = Field(..., description="True se l'accesso alle porte seriali RS485 è consentito")
+    serial_ports_count: int = Field(0, description="Numero di porte seriali COM/tty rilevate")
+    network_interfaces_count: int = Field(0, description="Numero di schede di rete IPv4 attive")
+    tshark_available: bool = Field(False, description="True se Wireshark/tshark è installato")
+    missing_requirements: list[str] = Field(default_factory=list, description="Elenco prerequisiti assenti")
+    recommendations: list[str] = Field(default_factory=list, description="Azioni correttive consigliate")
+    is_healthy: bool = Field(..., description="True se tutti i requisiti critici sono soddisfatti")
+
+
+class CompanionDownloadRequest(BaseModel):
+    companion: str = Field("npcap", description="Identificativo dello strumento a corredo ('npcap')")
+
+
+class CompanionDownloadResponse(BaseModel):
+    status: str = Field(..., description="'ok' o 'error'")
+    companion: str = Field(..., description="Identificativo dello strumento")
+    file_path: Optional[str] = Field(None, description="Percorso locale del file scaricato")
+    size_bytes: Optional[int] = Field(None, description="Dimensione in byte del file scaricato")
+    message: str = Field(..., description="Messaggio di stato informativo per l'utente")
 
 
 

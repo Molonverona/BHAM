@@ -3,6 +3,94 @@
 > Registro cronologico delle sessioni di sviluppo.
 > File: `/home/giuliano/Documenti/BHAM/DEVLOG.md`
 
+## Sessione 34 – 2026-10-12 ✅ COMPLETE – HARDENING CROSS-PLATFORM WINDOWS/LINUX & AUTO-PROVISIONING PREREQUISITI (V1.1.0)
+**Hardening Cross-Platform Completo per Windows e Linux: Launcher Batch Nativo a Doppio Clic (`bham.bat`), Script di Bootstrap PowerShell (`scripts/bootstrap_windows.ps1`), Motore Unificato Requisiti di Sistema (`core/system_requirements.py`), Rilevamento e Download Autonomo Driver Npcap su Windows (`POST /api/v1/system/companions/download`), Integrazione `has_npcap` nel Privilege Report e Scheda Diagnostica Web UI.**
+
+**Highlights:**
+- ✅ **Launcher Windows a Doppio Clic (`bham.bat`) & Script PowerShell (`scripts/bootstrap_windows.ps1`)**:
+  - Rilevamento automatico di Python 3.12/3.13 nel sistema (tramite `py -3.12`, PATH o `%LOCALAPPDATA%\Programs\Python\Python312`).
+  - Se Python è assente o incompatibile, il launcher chiede esplicita conferma all'utente (*"Desideri scaricare e installare automaticamente Python 3.12 ufficiale da python.org adesso? [S/N]"*).
+  - Lo script PowerShell esegue il download controllato da python.org con fallback su winget ed esegue l'installazione controllata per l'utente corrente con pip e PATH abilitati, passando poi la mano a `bham.py`.
+- ✅ **Modulo Core Diagnostica e Requisiti (`core/system_requirements.py`)**:
+  - Rilevamento unificato e continuo di OS (Windows/Linux/macOS), architettura CPU, runtime Python, virtualenv, permessi di cattura raw packet (Npcap su Windows, `cap_net_raw` su Linux) e porte seriali.
+  - Funzioni helper `check_npcap_installed()`, `check_tshark_installed()`, `download_npcap()` per recupero autonomo dei companion tools.
+- ✅ **Aggiornamento Launcher Python (`bham.py`)**:
+  - Estesa la ricerca automatica dell'interprete Python e aggiunta la funzione `offer_install_python()` su Windows.
+  - Verifica all'avvio su Windows della presenza del driver Npcap (`check_and_offer_npcap()`): se mancante, avvisa chiaramente l'utente circa i limiti dello sniffer ARP L2 e offre il download immediato dell'installer ufficiale.
+- ✅ **Estensione Privilege Checker (`core/priv_check.py`)**:
+  - Aggiunto il campo `has_npcap: bool` nel report `PrivReport` e la funzione `has_npcap()`.
+  - Distinzione tra privilegi amministrativi generici e presenza reale del driver `wpcap.dll` su Windows.
+- ✅ **API REST Diagnostica & Download Strumenti a Corredo (`api/routes.py`, `api/schemas.py`)**:
+  - Nuovo endpoint `GET /api/v1/system/diagnostics` per fornire al frontend lo stato dei requisiti di sistema.
+  - Nuovo endpoint `POST /api/v1/system/companions/download` con tracciamento WAL (`companion_downloaded`) per scaricare in autonomia l'installer Npcap su richiesta dell'utente.
+- ✅ **Interfaccia Utente Web (`frontend/index.html`, `frontend/js/app.js`, `frontend/js/i18n.js`)**:
+  - Nuova scheda "Diagnostica & Requisiti" nel Centro Impostazioni: monitora OS, Python, porte seriali, driver di cattura rete e consiglia azioni correttive.
+  - Box contestuale su Windows se Npcap è mancante con pulsante `[📥 Scarica Installer Npcap]` e dialogo di conferma.
+  - Traduzioni trilingue allineate per la nuova sezione.
+- ✅ **Suite di Test (73/73 passati)**:
+  - Nuova classe di test `TestSystemRequirementsCrossPlatform` in `tests/test_bham.py` con verifica sia per Linux locale che con mock Windows (con e senza Npcap, test endpoint API e validazione parametri).
+
+## Sessione 33 – 2026-10-11 ✅ COMPLETE – VERSIONE 1.1.0 (KNX GROUP MONITOR, BACNET TREND WATCH LIST, MODBUS 32/64-BIT EXPANSION & LAN SECURITY HARDENING)
+**Aggiornamento Maggiore v1.1.0: Sniffer Live Telegrammi KNX / cEMI con Decodifica Euristica DPT e Modalità Demo, Watch List & Polling Programmato Oggetti BACnet per Analisi Trend, Decodifica Avanzata Modbus Registri 32/64-bit (Big/Little Endian & CDAB Word-Swap), Autenticazione LAN Token & Protezione CORS (Risoluzione Issue Audit #8), e Allineamento Completo Documentazione Tecnica.**
+
+**Highlights:**
+- ✅ **Blocco 1 – Network Security & LAN Token Hardening (`core/config.py`, `main.py`, `api/routes.py`, `frontend/js/app.js`)**:
+  - Risoluzione formale dell'audit issue #8 ("CORS Wildcard con Credentials e Mancanza di Autenticazione su Interfaccia LAN").
+  - Configurato `allow_credentials=False` su wildcard CORS per conformità RFC/W3C.
+  - Implementato token di sicurezza effimero/persistente `api_token` generato crittograficamente con `secrets.token_urlsafe(16)` e flag `lan_auth_required`.
+  - Nuovo middleware `lan_security_middleware`: accesso immediato senza credenziali preservato per loopback locale (`127.0.0.1`, `::1`, `testclient`), autorizzazione obbligatoria via header `X-BHAM-Token` o parametro query `?token=` per tutti i client remoti su rete LAN/Wi-Fi di cantiere.
+  - Aggiornato generatore QR code (`/api/v1/network/qr`) per includere il token nell'URL rilevato automaticamente, consentendo associazione 1-scan da smartphone o tablet.
+  - Il client web intercetta e memorizza il token URL in `localStorage("bham-lan-token")`, iniettandolo automaticamente in tutte le chiamate Fetch e nell'handshake WebSocket.
+- ✅ **Blocco 2 – KNX Group Monitor & Live Telegram Sniffer (`data/models.py`, `data/state.py`, `scanners/knx.py`, `core/simulator.py`, `api/routes.py`, `frontend/index.html`, `frontend/js/app.js`, `frontend/js/i18n.js`)**:
+  - Creato modello `KNXTelegram` e buffer circolare in-memory thread-safe (capacità 1000 telegrammi) in `AppState`.
+  - Implementato listener UDP multicast `KNXGroupMonitor` (`224.0.23.12:3671`) con parser di frame cEMI (Routing Indication `0x0530` e Tunneling Request `0x0420`).
+  - Decodificatore euristico DPT per tipi comuni: DPT 1.001 (Switch/Bool ON/OFF), DPT 5.001 (Percentuale scalata 0-100%), DPT 9.001 (Float 16-bit KNX standard a virgola mobile con esponente/mantissa, es. °C), DPT 14.xxx (Float IEEE-754 a 32-bit), DPT 16.001 (Stringhe ASCII).
+  - Generazione di telegrammi sintetici KNX nel simulatore (`core/simulator.py`) per collaudo realistico in modalità Demo (temperatura salone, switch luci, dimmer).
+  - Nuovi endpoint API: `POST /api/v1/knx/monitor/start`, `POST /api/v1/knx/monitor/stop`, `GET /api/v1/knx/telegrams`, `DELETE /api/v1/knx/telegrams`.
+  - Nuova scheda nel Field Console Dock (`#knx-telegrams-console`) con badge conteggio, filtro rapido per gruppo (es. `1/1/*`), pulsante svuota e download log in formato CSV.
+- ✅ **Blocco 3 – BACnet Scheduled Polling / Trend Log & Modbus 32/64-bit (`scanners/field_tools.py`, `api/routes.py`, `frontend/js/app.js`)**:
+  - Esteso il motore di conversione registri Modbus `decode_modbus_value` ed `encode_modbus_value` con supporto a:
+    - `uint32_be`, `uint32_le` (word-swapped CDAB / Little-Endian word)
+    - `int32_be`, `int32_le` (signed 32-bit)
+    - `float64_be` (Double Precision IEEE-754 a 64-bit, 4 registri)
+    - `int64` (Signed Integer a 64-bit)
+  - Nuovo endpoint `POST /api/v1/tools/bacnet/read` per lettura on-demand di singole proprietà (`present-value`) da dispositivi BACnet, con supporto completo sia per l'infrastruttura reale (`bacpypes3`) sia per il simulatore d'impianto.
+  - Esteso il Watch List Manager (`WatchListManager` in `frontend/js/app.js`): pulsante "📈 Segui" integrato nella tabella dell'Explorer Oggetti BACnet; polling ciclico programmato automatico (5s, 10s, 30s, 60s) sia per registri Modbus che per punti BACnet, con visualizzazione delta, timestamp e salvataggio CSV.
+- ✅ **Blocco 4 – Bump Versione 1.1.0, Verifica Registro Manovre & Allineamento Documentazione**:
+  - Bump versione a `1.1.0` su `pyproject.toml`, `core/config.py`, `frontend/index.html`, `frontend/js/i18n.js`, winget manifests e script installer.
+  - Verifica crittografica integrità Registro Manovre (`core/audit_journal.py`): 1518 manovre validate da Genesis a EOF (`valid: True`, 0 errori di hash o prev_hash).
+  - Aggiornato `AUDIT.md`: risolto il rilievo #8 con dettagli implementativi di hardening.
+  - Aggiornati `MANUALE_UTENTE.md`, `frontend/MANUALE_UTENTE.md` e `frontend/js/manual-content.js`: aggiunto Capitolo 23 (KNX Group Monitor, Watch List BACnet e Token LAN) in IT, EN ed ES.
+  - Aggiornato `API_REFERENCE.md`: documentati tutti i nuovi endpoint v1.1.0 e requisiti di sicurezza LAN.
+- ✅ **Audit di Qualità & Hardening del Core (`core/paths.py`, `core/logger.py`, `core/simulator.py`, `core/profile_manager.py`, `data/state.py`)**:
+  - Unificato il path resolver dei file di log (`get_logs_dir()`) in `core/paths.py` e allineato `core/logger.py` (`_build_logger` e `start_session_log`) alle cartelle di runtime canoniche (sviluppo, modalità portatile e pacchetto distribuito).
+  - Corrette le chiavi di indicizzazione dei dispositivi nel Virtual Plant Simulator (`core/simulator.py`), allineando la telemetria live del Chiller, della Pompa a inverter e del Power Meter con la chiave primaria standard di `AppState` (`<port>-<slave_id>`).
+  - Blindata l'eliminazione dei profili custom (`core/profile_manager.py`) contro tentativi di directory traversal (`is_relative_to`), e reso bidirezionale il lookup dei dispositivi scoperti in `apply_profile_to_slave`.
+  - Rafforzato lo slicing dei telegrammi nel buffer circolare KNX di `AppState` (`data/state.py`) per parametri limite non positivi.
+- ✅ **Audit Completo FastAPI & Connessioni Core (`main.py`, `api/routes.py`, `api/websockets.py`, `api/schemas.py`)**:
+  - Inserita la procedura di teardown pulito nello shutdown lifecycle di `main.py`: chiamata preventiva ad `abort_all()` per rilasciare socket/porte seriali dei motori di scansione attivi e arresto del listener `knx_group_monitor.stop()`.
+  - Registrato l'alias simmetrico `/api/v1/network/qr` accanto a `/api/v1/network/qr-code` in `api/routes.py` ed esentato da autenticazione LAN token per accoppiamento mobile immediato in `main.py`.
+  - Verificata la gestione delle eccezioni, i codici HTTP (401, 403, 404, 400), il disaccoppiamento non bloccante dei task asincroni (`asyncio.create_task`) e la pulizia automatica dei file temporanei (`BackgroundTask(os.unlink)` su export PDF/Excel).
+  - Aggiunta la classe `TestFastAPICoreWiringV11` in `tests/test_bham.py` per collaudare direttamente la connessione e la risposta di tutti gli endpoint core e di sistema.
+- ✅ **Hardening Motore i18n & Risoluzione Pannelli Laterali (`frontend/js/i18n.js`, `frontend/index.html`)**:
+  - Risolta la discrepanza della chiave `sniff_title` per lo Sniffer RS485 e aggiunta traduzione trilingue per tutte le 7 card rack (inclusa `fc43_title`).
+  - Blindata la funzione `applyTranslations()` con guardia `if (trans && trans !== key)` per prevenire in modo permanente qualsiasi visualizzazione di chiavi grezze.
+  - Copertura 100% verificata su tutti i 220 selettori dell'interfaccia (0 chiavi mancanti in IT, EN, ES).
+- ✅ **Session Diff Engine Evolvuto & Tracciamento As-Built (`core/session_diff.py`, `frontend/index.html`, `frontend/js/app.js`)**:
+  - Esteso il motore di confronto "Prima vs Dopo" per tracciare le variazioni di `commissioning_status` (es. `pending` ➔ `ok`) e note di collaudo `commissioning_notes` per tutti i protocolli.
+  - Confronto analitico dei singoli registri Modbus comuni con rilevamento scostamenti di setpoint e registri di stato.
+  - Confronto oggetti BACnet esteso agli identificatori degli oggetti.
+  - Casella di ricerca full-text real-time `#diff-search-input` nella barra filtri del diff viewer e pill cromatiche per gli stati di collaudo.
+- ✅ **Safe Mode Interlock Hardened & Estensione a Caldo (`core/safe_mode.py`, `api/routes.py`, `api/schemas.py`, `frontend/`)**:
+  - Nuovo metodo `extend()` e endpoint `POST /api/v1/safe-mode/extend` con lock rientrante `threading.RLock()` per prolungare la finestra temporale attiva (+15m, +30m) senza disarmo intermedio, con sigillo crittografico nel WAL.
+  - Memorizzazione persistente operatore/commessa in `localStorage` con auto-fill automatico.
+  - Ticker live continuo a 1Hz con countdown dinamico al secondo sia nel modale che nel badge superiore.
+  - Avviso visivo ad alta priorità di scadenza imminente (`bham-safe-mode-expiring`) sotto i 120 secondi.
+  - Intercettazione automatica in `postAPI()` dei comandi di forzatura bloccati con prompt e apertura immediata del modale di sblocco.
+- ✅ **Core Exporters Dynamic Version Sync (`core/tag_exporter.py`, `reports/pdf.py`)**:
+  - Versionamento dinamico centralizzato tramite `settings.app_version` ("1.1.0") nelle esportazioni JSON tag BMS e nel certificato di collaudo PDF.
+- ✅ **Test Suite Completa BHAM**: **67/67 test superati con successo** (100% pass rate).
+
 ## Sessione 32 – 2026-10-06 ✅ COMPLETE – VERSIONE 1.0.0 / 1.2.0 (MAJOR UPGRADE: MINIMALIST COCKPIT, SMART FIELD ASSISTANT, CUSTOM PROFILES & UI PERSONALIZATION)
 **Evoluzione Architetturale della Piattaforma BHAM: Mantenimento della Home Page Industriale Minimalista, Nuovo Hub Assistente di Cantiere & Troubleshooting Rapido, Calcolatori Interattivi da Campo, Gestione Completa Profili Impianto Personalizzati (Salvataggio, Attivazione 1-Click ed Esportazione/Importazione JSON) e Personalizzazione Densità UI per Laptop da Cantiere.**
 
