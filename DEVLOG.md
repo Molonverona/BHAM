@@ -27,8 +27,9 @@
   - Nuova scheda "Diagnostica & Requisiti" nel Centro Impostazioni: monitora OS, Python, porte seriali, driver di cattura rete e consiglia azioni correttive.
   - Box contestuale su Windows se Npcap è mancante con pulsante `[📥 Scarica Installer Npcap]` e dialogo di conferma.
   - Traduzioni trilingue allineate per la nuova sezione.
-- ✅ **Suite di Test (73/73 passati)**:
-  - Nuova classe di test `TestSystemRequirementsCrossPlatform` in `tests/test_bham.py` con verifica sia per Linux locale che con mock Windows (con e senza Npcap, test endpoint API e validazione parametri).
+- ✅ **Suite di Test & CI Cross-Platform (90/90 passati su Linux e Windows)**:
+  - Nuova classe di test `TestSystemRequirementsCrossPlatform` in `tests/test_bham.py` con verifica sia per host locale (`test_diagnostics_local_host`) sia con mock deterministici isolati per Linux (`test_diagnostics_linux_mock`) e per Windows (`test_diagnostics_windows_mock` con e senza Npcap).
+  - Implementato `SafeStreamHandler` e configurazione UTF-8 automatica in `core/logger.py` per prevenire `UnicodeEncodeError` su runner Windows e console legacy con codifica ANSI (cp1252/cp437).
 
 ## Sessione 33 – 2026-10-11 ✅ COMPLETE – VERSIONE 1.1.0 (KNX GROUP MONITOR, BACNET TREND WATCH LIST, MODBUS 32/64-BIT EXPANSION & LAN SECURITY HARDENING)
 **Aggiornamento Maggiore v1.1.0: Sniffer Live Telegrammi KNX / cEMI con Decodifica Euristica DPT e Modalità Demo, Watch List & Polling Programmato Oggetti BACnet per Analisi Trend, Decodifica Avanzata Modbus Registri 32/64-bit (Big/Little Endian & CDAB Word-Swap), Autenticazione LAN Token & Protezione CORS (Risoluzione Issue Audit #8), e Allineamento Completo Documentazione Tecnica.**

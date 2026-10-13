@@ -2194,7 +2194,7 @@ class TestSystemRequirementsCrossPlatform(unittest.TestCase):
     Npcap driver check, privilege report, e API diagnostics.
     """
 
-    def test_diagnostics_linux_local(self):
+    def test_diagnostics_local_host(self):
         from core.system_requirements import get_system_diagnostics
         diag = get_system_diagnostics()
         self.assertIn("os", diag)
@@ -2204,8 +2204,26 @@ class TestSystemRequirementsCrossPlatform(unittest.TestCase):
         self.assertIn("has_serial_access", diag)
         self.assertIn("missing_requirements", diag)
         self.assertIn("recommendations", diag)
-        # Su Linux, has_npcap è sempre True poiché Npcap è specifico di Windows
-        self.assertTrue(diag["has_npcap"])
+        self.assertIsInstance(diag["has_npcap"], bool)
+        self.assertIsInstance(diag["has_packet_capture"], bool)
+        # Su Linux has_npcap è True (non applicabile/trasparente); su Windows dipende dalla presenza reale del driver
+        if diag["os"] == "linux":
+            self.assertTrue(diag["has_npcap"])
+
+    def test_diagnostics_linux_mock(self):
+        from unittest.mock import patch
+        import core.system_requirements as sys_req
+
+        with patch.object(sys_req, "_SYSTEM", "Linux"), \
+             patch("core.priv_check._SYSTEM", "Linux"), \
+             patch("core.priv_check._linux_has_cap_net_raw", return_value=True), \
+             patch("core.priv_check._linux_has_dialout", return_value=True), \
+             patch("os.geteuid", return_value=0, create=True), \
+             patch("core.priv_check._cached_report", None):
+            diag = sys_req.get_system_diagnostics()
+            self.assertEqual(diag["os"], "linux")
+            self.assertTrue(diag["has_npcap"])
+            self.assertTrue(diag["has_packet_capture"])
 
     def test_diagnostics_windows_mock(self):
         from unittest.mock import patch

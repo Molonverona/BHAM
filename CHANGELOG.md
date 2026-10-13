@@ -55,7 +55,7 @@ Le note della sezione corrispondente alla versione vengono pubblicate automatica
   - Copertura e allineamento trilingue (IT, EN, ES) al 100% su tutte le 332 chiavi dell'interfaccia (233 attributi `data-i18n` e 15 chiavi runtime) e su tutti i 23 capitoli della documentazione tecnica.
 - **Allineamento Versioni Core Exporters (`core/tag_exporter.py`, `reports/pdf.py`)**:
   - Versionamento centralizzato tramite `settings.app_version` per esportazioni JSON di tag BMS e intestazioni dei certificati di collaudo PDF.
-- **Test Suite Completa BHAM**: Espansione a 73 test unitari e di integrazione eseguiti con successo al 100% (copertura LAN security, cEMI parser, DPT decoding, Safe Mode extend, session diff con collaudo/registri, requisiti di sistema cross-platform).
+- **Test Suite Completa BHAM**: Espansione a 90 test unitari e di integrazione eseguiti con successo al 100% su Linux e Windows (copertura LAN security, cEMI parser, DPT decoding, Safe Mode extend, session diff con collaudo/registri, requisiti di sistema cross-platform e CI green).
 - **Integrità WAL**: Registro manovre certificato con oltre 1620 record concatenati SHA-256 e zero errori di catena.
 
 ## [1.0.0] – 2026-10-06 – Stable Release

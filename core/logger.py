@@ -36,6 +36,37 @@ def register_ws_hook(hook: Callable[[Any], None]) -> None:
     _HANDLERS.append(hook)
 
 
+if sys.platform == "win32":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+class SafeStreamHandler(logging.StreamHandler):
+    """
+    StreamHandler resiliente che garantisce la corretta emissione dei log
+    anche su console Windows legacy (cp1252 / cp437) senza generare Logging error
+    in presenza di caratteri Unicode, emoji o simboli industriali.
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            super().emit(record)
+        except UnicodeEncodeError:
+            try:
+                msg = self.format(record)
+                stream = self.stream
+                enc = getattr(stream, "encoding", "utf-8") or "utf-8"
+                safe_text = msg.encode(enc, errors="replace").decode(enc)
+                stream.write(safe_text + self.terminator)
+                self.flush()
+            except Exception:
+                self.handleError(record)
+
+
 def _build_logger(name: str = "bham") -> logging.Logger:
     logger = logging.getLogger(name)
     if logger.handlers:
@@ -48,13 +79,13 @@ def _build_logger(name: str = "bham") -> logging.Logger:
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
 
-    # Console
-    sh = logging.StreamHandler(sys.stdout)
+    # Console (safe stream per Windows & Linux)
+    sh = SafeStreamHandler(sys.stdout)
     sh.setFormatter(fmt)
     sh.setLevel(logging.DEBUG)
     logger.addHandler(sh)
 
-    # Rotating file (5 MB × 3)
+    # Rotating file (5 MB × 3, sempre UTF-8)
     try:
         from core.paths import get_logs_dir
         log_dir = get_logs_dir()
@@ -62,7 +93,7 @@ def _build_logger(name: str = "bham") -> logging.Logger:
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
     fh = RotatingFileHandler(
-        log_dir / "bham.log", maxBytes=5 * 1024 * 1024, backupCount=3
+        log_dir / "bham.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
     )
     fh.setFormatter(fmt)
     fh.setLevel(logging.DEBUG)
