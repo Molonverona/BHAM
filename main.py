@@ -13,8 +13,10 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-# Auto-reexec inside the virtual environment if run directly with system python
-if sys.prefix == getattr(sys, "base_prefix", sys.prefix):
+# Auto-reexec inside the virtual environment if run directly with system python.
+# Mai in modalità congelata (PyInstaller): il binario porta con sé il proprio
+# runtime e un eventuale .venv accanto all'eseguibile non va mai eseguito.
+if not getattr(sys, "frozen", False) and sys.prefix == getattr(sys, "base_prefix", sys.prefix):
     _venv_py = Path(__file__).resolve().parent / ".venv" / ("bin/python3" if os.name != "nt" else "Scripts/python.exe")
     if _venv_py.exists():
         os.execv(str(_venv_py), [str(_venv_py)] + sys.argv)
@@ -59,7 +61,7 @@ async def lifespan(app: FastAPI):
 
     # Apertura automatica del browser all'avvio (se non disabilitata con BHAM_NO_BROWSER=1)
     if not os.environ.get("BHAM_NO_BROWSER"):
-        from bham import open_browser_when_ready
+        from core.browser import open_browser_when_ready
         open_browser_when_ready(f"http://localhost:{settings.port}", port=settings.port)
 
     # Avvio eventuale modalità simulatore virtuale (Demo Mode)
@@ -252,18 +254,112 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-# ── Dev entry-point ───────────────────────────────────────────────────────────
+# ── Entry-point (sorgente, venv e binario congelato PyInstaller) ──────────────
+
+def server_target() -> "FastAPI | str":
+    """
+    Restituisce il target ASGI da consegnare a uvicorn.
+
+    In modalità congelata (PyInstaller) lo script di ingresso viene eseguito come
+    ``__main__`` e il modulo ``main`` NON è importabile: passare la stringa
+    ``"main:app"`` farebbe terminare immediatamente l'eseguibile con
+    ``Error loading ASGI app. Could not import module "main"``.
+    Si consegna quindi direttamente l'oggetto applicazione.
+
+    Da sorgente si mantiene invece la stringa di import, indispensabile per
+    l'auto-reload in sviluppo.
+    """
+    from core.paths import is_frozen
+    return app if is_frozen() else "main:app"
+
+
+def build_arg_parser() -> "argparse.ArgumentParser":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="bham",
+        description="BHAM – BACS Help Auto Mapper (demone di discovery e diagnostica BACS).",
+    )
+    parser.add_argument("--host", default=settings.host,
+                        help=f"indirizzo di ascolto (default: {settings.host})")
+    parser.add_argument("--port", type=int, default=settings.port,
+                        help=f"porta di ascolto (default: {settings.port})")
+    parser.add_argument("--no-browser", action="store_true",
+                        help="non aprire automaticamente il browser")
+    parser.add_argument("--demo", action="store_true",
+                        help="avvia con il simulatore di impianto virtuale (Demo Mode)")
+    parser.add_argument("--no-port-fallback", action="store_true",
+                        help="non cercare una porta alternativa se quella richiesta è occupata")
+    parser.add_argument("--check", action="store_true",
+                        help="esegue solo le verifiche di preflight ed esce (0 = OK, 1 = problemi)")
+    parser.add_argument("--version", action="version",
+                        version=f"BHAM {settings.app_version}")
+    return parser
+
+
+def _print_preflight(report) -> None:
+    """Stampa in console l'esito delle verifiche di preflight."""
+    for warning in report.warnings:
+        print(f"[!] {warning}")
+    for error in report.errors:
+        print(f"[ERRORE] {error}")
+
+
+def run_cli(argv: list[str] | None = None) -> int:
+    """Punto di ingresso a riga di comando, condiviso da sorgente e binario congelato."""
+    import uvicorn
+
+    from core.browser import open_browser_when_ready
+    from core.preflight import run_preflight
+
+    args = build_arg_parser().parse_args(argv)
+
+    if args.demo:
+        os.environ["BHAM_DEMO"] = "1"
+
+    report = run_preflight(
+        port=args.port,
+        host=args.host,
+        allow_port_fallback=not args.no_port_fallback,
+    )
+    _print_preflight(report)
+
+    if args.check:
+        if report.is_healthy:
+            print(f"[OK] Preflight superato – porta di ascolto {report.resolved_port}.")
+            return 0
+        return 1
+
+    if not report.is_healthy:
+        print("\nAvvio annullato: risolvi i problemi elencati sopra e riprova.")
+        return 1
+
+    # Allinea la configurazione globale alla porta realmente utilizzata, così che
+    # log di avvio, QR code di pairing e URL LAN riportino il valore corretto.
+    settings.host = args.host
+    settings.port = report.resolved_port
+
+    if not args.no_browser:
+        open_browser_when_ready(f"http://localhost:{settings.port}", port=settings.port)
+    # In ogni caso il lifespan non deve riaprire il browser: qui sopra è già
+    # stato pianificato sulla porta risolta, oppure l'utente l'ha disabilitato.
+    os.environ["BHAM_NO_BROWSER"] = "1"
+
+    target = server_target()
+    try:
+        uvicorn.run(
+            target,
+            host=settings.host,
+            port=settings.port,
+            # L'auto-reload richiede una stringa di import: non è disponibile
+            # (né desiderabile) quando si passa l'oggetto applicazione.
+            reload=settings.debug and isinstance(target, str),
+            log_level="debug" if settings.debug else "info",
+        )
+    except KeyboardInterrupt:
+        print("\nArresto di BHAM.")
+    return 0
+
 
 if __name__ == "__main__":
-    import uvicorn
-    from bham import open_browser_when_ready
-
-    open_browser_when_ready(f"http://localhost:{settings.port}", port=settings.port)
-
-    uvicorn.run(
-        "main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.debug,
-        log_level="debug" if settings.debug else "info",
-    )
+    sys.exit(run_cli())

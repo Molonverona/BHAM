@@ -30,7 +30,8 @@ const MANUAL_DATA = {
       { id: "watch_list", title: "20. Live Watch List & Polling Registri" },
       { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
       { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Accesso Mobile QR" },
-      { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & Token LAN" }
+      { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & Token LAN"},
+      { id: "install_v12", title: "24. Installazione Windows & Avvio Standalone" }
     ],
     content: {
       intro: `
@@ -518,6 +519,47 @@ const MANUAL_DATA = {
           <li><strong>Autenticazione LAN Automatica:</strong> Tutte le chiamate API e WebSocket da client remoti sulla LAN richiedono l'intestazione <code>X-BHAM-Token</code> o il parametro <code>?token=</code>. Localhost rimane trasparente per l'operatore locale.</li>
           <li><strong>Accoppiamento Tablet Istantaneo:</strong> Il QR Code LAN inietta automaticamente il token valido negli URL di cantiere.</li>
         </ul>
+      `,
+      install_v12: `
+        <h3>24. Installazione Windows, Avvio Standalone &amp; Diagnostica di Preflight (v1.2.0)</h3>
+        <p>La versione 1.2.0 risolve un guasto critico che rendeva inutilizzabili tutti i pacchetti compilati e introduce una diagnostica di avvio pensata per il primo collaudo su un PC di cantiere appena preparato.</p>
+
+        <h4>Guasto risolto: l'eseguibile non si avviava</h4>
+        <ul>
+          <li><strong>Sintomo:</strong> dopo l'installazione, <code>bham.exe</code> apriva una finestra di console che si chiudeva immediatamente, con il messaggio <code>Error loading ASGI app. Could not import module "main"</code>.</li>
+          <li><strong>Causa:</strong> nel pacchetto compilato il programma principale viene eseguito come <code>__main__</code> e non è raggiungibile come modulo <code>main</code>: il server web non riusciva quindi a caricare l'applicazione.</li>
+          <li><strong>Portata:</strong> erano colpiti l'installer Windows, l'edizione portable e il binario Linux. L'avvio da sorgente (<code>bham.bat</code> / <code>bham.py</code>) restava funzionante.</li>
+          <li><strong>Verifica continua:</strong> la pipeline di integrazione compila ora l'eseguibile su Windows e Linux, lo avvia davvero e interroga <code>/api/v1/health</code> prima di pubblicare qualunque release.</li>
+        </ul>
+
+        <h4>Flag a riga di comando dell'eseguibile</h4>
+        <ul>
+          <li><code>--port 9000</code> / <code>--host 127.0.0.1</code>: porta e interfaccia di ascolto.</li>
+          <li><code>--check</code>: esegue solo le verifiche di preflight ed esce (codice 0 = sistema pronto). Da usare come primo test su una postazione nuova.</li>
+          <li><code>--version</code>, <code>--no-browser</code>, <code>--demo</code>, <code>--no-port-fallback</code>.</li>
+        </ul>
+
+        <h4>Preflight automatico all'avvio</h4>
+        <ul>
+          <li><strong>Directory dati scrivibile:</strong> segnala immediatamente un'installazione in una cartella protetta invece di fallire in modo oscuro durante il collaudo.</li>
+          <li><strong>Asset della console web:</strong> verifica che l'interfaccia sia realmente presente nel pacchetto, causa tipica della pagina bianca.</li>
+          <li><strong>Porta occupata:</strong> se la 8765 è già usata da un'altra istanza di BHAM, il demone passa automaticamente alla prima porta libera e allinea log, URL LAN e QR code alla porta effettiva.</li>
+        </ul>
+
+        <h4>Accesso da tablet e smartphone: regola firewall</h4>
+        <ul>
+          <li><strong>Causa più frequente del QR code che non si apre:</strong> Windows Firewall blocca le connessioni in ingresso e BHAM resta raggiungibile solo dal PC locale.</li>
+          <li><strong>Soluzione guidata:</strong> l'installer propone di creare la regola sulla porta 8765/TCP, limitata ai profili di rete <em>privata</em> e <em>dominio</em> (mai alle reti pubbliche), e la rimuove alla disinstallazione.</li>
+          <li><strong>Controllo:</strong> la scheda <em>Diagnostica &amp; Requisiti</em> segnala l'assenza della regola e riporta il comando corretto da eseguire come Amministratore.</li>
+        </ul>
+
+        <h4>Altre correzioni di installazione</h4>
+        <ul>
+          <li><strong>Aggiornamento sopra una versione precedente:</strong> l'installer chiude l'istanza in esecuzione invece di interrompersi con l'errore "file in uso".</li>
+          <li><strong>Antivirus e SmartScreen:</strong> l'eseguibile incorpora le proprie informazioni di versione e publisher, e non viene più compresso con UPX (sorgente di falsi positivi).</li>
+          <li><strong>Installazione via winget:</strong> il manifest puntava a un file di release inesistente e restituiva errore 404.</li>
+          <li><strong>Launcher a doppio clic:</strong> i messaggi di <code>bham.bat</code> non vengono più mostrati con caratteri illeggibili, e il rilevamento include Python 3.13.</li>
+        </ul>
       `
     }
   },
@@ -546,7 +588,8 @@ const MANUAL_DATA = {
       { id: "watch_list", title: "20. Live Watch List & Register Polling" },
       { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
       { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Mobile QR LAN Access" },
-      { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & LAN Token" }
+      { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & LAN Token"},
+      { id: "install_v12", title: "24. Windows Installation & Standalone Startup" }
     ],
     content: {
       intro: `
@@ -1034,6 +1077,47 @@ const MANUAL_DATA = {
           <li><strong>Automated LAN Authentication:</strong> Non-localhost REST calls and WebSocket streams require the <code>X-BHAM-Token</code> header or <code>?token=</code> query parameter. Local loopback stays transparent and unauthenticated.</li>
           <li><strong>Seamless QR Code Mobile Pairing:</strong> Field pairing QR codes embed the LAN token automatically for instant tablet access.</li>
         </ul>
+      `,
+      install_v12: `
+        <h3>24. Windows Installation, Standalone Startup &amp; Preflight Diagnostics (v1.2.0)</h3>
+        <p>Release 1.2.0 fixes a critical defect that made every compiled package unusable, and adds startup diagnostics designed for the first commissioning run on a freshly prepared field laptop.</p>
+
+        <h4>Fixed defect: the executable never started</h4>
+        <ul>
+          <li><strong>Symptom:</strong> after installation, <code>bham.exe</code> opened a console window that closed immediately, reporting <code>Error loading ASGI app. Could not import module "main"</code>.</li>
+          <li><strong>Cause:</strong> inside the compiled package the main program runs as <code>__main__</code> and is not reachable as a <code>main</code> module, so the web server could not load the application.</li>
+          <li><strong>Scope:</strong> the Windows installer, the portable edition and the Linux binary were all affected. Running from source (<code>bham.bat</code> / <code>bham.py</code>) kept working.</li>
+          <li><strong>Continuous verification:</strong> the integration pipeline now compiles the executable on Windows and Linux, actually launches it and queries <code>/api/v1/health</code> before any release is published.</li>
+        </ul>
+
+        <h4>Command-line flags of the executable</h4>
+        <ul>
+          <li><code>--port 9000</code> / <code>--host 127.0.0.1</code>: listening port and interface.</li>
+          <li><code>--check</code>: runs the preflight checks only and exits (exit code 0 = system ready). Use it as the first test on a new workstation.</li>
+          <li><code>--version</code>, <code>--no-browser</code>, <code>--demo</code>, <code>--no-port-fallback</code>.</li>
+        </ul>
+
+        <h4>Automatic startup preflight</h4>
+        <ul>
+          <li><strong>Writable data directory:</strong> reports a protected install location straight away instead of failing obscurely during commissioning.</li>
+          <li><strong>Web console assets:</strong> verifies the interface is really present in the package, the usual cause of a blank page.</li>
+          <li><strong>Busy port:</strong> if 8765 is already taken by another BHAM instance, the daemon switches to the first free port and aligns logs, LAN URLs and the QR code with the port actually in use.</li>
+        </ul>
+
+        <h4>Tablet and smartphone access: firewall rule</h4>
+        <ul>
+          <li><strong>Most frequent cause of a QR code that will not open:</strong> Windows Firewall blocks inbound connections and BHAM stays reachable from the local PC only.</li>
+          <li><strong>Guided fix:</strong> the installer offers to create the rule on port 8765/TCP, restricted to the <em>private</em> and <em>domain</em> network profiles (never public), and removes it on uninstall.</li>
+          <li><strong>Check:</strong> the <em>Diagnostics &amp; Requirements</em> tab flags the missing rule and shows the exact command to run as Administrator.</li>
+        </ul>
+
+        <h4>Further installation fixes</h4>
+        <ul>
+          <li><strong>Upgrading over a previous version:</strong> the installer closes the running instance instead of aborting with a "file in use" error.</li>
+          <li><strong>Antivirus and SmartScreen:</strong> the executable now embeds its own version and publisher information, and is no longer UPX-compressed (a source of false positives).</li>
+          <li><strong>Installation via winget:</strong> the manifest pointed at a non-existent release asset and returned a 404 error.</li>
+          <li><strong>Double-click launcher:</strong> <code>bham.bat</code> messages are no longer rendered as garbled characters, and detection now includes Python 3.13.</li>
+        </ul>
       `
     }
   },
@@ -1062,7 +1146,8 @@ const MANUAL_DATA = {
       { id: "watch_list", title: "20. Monitorización en Vivo (Watch List)" },
       { id: "rs485_benchmark", title: "21. Test de Estrés RS485 & Benchmark de Latencia" },
       { id: "bms_export_mobile", title: "22. Exportador BMS/SCADA & Acceso Móvil QR" },
-      { id: "knx_monitor_v11", title: "23. Monitor KNX, Trend BACnet y Token LAN" }
+      { id: "knx_monitor_v11", title: "23. Monitor KNX, Trend BACnet y Token LAN"},
+      { id: "install_v12", title: "24. Instalación en Windows y Arranque Standalone" }
     ],
     content: {
       intro: `
@@ -1491,6 +1576,47 @@ const MANUAL_DATA = {
         <ul>
           <li><strong>Autenticación de Red Local:</strong> Las llamadas de red externa y WebSockets requieren el encabezado <code>X-BHAM-Token</code> o <code>?token=</code>. Localhost continúa siendo de acceso inmediato sin contraseñas.</li>
           <li><strong>Emparejamiento Móvil por QR:</strong> Los códigos QR inyectan automáticamente el token válido para conexión inmediata desde tabletas de obra.</li>
+        </ul>
+      `,
+      install_v12: `
+        <h3>24. Instalación en Windows, Arranque Standalone y Diagnóstico de Preflight (v1.2.0)</h3>
+        <p>La versión 1.2.0 corrige un fallo crítico que dejaba inservibles todos los paquetes compilados e incorpora un diagnóstico de arranque pensado para la primera puesta en marcha en un portátil de obra recién preparado.</p>
+
+        <h4>Fallo corregido: el ejecutable no arrancaba</h4>
+        <ul>
+          <li><strong>Síntoma:</strong> tras la instalación, <code>bham.exe</code> abría una ventana de consola que se cerraba de inmediato, con el mensaje <code>Error loading ASGI app. Could not import module "main"</code>.</li>
+          <li><strong>Causa:</strong> en el paquete compilado el programa principal se ejecuta como <code>__main__</code> y no es accesible como módulo <code>main</code>, por lo que el servidor web no podía cargar la aplicación.</li>
+          <li><strong>Alcance:</strong> afectaba al instalador de Windows, a la edición portable y al binario de Linux. El arranque desde el código fuente (<code>bham.bat</code> / <code>bham.py</code>) seguía funcionando.</li>
+          <li><strong>Verificación continua:</strong> la cadena de integración compila ahora el ejecutable en Windows y Linux, lo arranca realmente y consulta <code>/api/v1/health</code> antes de publicar cualquier versión.</li>
+        </ul>
+
+        <h4>Parámetros de línea de comandos del ejecutable</h4>
+        <ul>
+          <li><code>--port 9000</code> / <code>--host 127.0.0.1</code>: puerto e interfaz de escucha.</li>
+          <li><code>--check</code>: ejecuta solo las comprobaciones de preflight y termina (código 0 = sistema listo). Úselo como primera prueba en un puesto nuevo.</li>
+          <li><code>--version</code>, <code>--no-browser</code>, <code>--demo</code>, <code>--no-port-fallback</code>.</li>
+        </ul>
+
+        <h4>Preflight automático en el arranque</h4>
+        <ul>
+          <li><strong>Directorio de datos escribible:</strong> avisa de inmediato de una instalación en una carpeta protegida, en lugar de fallar de forma opaca durante la puesta en marcha.</li>
+          <li><strong>Recursos de la consola web:</strong> comprueba que la interfaz esté realmente incluida en el paquete, causa habitual de la página en blanco.</li>
+          <li><strong>Puerto ocupado:</strong> si el 8765 ya está en uso por otra instancia de BHAM, el demonio pasa al primer puerto libre y alinea los registros, las URL de LAN y el código QR con el puerto real.</li>
+        </ul>
+
+        <h4>Acceso desde tablet y smartphone: regla de firewall</h4>
+        <ul>
+          <li><strong>Causa más frecuente de que el código QR no abra:</strong> el Firewall de Windows bloquea las conexiones entrantes y BHAM solo queda accesible desde el PC local.</li>
+          <li><strong>Solución guiada:</strong> el instalador propone crear la regla en el puerto 8765/TCP, limitada a los perfiles de red <em>privada</em> y <em>dominio</em> (nunca públicas), y la elimina al desinstalar.</li>
+          <li><strong>Comprobación:</strong> la pestaña <em>Diagnóstico y Requisitos</em> señala la ausencia de la regla e indica el comando exacto a ejecutar como Administrador.</li>
+        </ul>
+
+        <h4>Otras correcciones de instalación</h4>
+        <ul>
+          <li><strong>Actualización sobre una versión anterior:</strong> el instalador cierra la instancia en ejecución en lugar de interrumpirse con el error "archivo en uso".</li>
+          <li><strong>Antivirus y SmartScreen:</strong> el ejecutable incorpora su propia información de versión y editor, y ya no se comprime con UPX (origen de falsos positivos).</li>
+          <li><strong>Instalación mediante winget:</strong> el manifiesto apuntaba a un archivo de versión inexistente y devolvía un error 404.</li>
+          <li><strong>Lanzador de doble clic:</strong> los mensajes de <code>bham.bat</code> ya no se muestran con caracteres ilegibles, y la detección incluye Python 3.13.</li>
         </ul>
       `
     }

@@ -247,6 +247,24 @@ jobs:
           git archive --format=zip --prefix="bham-${VER}/" -o "bham-source-${VER}.zip" HEAD
           sha256sum "bham-source-${VER}.zip" > "bham-source-${VER}.zip.sha256"
 
+      # Il manifest winget deve riportare l'hash reale dell'asset pubblicato:
+      # quello versionato nel repository è solo un template con SHA a zeri.
+      - name: Generate winget installer manifest with real SHA256
+        run: |
+          VER="${{ needs.prepare-version.outputs.clean_version }}"
+          ZIP="bham-windows-x64-portable.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "::warning::$ZIP non trovato: manifest winget non generato."
+            exit 0
+          fi
+          SHA=$(sha256sum "$ZIP" | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]')
+          sed -e "s|^PackageVersion:.*|PackageVersion: ${VER}|" \
+              -e "s|InstallerUrl:.*|InstallerUrl: https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VER}/${ZIP}|" \
+              -e "s|InstallerSha256:.*|InstallerSha256: ${SHA}|" \
+              winget/BacsHelp.BHAM.installer.yaml > BacsHelp.BHAM.installer.yaml
+          echo "SHA256 asset portable: ${SHA}"
+          cat BacsHelp.BHAM.installer.yaml
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -267,4 +285,5 @@ jobs:
             bham-linux-x64.tar.gz.sha256
             bham_*.deb
             bham_*.deb.sha256
+            BacsHelp.BHAM.installer.yaml
             scripts/install.sh

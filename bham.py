@@ -317,86 +317,25 @@ def get_local_lan_ips() -> list[str]:
     return sorted(ips)
 
 
-def find_installed_browser() -> str | None:
-    """Restituisce il percorso dell'eseguibile del browser installato su Linux."""
-    candidates = [
-        "firefox",
-        "google-chrome-stable",
-        "google-chrome",
-        "chromium-browser",
-        "chromium",
-        "brave-browser",
-        "microsoft-edge",
-        "epiphany",
-        "x-www-browser",
-    ]
-    for c in candidates:
-        path = shutil.which(c)
-        if path:
-            return path
-    return None
-
-
-def open_browser_when_ready(url: str, port: int = 8765, timeout: float = 12.0) -> None:
-    """
-    Attende che il server HTTP sia in ascolto su localhost:port,
-    quindi apre automaticamente il browser sul client locale.
-    Non blocca l'esecuzione e gestisce ambienti headless (es. SSH / Raspberry headless).
-    """
-    import threading
-    import time
-    import socket
-    import webbrowser
-
-    def _worker():
-        # Su Linux, evita l'apertura se non è presente un display grafico (es. SSH / Raspberry headless)
-        if platform.system() == "Linux" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-            return
-
-        start_time = time.time()
-        ready = False
-        while time.time() - start_time < timeout:
-            time.sleep(0.3)
-            try:
-                with socket.create_connection(("127.0.0.1", port), timeout=0.3):
-                    ready = True
-                    break
-            except (OSError, ConnectionRefusedError):
-                continue
-
-        if not ready:
-            return
-
-        # Tentativo 1: su Linux, esecuzione diretta del binario browser rilevato
-        # per aggirare associazioni MIME corrotte o browser predefiniti mancanti (es. xdg-open che punta a Chrome disinstallato)
-        opened = False
-        if platform.system() == "Linux":
-            browser_bin = find_installed_browser()
-            if browser_bin:
-                try:
-                    subprocess.Popen(
-                        [browser_bin, url],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        start_new_session=True,
-                    )
-                    opened = True
-                except Exception:
-                    pass
-
-        # Tentativo 2: modulo webbrowser standard Python
-        if not opened:
-            try:
-                webbrowser.open(url)
-            except Exception:
-                pass
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
+# Le utility di apertura browser vivono in core/browser.py (solo stdlib) così da
+# essere condivise fra questo launcher, eseguito con il Python di sistema, e
+# l'applicazione congelata PyInstaller. Re-export per retrocompatibilità.
+from core.browser import find_installed_browser, open_browser_when_ready  # noqa: E402
 
 
 def start(reload: bool, auto_open: bool = True) -> int:
-    port = 8765
+    from core.preflight import run_preflight
+
+    report = run_preflight(port=8765)
+    for warning in report.warnings:
+        print(f"[!] {warning}")
+    for error in report.errors:
+        print(f"[ERRORE] {error}")
+    if not report.is_healthy:
+        print("\nAvvio annullato: risolvi i problemi elencati sopra e riprova.")
+        return 1
+
+    port = report.resolved_port
     lan_ips = get_local_lan_ips()
 
     print("=" * 64)
@@ -426,8 +365,14 @@ def start(reload: bool, auto_open: bool = True) -> int:
            "--host", "0.0.0.0", "--port", str(port)]
     if reload:
         cmd.append("--reload")
+    env = dict(os.environ)
+    env["BHAM_PORT"] = str(port)
+    if auto_open:
+        # Il browser è già stato pianificato qui sopra: evita la doppia apertura
+        # da parte del lifespan dell'applicazione.
+        env["BHAM_NO_BROWSER"] = "1"
     try:
-        return subprocess.call(cmd, cwd=str(ROOT_DIR))
+        return subprocess.call(cmd, cwd=str(ROOT_DIR), env=env)
     except KeyboardInterrupt:
         print("\nArresto di BHAM.")
         return 0

@@ -73,6 +73,37 @@ jobs:
       - name: "--check must pass after install"
         run: python bham.py --check
 
+  frozen:
+    name: Frozen binary smoke test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build standalone binary
+        run: pyinstaller bham.spec --noconfirm
+
+      # Intercetta le regressioni di packaging che i test unitari non vedono,
+      # come il binario che esce subito con "Could not import module main".
+      - name: Binary starts and serves the web console
+        run: python scripts/smoke_frozen.py
+
   static:
     name: Static checks (JS syntax & version sync)
     runs-on: ubuntu-latest
@@ -99,3 +130,20 @@ jobs:
           test "$(grep -c "BACS Help Auto Mapper v$VER" frontend/js/i18n.js)" -eq 3
           grep -q "PackageVersion: $VER" winget/BacsHelp.BHAM.yaml
           grep -q "VERSION=\"\${1:-$VER}\"" scripts/package_deb.sh
+          grep -q "#define MyAppVersion \"$VER\"" installer/bham.iss
+          grep -q "set \"BHAM_VERSION=$VER\"" bham.bat
+          grep -q "BHAM-Bootstrap/$VER" scripts/bootstrap_windows.ps1
+          grep -q "BHAM-FieldStation/$VER" core/system_requirements.py
+
+      - name: Windows launcher is pure ASCII (legacy console code pages)
+        run: |
+          if LC_ALL=C grep -n '[^ -~]' bham.bat; then
+            echo "bham.bat must stay ASCII-only: the Windows console renders UTF-8 as mojibake"
+            exit 1
+          fi
+
+      - name: Winget manifest points at a real release asset
+        run: |
+          VER=$(python3 scripts/bump_version.py --get)
+          grep -q "Molonverona/BHAM/releases/download/v$VER/bham-windows-x64-portable.zip" \
+            winget/BacsHelp.BHAM.installer.yaml

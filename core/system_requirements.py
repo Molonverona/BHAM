@@ -28,6 +28,14 @@ _SYSTEM = platform.system()  # "Windows" | "Linux" | "Darwin"
 NPCAP_DOWNLOAD_URL = "https://npcap.com/dist/npcap-1.80.exe"
 NPCAP_FILENAME = "npcap-1.80.exe"
 
+# Nome della regola di Windows Firewall creata dall'installer Inno Setup.
+# Deve coincidere con quello usato in installer/bham.iss.
+WINDOWS_FIREWALL_RULE_NAME = "BHAM - BACS Help Auto Mapper"
+
+# Evita il lampo di finestra console quando si invocano tool di sistema
+# dall'eseguibile congelato su Windows.
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 
 def is_windows() -> bool:
     return _SYSTEM == "Windows"
@@ -74,6 +82,38 @@ def check_npcap_installed() -> bool:
     return any(os.path.isfile(c) for c in candidates)
 
 
+def check_windows_firewall_rule(
+    rule_name: str = WINDOWS_FIREWALL_RULE_NAME,
+    timeout_s: float = 6.0,
+) -> Optional[bool]:
+    """
+    Verifica se esiste una regola di Windows Firewall che autorizza BHAM.
+
+    Senza questa regola il demone resta raggiungibile da localhost ma viene
+    bloccato per tablet e smartphone di cantiere sulla stessa LAN: è la causa
+    più frequente di "il QR code non si apre dal telefono".
+
+    Ritorna True/False su Windows, None su altre piattaforme o se la verifica
+    non è stata possibile (netsh assente, permessi insufficienti, timeout).
+    """
+    if not is_windows():
+        return None
+    try:
+        res = subprocess.run(
+            ["netsh", "advfirewall", "firewall", "show", "rule", f"name={rule_name}"],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            creationflags=_NO_WINDOW,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if res.returncode != 0:
+        return False
+    # netsh risponde "No rules match the specified criteria." se la regola manca.
+    return "No rules match" not in (res.stdout or "")
+
+
 def check_tshark_installed() -> bool:
     """True se Wireshark / TShark è disponibile per catture PCAP avanzate."""
     if shutil.which("tshark"):
@@ -116,7 +156,7 @@ def download_npcap(dest_dir: Optional[Path] = None, timeout_s: float = 60.0) -> 
     # Headers standard per evitare blocchi anti-scraping
     req = urllib.request.Request(
         NPCAP_DOWNLOAD_URL,
-        headers={"User-Agent": "BHAM-FieldStation/1.1.0 (Windows Installer Helper)"},
+        headers={"User-Agent": "BHAM-FieldStation/1.2.0 (Windows Installer Helper)"},
     )
 
     with urllib.request.urlopen(req, timeout=timeout_s) as response:
@@ -139,10 +179,14 @@ def get_system_diagnostics() -> dict[str, Any]:
     from core.hw_discovery import list_network_interfaces, list_serial_ports
     from core.priv_check import check_privileges
 
+    from core.paths import is_frozen, is_portable
+
     priv = check_privileges()
     py_info = get_python_info()
     npcap_ok = check_npcap_installed()
     tshark_ok = check_tshark_installed()
+    firewall_rule = check_windows_firewall_rule()
+    frozen = is_frozen()
 
     try:
         serials = list_serial_ports()
@@ -157,11 +201,22 @@ def get_system_diagnostics() -> dict[str, Any]:
     missing: list[str] = []
     recommendations: list[str] = []
 
-    if not py_info["is_supported"]:
+    # Nel binario congelato il runtime è incorporato: la versione dell'interprete
+    # di sistema è irrilevante e non deve generare falsi allarmi.
+    if not py_info["is_supported"] and not frozen:
         missing.append(f"Python {py_info['version']} non ufficialmente supportato (richiesto 3.12 o 3.13)")
         recommendations.append("Installa Python 3.12 ufficiale per garantire stabilità ai driver BACS.")
 
     if is_windows():
+        if firewall_rule is False:
+            recommendations.append(
+                "Nessuna regola di Windows Firewall per BHAM: l'accesso da tablet e "
+                "smartphone sulla LAN potrebbe essere bloccato. Reinstalla BHAM "
+                "selezionando l'opzione firewall, oppure esegui come Amministratore: "
+                'netsh advfirewall firewall add rule name="'
+                + WINDOWS_FIREWALL_RULE_NAME
+                + '" dir=in action=allow protocol=TCP localport=8765'
+            )
         if not npcap_ok:
             missing.append("Driver Npcap mancante su Windows (wpcap.dll)")
             recommendations.append("Installa Npcap per abilitare la cattura ARP passiva e lo sniffer di rete.")
@@ -178,9 +233,16 @@ def get_system_diagnostics() -> dict[str, Any]:
     has_packet_capture = (npcap_ok and priv.is_root_or_admin) if is_windows() else (priv.has_cap_net_raw or priv.is_root_or_admin)
     has_serial_access = True if is_windows() else (priv.has_dialout or priv.is_root_or_admin)
 
+    from core.config import settings
+
     return {
         "os": _SYSTEM.lower(),
         "os_name": _SYSTEM,
+        "app_version": settings.app_version,
+        "is_frozen": frozen,
+        "is_portable": is_portable(),
+        "listen_port": settings.port,
+        "windows_firewall_rule": firewall_rule,
         "os_release": platform.release(),
         "os_version": platform.version(),
         "arch": platform.machine(),

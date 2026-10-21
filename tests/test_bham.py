@@ -2125,6 +2125,7 @@ class TestFastAPICoreWiringV11(unittest.TestCase):
     def test_core_endpoints_wiring(self):
         from main import create_app
         from api import routes
+        from core.config import settings
         import asyncio
 
         app = create_app()
@@ -2134,7 +2135,7 @@ class TestFastAPICoreWiringV11(unittest.TestCase):
             # 1. Health check
             h = await routes.health()
             self.assertEqual(h["status"], "ok")
-            self.assertEqual(h["version"], "1.1.0")
+            self.assertEqual(h["version"], settings.app_version)
 
             # 2. State & Topology
             st = await routes.get_state()

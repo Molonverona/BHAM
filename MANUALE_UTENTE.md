@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.1.0)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.2.0)
 
 ---
 
@@ -546,3 +546,60 @@ Nella versione 1.1.0, BHAM introduce un potente sniffer passivo per bus KNX:
 
 
 
+
+---
+
+## 24. Installazione Windows, Avvio Standalone & Diagnostica di Preflight (v1.2.0)
+
+La versione 1.2.0 risolve un guasto critico che rendeva inutilizzabili **tutti** i pacchetti compilati e introduce una diagnostica di avvio pensata per il primo collaudo su un PC di cantiere appena preparato.
+
+### 24.1 Guasto risolto: l'eseguibile non si avviava
+
+| Aspetto | Dettaglio |
+| --- | --- |
+| **Sintomo** | Dopo l'installazione, `bham.exe` apriva una finestra di console che si chiudeva immediatamente, con il messaggio `ERROR: Error loading ASGI app. Could not import module "main".` |
+| **Causa tecnica** | Il server ASGI riceveva la *stringa di import* `"main:app"`. In un bundle PyInstaller lo script di ingresso viene eseguito come `__main__` e il modulo `main` non è importabile: il caricamento dell'applicazione falliva sempre. |
+| **Portata** | Installer Windows (`bham-windows-x64-installer-*.exe`), edizione portable (`bham-windows-x64-portable.zip`) e binario Linux (`bham-linux-x64.tar.gz`). |
+| **Non colpito** | L'avvio da sorgente (`bham.bat`, `bham.py`, `uvicorn main:app`), motivo per cui la suite di test non rilevava il guasto. |
+| **Correzione** | In modalità congelata viene consegnato direttamente l'oggetto applicazione; da sorgente si mantiene la stringa di import necessaria all'auto-reload. |
+| **Verifica continua** | Nuovo job CI su Windows e Linux che compila l'eseguibile, lo **avvia realmente** e interroga `/api/v1/health`, la console web e la diagnostica prima di pubblicare qualunque release (`scripts/smoke_frozen.py`). |
+
+### 24.2 Flag a riga di comando dell'eseguibile
+
+Fino alla v1.1.0 il binario accettava e ignorava qualunque argomento.
+
+| Flag | Effetto |
+| --- | --- |
+| `--port 9000` | Porta di ascolto alternativa |
+| `--host 127.0.0.1` | Limita l'ascolto alla sola macchina locale |
+| `--check` | Esegue solo le verifiche di preflight ed esce (codice 0 = sistema pronto) |
+| `--version` | Stampa la versione e termina |
+| `--no-browser` | Non apre automaticamente il browser |
+| `--demo` | Avvia il Simulatore d'Impianto Virtuale |
+| `--no-port-fallback` | Disattiva la ricerca automatica di una porta libera |
+
+> **Primo test su una postazione nuova:** eseguire `bham.exe --check` da prompt dei comandi. Restituisce `0` e la porta di ascolto se il sistema è pronto, altrimenti elenca in chiaro i problemi da risolvere.
+
+### 24.3 Preflight automatico all'avvio
+
+- **Directory dati scrivibile:** segnala immediatamente un'installazione in una cartella protetta (es. `Program Files` senza privilegi) invece di fallire in modo oscuro durante il collaudo.
+- **Asset della console web:** verifica che l'interfaccia sia realmente presente nel pacchetto; un bundle incompleto è la causa tipica della pagina bianca.
+- **Porta occupata & fallback automatico:** se la porta 8765 è già usata da un'altra istanza di BHAM, il demone passa automaticamente alla prima porta libera invece di terminare con un traceback, allineando log di avvio, URL LAN e QR code di pairing alla porta effettivamente in uso.
+
+### 24.4 Accesso da tablet e smartphone: regola di Windows Firewall
+
+- **Causa più frequente del QR code che non si apre dal telefono:** Windows Firewall blocca le connessioni in ingresso e BHAM resta raggiungibile solo dal PC locale, pur risultando avviato correttamente.
+- **Soluzione guidata:** l'installer propone (come opzione selezionabile) la creazione della regola in ingresso sulla porta **8765/TCP**, limitata ai profili di rete **privata** e **dominio** — mai alle reti pubbliche — e la rimuove alla disinstallazione.
+- **Controllo in tempo reale:** la scheda *Diagnostica & Requisiti* rileva l'assenza della regola (`windows_firewall_rule`) e riporta il comando corretto da eseguire come Amministratore:
+
+```bat
+netsh advfirewall firewall add rule name="BHAM - BACS Help Auto Mapper" dir=in action=allow protocol=TCP localport=8765
+```
+
+### 24.5 Altre correzioni di installazione
+
+- **Aggiornamento sopra una versione precedente:** l'installer chiude l'istanza in esecuzione tramite Restart Manager invece di interrompersi con l'errore *"file in uso"*.
+- **Antivirus e SmartScreen:** l'eseguibile incorpora ora il manifest applicativo (UAC `asInvoker`, DPI awareness) e la risorsa `VERSIONINFO` con nome prodotto, versione e publisher; la compressione UPX è stata disattivata perché corrompe alcune DLL del runtime Python e innesca falsi positivi.
+- **Installazione via winget:** il manifest puntava al repository errato e a un asset di release inesistente, restituendo errore 404. Il workflow di release pubblica ora il manifest già compilato con lo SHA256 reale.
+- **Launcher a doppio clic (`bham.bat`):** i messaggi non vengono più mostrati con caratteri illeggibili sulle code page legacy della console Windows, e il rilevamento dell'interprete include Python 3.13 oltre a 3.12.
+- **Variabile `BHAM_API_TOKEN`:** era documentata ma non veniva letta dalla configurazione; ora `host`, `port`, `debug`, `api_token` e `lan_auth_required` accettano sia il nome semplice sia la forma con prefisso `BHAM_`.

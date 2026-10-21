@@ -4,10 +4,19 @@ Loads settings from environment variables / .env file using pydantic-settings.
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import AliasChoices, Field
 import hmac
 import platform
 import secrets
+
+
+def _env(name: str) -> AliasChoices:
+    """
+    Accetta sia il nome semplice (`PORT`) sia quello con prefisso di progetto
+    (`BHAM_PORT`), allineandosi alle variabili runtime già usate da BHAM
+    (`BHAM_DEMO`, `BHAM_NO_BROWSER`, `BHAM_PORTABLE`).
+    """
+    return AliasChoices(name, f"bham_{name}")
 
 # Porta seriale di ripiego quando l'utente non ne ha selezionata una.
 DEFAULT_SERIAL_PORT = "COM1" if platform.system() == "Windows" else "/dev/ttyUSB0"
@@ -23,16 +32,19 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────────────────
     app_name: str = "BHAM – BACS Help Auto Mapper"
-    app_version: str = "1.1.0"
-    debug: bool = False
+    app_version: str = "1.2.0"
+    debug: bool = Field(default=False, validation_alias=_env("debug"))
 
     # ── Server ───────────────────────────────────────────────────────────────
-    host: str = "0.0.0.0"
-    port: int = 8765
+    host: str = Field(default="0.0.0.0", validation_alias=_env("host"))
+    port: int = Field(default=8765, validation_alias=_env("port"))
 
     # ── Security & Remote LAN Access ─────────────────────────────────────────
-    api_token: str = Field(default_factory=lambda: secrets.token_urlsafe(16))
-    lan_auth_required: bool = True
+    api_token: str = Field(
+        default_factory=lambda: secrets.token_urlsafe(16),
+        validation_alias=_env("api_token"),
+    )
+    lan_auth_required: bool = Field(default=True, validation_alias=_env("lan_auth_required"))
 
     def verify_token(self, token: str | None) -> bool:
         """Verifica se il token fornito corrisponde a quello attivo del demone."""

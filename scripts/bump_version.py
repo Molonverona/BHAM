@@ -108,6 +108,17 @@ EXTRA_TARGETS = [
     (ROOT / "installer" / "bham.iss", [
         (r'(#define MyAppVersion\s*")[^"]+', r'\g<1>{v}'),
     ]),
+    # Launcher a doppio clic Windows: versione mostrata in testata.
+    (ROOT / "bham.bat", [
+        (r'(set "BHAM_VERSION=)\d+\.\d+\.\d+', r"\g<1>{v}"),
+    ]),
+    # User-Agent del bootstrapper PowerShell e del downloader companion.
+    (ROOT / "scripts" / "bootstrap_windows.ps1", [
+        (r"(BHAM-Bootstrap/)\d+\.\d+\.\d+", r"\g<1>{v}"),
+    ]),
+    (ROOT / "core" / "system_requirements.py", [
+        (r"(BHAM-FieldStation/)\d+\.\d+\.\d+", r"\g<1>{v}"),
+    ]),
 ]
 
 # Elenco file da includere nel commit di release (usato da release.sh / CI).
@@ -116,6 +127,7 @@ RELEASE_FILES = [
     "frontend/index.html", "frontend/js/i18n.js",
     "MANUALE_UTENTE.md", "frontend/MANUALE_UTENTE.md",
     "scripts/package_deb.sh", "scripts/install.sh", ".env.example", "installer/bham.iss",
+    "bham.bat", "scripts/bootstrap_windows.ps1", "core/system_requirements.py",
     "CHANGELOG.md",
 ]
 
