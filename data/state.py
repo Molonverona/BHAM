@@ -50,6 +50,10 @@ class AppState:
         self.ip_hosts: dict[str, IPHost] = {}               # key: ip
         self.knx_telegrams: list[KNXTelegram] = []          # Circular buffer telegrammi monitor
         self.max_knx_telegrams: int = 1000
+        # Tetto sullo storico scansioni: senza di esso cresceva per tutta la
+        # giornata di lavoro e veniva serializzato per intero in ogni snapshot
+        # inviato ai client WebSocket.
+        self.max_sessions: int = 200
 
         # Active / historical scan sessions
         self.sessions: dict[str, ScanSession] = {}
@@ -74,16 +78,38 @@ class AppState:
             parameters=parameters,
             status=ScanStatus.IDLE,
         )
-        self.sessions[session.id] = session
-        self.active_session_id = session.id
+        # `sessions` era l'unica collezione mutata fuori dal lock, mentre
+        # snapshot() la itera tenendolo: gli scanner aggiornano le sessioni da
+        # thread di executor, quindi la lettura poteva risultare incoerente.
+        with self._state_lock:
+            self.sessions[session.id] = session
+            self.active_session_id = session.id
+            self._prune_sessions_locked()
         return session
 
+    def _prune_sessions_locked(self) -> None:
+        """
+        Mantiene al massimo `max_sessions` voci nello storico, scartando le più
+        vecchie fra quelle già concluse. Le scansioni ancora in corso non
+        vengono mai rimosse. Da invocare tenendo `_state_lock`.
+        """
+        excess = len(self.sessions) - self.max_sessions
+        if excess <= 0:
+            return
+        finished = [s for s in self.sessions.values() if s.finished_at is not None]
+        finished.sort(key=lambda s: s.finished_at)
+        for session in finished[:excess]:
+            self.sessions.pop(session.id, None)
+
     def update_session(self, session_id: str, **kwargs) -> None:
-        if session_id in self.sessions:
-            session = self.sessions[session_id]
-            for k, v in kwargs.items():
-                setattr(session, k, v)
-            self._notify({"event": "session_update", "session": session.model_dump(mode="json")})
+        with self._state_lock:
+            session = self.sessions.get(session_id)
+            if session is None:
+                return
+            for key, value in kwargs.items():
+                setattr(session, key, value)
+            payload = session.model_dump(mode="json")
+        self._notify({"event": "session_update", "session": payload})
 
     def finish_session(self, session_id: str, status: ScanStatus = ScanStatus.COMPLETED) -> None:
         self.update_session(
@@ -92,7 +118,9 @@ class AppState:
             finished_at=datetime.now(timezone.utc),
             progress_pct=100.0,
         )
-        self.active_session_id = None
+        with self._state_lock:
+            self.active_session_id = None
+            self._prune_sessions_locked()
 
     # ── Device upserts ───────────────────────────────────────────────────────
 
@@ -661,6 +689,11 @@ class AppState:
             self.knx_devices.clear()
             self.ip_hosts.clear()
             self.knx_telegrams.clear()
+            # Lo storico delle scansioni appartiene al collaudo appena chiuso e
+            # va azzerato come le altre collezioni; le sessioni ancora in corso
+            # restano, perché i loro scanner stanno ancora scrivendo.
+            for session_id in [s.id for s in self.sessions.values() if s.finished_at is not None]:
+                self.sessions.pop(session_id, None)
         self._notify({"event": "state_cleared"})
 
 

@@ -3,6 +3,44 @@
 Formato basato su [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versioni [SemVer](https://semver.org/lang/it/).
 Le note della sezione corrispondente alla versione vengono pubblicate automaticamente nella GitHub Release.
 
+## [1.2.5] – 2026-10-25
+
+Versione dedicata al **controllo generale dell'applicazione**: i rilievi dell'audit storico sono stati ricontrollati uno per uno sul codice attuale (tutti confermati chiusi) e sono emersi 6 difetti nuovi, qui risolti. Il dettaglio completo, con la tabella di verifica, è in `AUDIT.md`.
+
+### Risolto (critico)
+- **L'arresto d'emergenza globale rispondeva HTTP 500 (`api/routes.py`, `scanners/base.py`)**:
+  - `POST /api/v1/scan/abort` dichiara `ScanAbortResponse.sessions` come `list[str]` ("Elenco ID delle sessioni terminate"), ma l'handler restituiva l'**intero** di `abort_all()`. La validazione della risposta di FastAPI falliva e l'endpoint rispondeva **500 Internal Server Error**: la funzione di arresto d'emergenza non ha mai funzionato via HTTP.
+  - Il difetto era sfuggito perché la suite invoca le funzioni handler **direttamente**, bypassando la validazione contro il `response_model`: nessun test esercitava i contratti dichiarati.
+  - `abort_all()` ritorna ora la lista degli ID effettivamente fermati, coerente con lo schema e più informativa.
+
+### Aggiunto
+- **Mutua esclusione sulle risorse di campo esclusive (`core/resource_guard.py`)**:
+  - Una porta RS485 ammette un solo lettore, ma nulla impediva di avviare contemporaneamente una scansione Modbus RTU e uno sniffer passivo sulla **stessa** `/dev/ttyUSB0`: i due consumatori si rubano i byte a vicenda, falsando mappatura e diagnosi di Bus Health senza alcun avviso. Lo stesso valeva per il discovery BACnet/IP (bind della 47808) e per discovery KNXnet/IP e Group Monitor, che condividono il socket multicast 3671.
+  - Le route di avvio rivendicano ora la risorsa; il conflitto viene rifiutato con **HTTP 409** indicando quale operazione la detiene, da quanti secondi e come arrestarla. La verifica precede la creazione della sessione, così un conflitto non lascia una sessione fantasma nello storico.
+  - Risorsa e stato di abort vengono liberati quando il task termina, in qualunque modo, tramite done-callback.
+  - Nuovo endpoint **`GET /api/v1/system/resources`** per ispezionare le risorse occupate: serve a capire perché un avvio è stato rifiutato.
+- **Test di contratto sulle risposte API (`tests/test_resource_contracts.py`)**:
+  - L'uscita degli handler viene validata contro il `response_model` realmente dichiarato sulla route — la verifica che avrebbe intercettato l'arresto d'emergenza rotto — e ogni endpoint `/scan*` deve dichiararne uno.
+- **Verifica del canale WebSocket nello smoke test (`scripts/smoke_frozen.py`)**:
+  - La telemetria live è il cuore della console di collaudo, ma lo smoke test copriva solo le route REST: un bundle con l'implementazione WebSocket incompleta lo avrebbe superato. Ora apre una connessione al canale live e pretende lo snapshot iniziale, verificando anche il registro risorse.
+
+### Modificato
+- **Registro degli abort: perdita di memoria e conteggio fuorviante (`scanners/base.py`)**:
+  - `_abort_events` accumulava una voce per ogni scansione e non veniva **mai** ripulito, crescendo per tutta la durata del processo. La pulizia avviene ora al termine del task.
+  - `abort_all()` ritornava il numero di sessioni mai registrate invece delle scansioni attive; `abort_session()` segnala ora una sola volta e riporta se ha effettivamente fermato qualcosa.
+- **Storico sessioni: tetto, lock e azzeramento coerente (`data/state.py`)**:
+  - `self.sessions` non aveva alcun limite ed era serializzato **integralmente** in ogni `snapshot()`, cioè a ogni connessione WebSocket e a ogni evento di stato: durante una giornata di collaudo con decine di scansioni il payload cresceva di continuo. Introdotto il tetto `max_sessions` (200) che scarta le più vecchie fra quelle **concluse**, mai le scansioni in corso.
+  - `sessions` era l'unica collezione mutata fuori da `_state_lock` mentre `snapshot()` la itera tenendolo — residuo del rilievo #2, corretto altrove ma non qui. Gli scanner aggiornano le sessioni da thread di executor, quindi la lettura poteva risultare incoerente.
+  - `clear()` azzera ora lo storico concluso come le altre collezioni, preservando le sessioni attive.
+- **Dipendenze: aggiornamento con cautela differenziata**:
+  - 12 delle 14 dipendenze pinnate erano ferme da circa due anni. **Aggiornate e verificate** quelle infrastrutturali: fastapi `0.115.0→0.162.0`, uvicorn `0.30.6→0.54.0`, websockets `13.1→17.3`, pydantic `2.9.2→2.14.1`, pydantic-settings `2.5.2→2.16.1`, aiofiles `24.1.0→25.1.0`, python-dotenv `1.0.1→1.2.4`, python-multipart `0.0.9→0.0.32`.
+  - **Deliberatamente lasciate pinnate** `pymodbus`, `bacpypes3`, `scapy` e `reportlab`: governano il comportamento sul filo (RS485, BACnet/IP, cattura L2) e l'impaginazione dei certificati PDF. Il simulatore non sostituisce una validazione su hardware reale, quindi il loro avanzamento resta da pianificare con strumentazione in linea.
+  - `bham.spec`: rimossi `wsproto` e `wsproto_impl`, non più dipendenze di `uvicorn[standard]` (producevano solo un avviso di hiddenimport mancante a ogni build); aggiunta l'implementazione sans-io che `--ws auto` seleziona.
+- **Spegnimento più pulito (`main.py`)**: le risorse rivendicate vengono rilasciate all'arresto, così un riavvio immediato non trova porte seriali o socket marcati come occupati da sessioni ormai morte; il numero di scansioni interrotte viene registrato nel log.
+
+### Test
+- Suite estesa da 140 a 162 test, verdi su Linux e Windows. Le nuove aree coperte: contratti di risposta contro i `response_model` dichiarati, registro di mutua esclusione (conflitto, idempotenza, rilascio protetto dal proprietario), rifiuto HTTP 409 delle route di avvio senza sessioni fantasma, rilascio di risorsa e stato di abort al termine del task, tetto e ritenzione dello storico sessioni.
+
 ## [1.2.0] – 2026-10-21
 
 ### Risolto (critico)

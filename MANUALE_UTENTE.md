@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.2.0)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.2.5)
 
 ---
 
@@ -619,3 +619,65 @@ netsh advfirewall firewall add rule name="BHAM - BACS Help Auto Mapper" dir=in a
 - **Installazione via winget:** il manifest puntava al repository errato e a un asset di release inesistente, restituendo errore 404. Il workflow di release pubblica ora il manifest già compilato con lo SHA256 reale.
 - **Launcher a doppio clic (`bham.bat`):** i messaggi non vengono più mostrati con caratteri illeggibili sulle code page legacy della console Windows, e il rilevamento dell'interprete include Python 3.13 oltre a 3.12.
 - **Variabile `BHAM_API_TOKEN`:** era documentata ma non veniva letta dalla configurazione; ora `host`, `port`, `debug`, `api_token` e `lan_auth_required` accettano sia il nome semplice sia la forma con prefisso `BHAM_`.
+
+---
+
+## 25. Risorse Esclusive, Mutua Esclusione & Controllo Generale (v1.2.5)
+
+La versione 1.2.5 nasce da una revisione completa del codice: ogni rilievo dell'audit storico è stato ricontrollato uno per uno sul sorgente attuale — **tutti confermati chiusi** — e sono emersi sei difetti nuovi, qui risolti. La tabella di verifica completa è in `AUDIT.md`.
+
+### 25.1 Perché due operazioni sulla stessa risorsa sono un problema
+
+Una linea RS485 ammette un solo lettore. Avviando insieme una scansione Modbus RTU e uno sniffer passivo sulla **stessa** porta, i due consumatori si sottraggono i byte a vicenda: il risultato sono dispositivi non rilevati e una diagnosi di Bus Health falsata, presentata però come valida. Nessun avviso segnalava la condizione.
+
+| Risorsa | Chi la rivendica | Perché è esclusiva |
+| --- | --- | --- |
+| `serial:<porta>` | Scansione Modbus RTU, Sniffer passivo RS485 | Il device seriale può essere aperto da un solo processo |
+| `bacnet-ip` | Discovery BACnet/IP | Il discovery effettua il bind della porta 47808 |
+| `knx-ip` | Discovery KNXnet/IP, KNX Group Monitor | Condividono il socket multicast 3671 |
+| `arp:<interfaccia>` | Sniffer passivo ARP | Due catture promiscue sulla stessa NIC si ostacolano |
+
+**Modbus TCP** e la **scansione IP BACS** effettuano solo connessioni in uscita: non rivendicano nulla e restano eseguibili in parallelo.
+
+### 25.2 Comportamento in caso di conflitto
+
+Il secondo avvio viene rifiutato con **HTTP 409** e un corpo azionabile:
+
+```json
+{
+  "detail": "La risorsa è già in uso da «Sniffer passivo RS485», avviata 12 secondi fa.",
+  "resource": "serial:/dev/ttyUSB0",
+  "conflicting_session_id": "3f2a…",
+  "conflicting_label": "Sniffer passivo RS485",
+  "hint": "Attendi il termine dell'operazione in corso oppure arrestala con POST /api/v1/scan/abort/{session_id}."
+}
+```
+
+- **Nessuna sessione fantasma:** il controllo precede la registrazione della scansione, quindi un tentativo rifiutato non sporca lo storico del collaudo.
+- **Rilascio garantito:** la risorsa viene liberata quando l'operazione termina in qualunque modo — completata, in errore o interrotta con Abort.
+- **Ispezione:** `GET /api/v1/system/resources` elenca ciò che è occupato in quel momento, con descrizione dell'operazione e secondi trascorsi.
+
+### 25.3 Arresto d'emergenza: difetto corretto
+
+`POST /api/v1/scan/abort` — l'arresto globale di tutte le scansioni — rispondeva **HTTP 500**. Lo schema dichiarava di restituire l'elenco delle sessioni fermate, ma l'handler restituiva un numero: la validazione della risposta falliva sistematicamente. La funzione non è quindi **mai** stata utilizzabile via HTTP.
+
+Il difetto era sfuggito perché la suite di test invoca le funzioni handler direttamente, senza passare dalla validazione del modello di risposta dichiarato. In v1.2.5 l'endpoint restituisce correttamente gli identificativi delle sessioni effettivamente arrestate, ed è stata aggiunta una famiglia di test che valida l'uscita degli handler contro il modello realmente dichiarato sulla route.
+
+### 25.4 Collaudi lunghi: memoria e banda sotto controllo
+
+- **Storico scansioni:** non aveva alcun limite ed era ritrasmesso *per intero* a ogni aggiornamento di stato, cioè a ogni connessione WebSocket e a ogni evento. In una giornata con decine di scansioni il traffico verso tablet e browser cresceva senza motivo. Ora è limitato alle **200 sessioni più recenti**, scartando solo quelle già concluse: le scansioni in corso non vengono mai rimosse.
+- **Registro degli arresti:** accumulava una voce per ogni scansione e non veniva mai ripulito, crescendo per tutta la durata del processo. La pulizia avviene ora al termine di ciascun task.
+- **Pulizia dello stato:** azzera ora anche lo storico concluso, come tutte le altre collezioni, preservando le scansioni ancora attive.
+- **Coerenza di lettura:** lo storico sessioni era l'unica collezione aggiornata fuori dal lock di stato mentre lo snapshot la itera tenendolo; gli scanner la aggiornano da thread separati, quindi la lettura poteva risultare incoerente.
+
+### 25.5 Aggiornamento delle librerie: scelta prudente e dichiarata
+
+Dodici delle quattordici dipendenze erano ferme da circa due anni. L'aggiornamento è stato differenziato per rischio:
+
+| Gruppo | Decisione | Motivo |
+| --- | --- | --- |
+| Server web, validazione dati, canale WebSocket (fastapi, uvicorn, websockets, pydantic, pydantic-settings, aiofiles, python-dotenv, python-multipart) | **Aggiornate e verificate** | Non toccano il comportamento sul filo. Validate con suite completa, ricompilazione dell'eseguibile e prova end-to-end del canale di telemetria live |
+| Driver di protocollo (`pymodbus`, `bacpypes3`, `scapy`) | **Lasciate pinnate** | Governano la comunicazione reale su RS485, BACnet/IP e la cattura L2: il simulatore non sostituisce una verifica su impianto |
+| Certificati PDF (`reportlab`) | **Lasciata pinnata** | Avanzamento major: l'impaginazione dei verbali va verificata visivamente |
+
+> L'avanzamento dei driver di protocollo resta un intervento da pianificare **con strumentazione in linea**, non da fare a scatola chiusa.

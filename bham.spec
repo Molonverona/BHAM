@@ -112,11 +112,16 @@ hiddenimports = [
     'uvicorn.protocols.http.httptools_impl',
     'uvicorn.protocols.websockets',
     'uvicorn.protocols.websockets.auto',
-    'uvicorn.protocols.websockets.wsproto_impl',
     'uvicorn.protocols.websockets.websockets_impl',
+    # Implementazione sans-io introdotta da uvicorn recente: `--ws auto` la
+    # seleziona al posto di quella legacy.
+    'uvicorn.protocols.websockets.websockets_sansio_impl',
     'h11',
-    'wsproto',
     'websockets',
+    'websockets.asyncio',
+    # NOTA: `wsproto` non è più una dipendenza di uvicorn[standard], quindi
+    # `wsproto_impl` non è importabile: elencarli produceva solo un avviso di
+    # hiddenimport mancante a ogni build.
     'websockets.legacy',
     'scapy.layers.l2',
     'scapy.layers.inet',

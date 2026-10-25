@@ -120,6 +120,16 @@ class ScanAbortSingleResponse(BaseModel):
     aborted: bool = Field(True, description="Conferma arresto della sessione indicata")
 
 
+class ResourceClaimInfo(BaseModel):
+    """Una risorsa di campo esclusiva attualmente occupata da una sessione."""
+
+    resource: str = Field(..., description="Chiave risorsa (es. 'serial:/dev/ttyUSB0', 'bacnet-ip', 'knx-ip')")
+    session_id: str = Field(..., description="ID della sessione che detiene la risorsa")
+    label: str = Field(..., description="Descrizione leggibile dell'operazione in corso")
+    acquired_at: str = Field(..., description="Istante ISO-8601 di acquisizione")
+    age_seconds: float = Field(..., description="Secondi trascorsi dall'acquisizione")
+
+
 # ── Hardware & Setup ──────────────────────────────────────────────────────────
 
 class SerialPortInfo(BaseModel):

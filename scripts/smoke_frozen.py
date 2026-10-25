@@ -93,6 +93,45 @@ def wait_port_released(port: int, timeout: float = 20.0) -> bool:
     return False
 
 
+def check_websocket(port: int, timeout: float = 20.0) -> str:
+    """
+    Verifica il canale di telemetria live: alla connessione il demone invia uno
+    snapshot completo dello stato. È il controllo che copre l'implementazione
+    WebSocket realmente inclusa nel bundle, non solo le route REST.
+
+    Ritorna un messaggio di esito. Se la libreria `websockets` non è
+    disponibile nell'ambiente che esegue lo smoke test, la verifica viene
+    saltata invece di far fallire il test.
+    """
+    try:
+        import websockets
+        from websockets.asyncio.client import connect
+    except Exception:
+        return "[i] websockets non disponibile: verifica del canale live saltata"
+
+    import asyncio
+
+    async def _probe() -> str:
+        url = f"ws://127.0.0.1:{port}/api/v1/ws"
+        async with connect(url, open_timeout=timeout) as ws:
+            raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
+        message = json.loads(raw)
+        if message.get("event") != "snapshot":
+            raise AssertionError(f"primo messaggio inatteso: {message.get('event')!r}")
+        if "data" not in message:
+            raise AssertionError("snapshot privo del campo 'data'")
+        return (
+            f"[OK] canale WebSocket live attivo (websockets {websockets.__version__}, "
+            f"primo evento: snapshot)"
+        )
+
+    try:
+        return asyncio.run(_probe())
+    except Exception as exc:
+        fail(f"canale WebSocket non funzionante: {type(exc).__name__}: {exc}")
+        raise AssertionError  # pragma: no cover – fail() esce sempre
+
+
 def http_get(url: str, timeout: float = 3.0) -> tuple[int, str]:
     req = urllib.request.Request(url, headers={"User-Agent": "BHAM-Smoke/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -174,6 +213,13 @@ def main() -> int:
         if status != 200:
             fail(f"/api/v1/system/diagnostics ha risposto HTTP {status}")
         print("[OK] endpoint di diagnostica raggiungibile")
+
+        status, body = http_get(f"http://127.0.0.1:{args.port}/api/v1/system/resources", timeout=10.0)
+        if status != 200 or not isinstance(json.loads(body), list):
+            fail(f"/api/v1/system/resources ha risposto HTTP {status}")
+        print("[OK] registro risorse esclusive raggiungibile")
+
+        print(check_websocket(args.port))
     finally:
         terminate_tree(proc)
 
