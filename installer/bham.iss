@@ -59,12 +59,18 @@ Name: "firewall"; Description: "Consenti l'accesso da tablet e smartphone sulla 
 
 [Files]
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "verifica-installazione.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "..\MANUALE_UTENTE.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+; Diagnostica di campo senza dover aprire un prompt a mano. Punta a uno script
+; wrapper invece di comporre "cmd /k" con percorsi fra apici annidati: la
+; differenza e' verificabile, mentre il quoting annidato compila ma puo'
+; rompersi solo a runtime.
+Name: "{group}\Verifica installazione (diagnostica)"; Filename: "{app}\verifica-installazione.bat"; IconFilename: "{app}\{#MyAppExeName}"; Comment: "Verifica preflight e motori di protocollo di BHAM"
 Name: "{group}\Manuale Utente"; Filename: "{app}\MANUALE_UTENTE.md"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon

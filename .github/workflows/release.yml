@@ -115,6 +115,9 @@ jobs:
           Copy-Item dist\bham.exe dist-portable\
           New-Item -ItemType File -Path dist-portable\portable.flag
           Copy-Item README.md, MANUALE_UTENTE.md, LICENSE dist-portable\
+          # Stessa diagnostica di campo offerta dall'installer, disponibile
+          # anche a chi usa l'edizione portable senza installazione.
+          Copy-Item installer\verifica-installazione.bat dist-portable\
           Compress-Archive -Path dist-portable\* -DestinationPath bham-windows-x64-portable.zip
           $hash = (Get-FileHash -Path bham-windows-x64-portable.zip -Algorithm SHA256).Hash
           Set-Content -Path bham-windows-x64-portable.zip.sha256 -Value $hash

@@ -266,6 +266,11 @@ le regressioni di packaging invisibili ai test unitari.
 | Lo sniffer ARP/L2 non cattura pacchetti | Driver **Npcap** assente: la scheda *Diagnostica & Requisiti* offre il download guidato |
 | `winget install BacsHelp.BHAM` restituisce 404 | Manifest corretto in 1.2.0 (puntava a un asset di release inesistente) |
 
+Dopo l'installazione è disponibile nel menu Start la voce **BHAM → Verifica installazione (diagnostica)**:
+esegue il controllo completo e mostra l'esito in una finestra che resta aperta, senza bisogno di
+aprire un prompt dei comandi. La stessa utilità (`verifica-installazione.bat`) è inclusa
+nell'archivio portable.
+
 Diagnostica completa dalla UI: **Impostazioni → Diagnostica & Requisiti**, oppure
 `GET /api/v1/system/diagnostics` (riporta `is_frozen`, `is_portable`, `listen_port`,
 `has_npcap` e `windows_firewall_rule`).

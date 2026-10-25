@@ -452,13 +452,32 @@ class TestWingetManifest(unittest.TestCase):
 class TestWindowsLauncher(unittest.TestCase):
     """Il launcher a doppio clic deve restare leggibile su console Windows."""
 
-    def test_bat_file_is_pure_ascii(self):
-        raw = (REPO_ROOT / "bham.bat").read_bytes()
-        offenders = [b for b in raw if b > 0x7E or (b < 0x20 and b not in (0x09, 0x0A, 0x0D))]
-        self.assertEqual(
-            offenders, [],
-            "bham.bat deve restare ASCII: la console Windows usa code page legacy",
-        )
+    def test_batch_files_are_pure_ascii(self):
+        for relative in ("bham.bat", "installer/verifica-installazione.bat"):
+            with self.subTest(file=relative):
+                raw = (REPO_ROOT / relative).read_bytes()
+                offenders = [
+                    b for b in raw
+                    if b > 0x7E or (b < 0x20 and b not in (0x09, 0x0A, 0x0D))
+                ]
+                self.assertEqual(
+                    offenders, [],
+                    f"{relative} deve restare ASCII: la console Windows usa code page legacy",
+                )
+
+    def test_diagnostics_shortcut_target_is_installed(self):
+        """Il collegamento del menu Start deve puntare a un file effettivamente installato."""
+        iss = _read("installer/bham.iss")
+        self.assertIn('Source: "verifica-installazione.bat"', iss)
+        self.assertIn(r"{app}\verifica-installazione.bat", iss)
+        self.assertTrue((REPO_ROOT / "installer" / "verifica-installazione.bat").is_file())
+
+    def test_diagnostics_script_runs_check_and_waits(self):
+        script = _read("installer/verifica-installazione.bat")
+        self.assertIn("--check", script)
+        # Senza pause la finestra si chiuderebbe prima che l'esito sia leggibile.
+        self.assertIn("pause", script)
+        self.assertIn('"%~dp0bham.exe"', script)
 
     def test_detects_both_supported_python_versions(self):
         content = _read("bham.bat")

@@ -163,12 +163,14 @@ jobs:
           grep -q "BHAM-Bootstrap/$VER" scripts/bootstrap_windows.ps1
           grep -q "BHAM-FieldStation/$VER" core/system_requirements.py
 
-      - name: Windows launcher is pure ASCII (legacy console code pages)
+      - name: Windows batch files are pure ASCII (legacy console code pages)
         run: |
-          if LC_ALL=C grep -n '[^ -~]' bham.bat; then
-            echo "bham.bat must stay ASCII-only: the Windows console renders UTF-8 as mojibake"
-            exit 1
-          fi
+          for f in bham.bat installer/verifica-installazione.bat; do
+            if LC_ALL=C grep -n '[^ -~]' "$f"; then
+              echo "$f must stay ASCII-only: the Windows console renders UTF-8 as mojibake"
+              exit 1
+            fi
+          done
 
       - name: Winget manifest points at a real release asset
         run: |

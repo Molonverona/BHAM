@@ -50,6 +50,49 @@ def run_capture(cmd: list[str], timeout: float = 120.0) -> subprocess.CompletedP
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
+def terminate_tree(proc: subprocess.Popen) -> None:
+    """
+    Arresta il processo e i suoi figli.
+
+    Su Windows un bundle onefile PyInstaller esegue un bootloader che lancia
+    l'applicazione vera come processo figlio: `Popen.terminate()` chiude solo il
+    bootloader e lascia il server orfano, con la porta ancora occupata. Serve
+    quindi `taskkill /T` per abbattere l'intero albero.
+    """
+    if proc.poll() is not None:
+        return
+    if platform.system() == "Windows":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            capture_output=True, text=True, timeout=30,
+        )
+    else:
+        proc.terminate()
+    try:
+        proc.wait(timeout=20)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def wait_port_released(port: int, timeout: float = 20.0) -> bool:
+    """True se la porta risulta libera entro il timeout dopo l'arresto."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/v1/health", timeout=1.0
+            ):
+                pass
+        except (urllib.error.URLError, OSError):
+            return True
+        time.sleep(1.0)
+    return False
+
+
 def http_get(url: str, timeout: float = 3.0) -> tuple[int, str]:
     req = urllib.request.Request(url, headers={"User-Agent": "BHAM-Smoke/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -132,11 +175,16 @@ def main() -> int:
             fail(f"/api/v1/system/diagnostics ha risposto HTTP {status}")
         print("[OK] endpoint di diagnostica raggiungibile")
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=20)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        terminate_tree(proc)
+
+    # Un processo rimasto in vita tiene la porta occupata e impedisce il riavvio
+    # del demone: l'arresto va verificato, non dato per scontato.
+    if not wait_port_released(args.port):
+        fail(
+            f"il server risponde ancora sulla porta {args.port} dopo l'arresto: "
+            "processo orfano non terminato."
+        )
+    print("[OK] processo arrestato e porta rilasciata")
 
     print("\n[SUCCESS] Smoke test del binario congelato superato.")
     return 0
