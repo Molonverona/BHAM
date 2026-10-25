@@ -124,7 +124,7 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
 
 ---
 
-## 🚀 Installazione & Avvio (Windows e Linux) – v1.0.0 (Stable Release)
+## 🚀 Installazione & Avvio (Windows e Linux) – v1.2.0
 
 Un solo comando, identico su entrambi i sistemi. Il launcher `bham.py` legge `requirements.txt`,
 mostra l'elenco dei pacchetti mancanti, chiede conferma, crea il `.venv` isolato, installa tutto,
@@ -224,7 +224,56 @@ pip install pyinstaller
 pyinstaller bham.spec
 ```
 
-L'eseguibile binario standalone verrà generato in `dist/bham`.
+L'eseguibile binario standalone verrà generato in `dist/bham` (`dist\bham.exe` su Windows).
+
+### Flag dell'eseguibile standalone
+
+A differenza del launcher da sorgente, il binario compilato espone i propri flag:
+
+| Flag | Effetto |
+|------|---------|
+| `--check` | Verifica preflight **e** caricamento dei motori di protocollo, poi esce (`0` = sistema pronto) |
+| `--port 9000` | Porta di ascolto alternativa |
+| `--host 127.0.0.1` | Limita l'ascolto alla sola macchina locale |
+| `--version` | Stampa la versione e termina |
+| `--no-browser` | Non apre automaticamente il browser |
+| `--demo` | Avvia il Simulatore d'Impianto Virtuale |
+| `--no-port-fallback` | Disattiva la ricerca automatica di una porta libera |
+
+### Verifica del pacchetto compilato
+
+```bash
+pyinstaller bham.spec
+python scripts/smoke_frozen.py     # compila -> avvia -> interroga /api/v1/health
+```
+
+Lo stesso controllo gira in CI su Windows e Linux a ogni push: compila l'eseguibile,
+lo **avvia realmente** e verifica che la console web risponda. È il test che intercetta
+le regressioni di packaging invisibili ai test unitari.
+
+---
+
+## 🪟 Risoluzione problemi di installazione su Windows
+
+| Sintomo | Causa & soluzione |
+|---------|-------------------|
+| La finestra di `bham.exe` si apre e si chiude subito | Guasto delle versioni ≤ 1.1.0 (`Could not import module "main"`): **risolto in 1.2.0**, aggiornare all'ultima release |
+| La dashboard non si apre dal tablet, ma funziona sul PC | Windows Firewall blocca le connessioni in ingresso. Reinstallare selezionando l'opzione firewall, oppure eseguire come Amministratore:<br>`netsh advfirewall firewall add rule name="BHAM - BACS Help Auto Mapper" dir=in action=allow protocol=TCP localport=8765` |
+| Pagina bianca all'avvio | Pacchetto incompleto: `bham.exe --check` lo segnala esplicitamente |
+| Una funzione (es. ARP Sniffer) va in errore mentre il resto funziona | `bham.exe --check` elenca i motori: `[ASSENTE]` = pacchetto incompleto (reinstallare), `[LIMITATO]` = driver mancante su questa macchina |
+| "File in uso" durante l'aggiornamento | Risolto in 1.2.0: l'installer chiude l'istanza in esecuzione |
+| L'antivirus blocca il download | Risolto in 1.2.0 (UPX disattivato, risorsa di versione e publisher incorporata). Verificare l'hash `.sha256` pubblicato con la release |
+| Lo sniffer ARP/L2 non cattura pacchetti | Driver **Npcap** assente: la scheda *Diagnostica & Requisiti* offre il download guidato |
+| `winget install BacsHelp.BHAM` restituisce 404 | Manifest corretto in 1.2.0 (puntava a un asset di release inesistente) |
+
+Dopo l'installazione è disponibile nel menu Start la voce **BHAM → Verifica installazione (diagnostica)**:
+esegue il controllo completo e mostra l'esito in una finestra che resta aperta, senza bisogno di
+aprire un prompt dei comandi. La stessa utilità (`verifica-installazione.bat`) è inclusa
+nell'archivio portable.
+
+Diagnostica completa dalla UI: **Impostazioni → Diagnostica & Requisiti**, oppure
+`GET /api/v1/system/diagnostics` (riporta `is_frozen`, `is_portable`, `listen_port`,
+`has_npcap` e `windows_firewall_rule`).
 
 ---
 

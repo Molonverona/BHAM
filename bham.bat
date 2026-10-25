@@ -1,34 +1,45 @@
 @echo off
 rem ==============================================================================
-rem  ⚡ BHAM – BACS Help Auto Mapper (Windows Double-Click Launcher)
+rem  BHAM - BACS Help Auto Mapper (Windows Double-Click Launcher)
 rem  Avvio automatico con auto-provisioning dei prerequisiti (Python / venv / driver)
+rem
+rem  NOTA: questo file resta volutamente in puro ASCII. La console di Windows usa
+rem  per default una code page legacy (850 / 437) e qualunque carattere Unicode
+rem  nei messaggi verrebbe mostrato come caratteri illeggibili.
 rem ==============================================================================
 
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 title BHAM - BACS Help Auto Mapper
 
+rem Code page UTF-8: rende leggibile l'output del processo Python figlio.
+chcp 65001 >nul 2>&1
+
+set "BHAM_VERSION=1.2.0"
+
 echo ======================================================================
-echo   ⚡ BHAM – BACS Help Auto Mapper (Field Engineering Station)
-echo   https://www.bacshelp.com  ^|  Versione 1.1.0
+echo   BHAM - BACS Help Auto Mapper (Field Engineering Station)
+echo   https://www.bacshelp.com  ^|  Versione !BHAM_VERSION!
 echo ======================================================================
 
-rem ── 1. Verifica se esiste gia' il virtualenv locale .venv ──────────────────
+rem -- 1. Verifica se esiste gia' il virtualenv locale .venv --------------------
 if exist "%~dp0.venv\Scripts\python.exe" (
-    echo [OK] Ambiente virtuale rilevato (.venv). Avvio diretto di BHAM...
+    echo [OK] Ambiente virtuale rilevato ^(.venv^). Avvio diretto di BHAM...
     "%~dp0.venv\Scripts\python.exe" bham.py %*
     goto :END
 )
 
-rem ── 2. Ricerca interprete Python compatibile (3.12 o 3.13) ──────────────────
+rem -- 2. Ricerca interprete Python compatibile (3.12 o 3.13) ------------------
 set "PY_EXE="
 
-rem Controllo 2.1: Python Launcher 'py -3.12'
-py -3.12 -c "import sys; sys.exit(0 if sys.version_info[:2] in ((3,12),(3,13)) else 1)" >nul 2>&1
-if !errorlevel! equ 0 (
-    set "PY_EXE=py -3.12"
-    goto :PYTHON_FOUND
+rem Controllo 2.1: Python Launcher 'py -3.12' / 'py -3.13'
+for %%V in (3.12 3.13) do (
+    if not defined PY_EXE (
+        py -%%V -c "import sys; sys.exit(0 if sys.version_info[:2] in ((3,12),(3,13)) else 1)" >nul 2>&1
+        if !errorlevel! equ 0 set "PY_EXE=py -%%V"
+    )
 )
+if defined PY_EXE goto :PYTHON_FOUND
 
 rem Controllo 2.2: Python standard in PATH
 python -c "import sys; sys.exit(0 if sys.version_info[:2] in ((3,12),(3,13)) else 1)" >nul 2>&1
@@ -37,13 +48,15 @@ if !errorlevel! equ 0 (
     goto :PYTHON_FOUND
 )
 
-rem Controllo 2.3: Installazione per-user standard in %LOCALAPPDATA%
-if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
-    set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-    goto :PYTHON_FOUND
+rem Controllo 2.3: Installazioni per-user standard in %LOCALAPPDATA%
+for %%D in (Python312 Python313) do (
+    if not defined PY_EXE (
+        if exist "%LOCALAPPDATA%\Programs\Python\%%D\python.exe" set "PY_EXE=%LOCALAPPDATA%\Programs\Python\%%D\python.exe"
+    )
 )
+if defined PY_EXE goto :PYTHON_FOUND
 
-rem ── 3. Python non trovato: richiesta di auto-provisioning all'utente ─────────
+rem -- 3. Python non trovato: richiesta di auto-provisioning all'utente --------
 echo.
 echo [!] ATTENZIONE: Nessun interprete Python 3.12 / 3.13 rilevato su questo PC.
 echo.
@@ -71,7 +84,7 @@ goto :END
 echo.
 echo Avvio procedura di installazione automatica tramite PowerShell...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\bootstrap_windows.ps1" -InstallPython
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo.
     echo [ERRORE] Impossibile completare l'installazione automatica di Python.
     echo Scarica manualmente Python 3.12 da https://www.python.org/downloads/
@@ -80,10 +93,13 @@ if %errorlevel% neq 0 (
 )
 
 rem Rivaluta presenza di Python dopo l'installazione
-if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
-    set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-    goto :PYTHON_FOUND
+for %%D in (Python312 Python313) do (
+    if not defined PY_EXE (
+        if exist "%LOCALAPPDATA%\Programs\Python\%%D\python.exe" set "PY_EXE=%LOCALAPPDATA%\Programs\Python\%%D\python.exe"
+    )
 )
+if defined PY_EXE goto :PYTHON_FOUND
+
 python -c "import sys; sys.exit(0 if sys.version_info[:2] in ((3,12),(3,13)) else 1)" >nul 2>&1
 if !errorlevel! equ 0 (
     set "PY_EXE=python"
@@ -103,8 +119,9 @@ echo Passaggio al launcher unificato BHAM...
 !PY_EXE! bham.py %*
 
 :END
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo.
-    echo BHAM e' stato arrestato con codice: %errorlevel%
+    echo BHAM e' stato arrestato con codice: !errorlevel!
     pause
 )
+endlocal

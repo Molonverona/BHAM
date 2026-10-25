@@ -3,6 +3,73 @@
 Formato basato su [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versioni [SemVer](https://semver.org/lang/it/).
 Le note della sezione corrispondente alla versione vengono pubblicate automaticamente nella GitHub Release.
 
+## [1.2.0] – 2026-10-21
+
+### Risolto (critico)
+- **Il binario standalone non si avviava: installazione Windows inutilizzabile (`main.py`, `bham.spec`)**:
+  - `main.py` consegnava a uvicorn la *stringa di import* `"main:app"`. In un bundle PyInstaller lo script di ingresso viene eseguito come `__main__` e il modulo `main` **non è importabile**: l'eseguibile terminava immediatamente con
+    `ERROR: Error loading ASGI app. Could not import module "main".`
+  - Il guasto colpiva **tutti** gli artefatti compilati: `bham.exe` installato dall'installer Inno Setup, l'edizione portable `bham-windows-x64-portable.zip` e il binario Linux `bham-linux-x64.tar.gz`. Restava funzionante solo l'avvio da sorgente (`bham.py` / `bham.bat`), motivo per cui la CI non lo rilevava.
+  - Introdotta `server_target()`: in modalità congelata viene passato direttamente l'**oggetto applicazione**, da sorgente si mantiene la stringa di import necessaria all'auto-reload. L'auto-reload viene ora disattivato d'ufficio quando il target non è una stringa.
+  - Il re-exec automatico nel virtualenv è disattivato nel binario congelato: l'eseguibile porta con sé il proprio runtime e non deve mai saltare in un `.venv` presente accanto a sé.
+  - Rimossa la dipendenza del runtime dal launcher: `main.py` non importa più `bham.py` (le utility di apertura browser vivono in `core/browser.py`, solo stdlib).
+
+### Aggiunto
+- **Preflight di avvio & fallback automatico di porta (`core/preflight.py`)**:
+  - Verifica della directory dati effettivamente scrivibile (diagnostica immediata delle installazioni in `Program Files`), della presenza reale degli asset del frontend nel bundle (causa tipica della pagina bianca) e della disponibilità della porta di ascolto.
+  - Se la porta 8765 è occupata da un'istanza già avviata, BHAM passa automaticamente alla prima porta libera invece di terminare con un traceback, allineando log di avvio, URL LAN e QR code di pairing alla porta reale.
+  - Messaggi di errore azionabili in italiano al posto delle eccezioni non gestite; `--no-port-fallback` ripristina il comportamento rigido.
+- **Interfaccia a riga di comando del binario standalone (`main.py`)**:
+  - L'eseguibile accettava e ignorava qualunque argomento. Nuovi flag: `--host`, `--port`, `--no-browser`, `--demo`, `--no-port-fallback`, `--check` (preflight ed uscita, 0 = OK) e `--version`.
+- **Rilevamento regola Windows Firewall (`core/system_requirements.py`, `installer/bham.iss`)**:
+  - `check_windows_firewall_rule()` verifica via `netsh` la presenza della regola che autorizza BHAM: la sua assenza è la causa più frequente di *"il QR code non si apre dal telefono"*, con il demone raggiungibile solo da localhost.
+  - L'installer crea la regola in ingresso su richiesta (porta 8765/TCP, profili `private` e `domain` — mai `public`) e la rimuove alla disinstallazione.
+- **Verifica dei motori di protocollo nel pacchetto compilato (`core/preflight.py`, `main.py --check`)**:
+  - `check_engines()` tenta il caricamento di Modbus, BACnet, sniffer L2, seriale RS485, report Excel/PDF e telemetria di sistema. In un bundle PyInstaller un `hiddenimport` dimenticato non si manifesta all'avvio: l'eseguibile parte regolarmente e fallisce settimane dopo, in cantiere, all'apertura della funzione. La verifica è particolarmente rilevante su Windows, dove scapy carica moduli di piattaforma diversi da quelli raccolti nella build Linux.
+  - Distinzione esplicita fra **`[ASSENTE]`** (modulo non presente nel pacchetto → bundle incompleto, va reinstallato) e **`[LIMITATO]`** (modulo presente ma non inizializzabile su quella macchina, tipicamente per l'assenza del driver Npcap): solo il primo caso fa fallire `--check`, evitando di suggerire una reinstallazione inutile.
+  - Gli avvisi e i traceback che scapy scrive su stderr durante l'import vengono trattenuti, mantenendo leggibile l'esito della verifica.
+- **Collegamento "Verifica installazione" nel menu Start (`installer/verifica-installazione.bat`, `installer/bham.iss`)**:
+  - Script wrapper che esegue `bham.exe --check` e mantiene la finestra aperta, con esito tradotto in azioni concrete (`[ASSENTE]` → reinstallare, `[LIMITATO]` → driver di sistema mancante). Il tecnico può così diagnosticare una postazione senza aprire un prompt dei comandi a mano.
+  - Incluso anche nell'edizione portable, dove non esiste un menu Start.
+- **Manifest Windows: code page UTF-8 e percorsi lunghi (`bham.exe.manifest`)**:
+  - `activeCodePage = UTF-8` (Windows 10 1903+): la console rende correttamente i messaggi accentati e i caratteri di cornice del banner di avvio, risolvendo il problema di codifica all'origine invece di aggirarlo.
+  - `longPathAware = true` (Windows 10 1607+): verbali di collaudo e snapshot di sessione salvati sotto cartelle di commessa profondamente annidate non superano più il limite di 260 caratteri.
+- **Smoke test del binario congelato (`scripts/smoke_frozen.py`, `.github/workflows/ci.yml`)**:
+  - Nuovo job CI su Linux **e** Windows che compila l'eseguibile, lo avvia davvero e verifica `--version`, `--check`, `/api/v1/health`, la console web servita dal bundle e l'endpoint di diagnostica. È il controllo che intercetta le regressioni di packaging invisibili ai test unitari.
+  - Su Windows il job **compila anche l'installer Inno Setup** e lo pubblica come artefatto scaricabile per il collaudo manuale: prima lo script `bham.iss` veniva compilato per la prima volta durante la release, dove un errore di sintassi blocca la pubblicazione.
+  - La suite gira ora anche sui rami di lavoro (`claude/**`, `feature/**`, `fix/**`) e può essere lanciata a richiesta (`workflow_dispatch`): in precedenza una feature branch non riceveva alcuna verifica fino all'apertura della pull request.
+  - Arresto dell'eseguibile per albero di processi: in un bundle onefile PyInstaller il bootloader avvia l'applicazione come processo figlio, quindi su Windows `terminate()` chiudeva solo il bootloader lasciando il server orfano con la porta occupata. Lo smoke test usa ora `taskkill /T` e verifica esplicitamente il rilascio della porta.
+
+### Verificato su Windows
+- Build e avvio reale dell'eseguibile su `windows-latest`: `--version`, `--check` (tutti e 7 i motori caricati dal bundle, scapy incluso con i suoi moduli di piattaforma Windows), `/api/v1/health`, console web e diagnostica.
+- Compilazione dello script Inno Setup con ISCC 6.7.1 e produzione dell'installer firmabile da 30,1 MB, pubblicato come artefatto di CI per il collaudo manuale.
+- **Metadati di packaging nella diagnostica (`/api/v1/system/diagnostics`)**:
+  - Nuovi campi `app_version`, `is_frozen`, `is_portable`, `listen_port` e `windows_firewall_rule` per il supporto di campo.
+  - Il binario congelato non segnala più come "non supportata" la versione dell'interprete di sistema: il runtime è incorporato nell'eseguibile.
+
+### Modificato
+- **Hardening del packaging Windows (`bham.spec`)**:
+  - Il manifest applicativo `bham.exe.manifest` (UAC `asInvoker`, DPI awareness `PerMonitorV2`) era presente nel repository ma **non veniva mai applicato** all'eseguibile: ora viene generato con la versione corrente e incorporato.
+  - Aggiunta la risorsa `VERSIONINFO` (nome prodotto, versione, publisher, copyright): senza di essa SmartScreen e gli antivirus trattano l'eseguibile come binario anonimo.
+  - **UPX disattivato**: la compressione corrompe alcune DLL del runtime Python e innesca falsi positivi antivirus sui bundle onefile, bloccando l'installazione.
+  - Versione letta direttamente da `pyproject.toml` (unica fonte di verità) e `hiddenimports` estesi (implementazioni HTTP/WebSocket di uvicorn, `serial.tools.list_ports`, `core.preflight`, `core.browser`, `core.qr_svg`, `core.tag_exporter`).
+- **Installer Inno Setup (`installer/bham.iss`)**:
+  - `CloseApplications=yes` con Restart Manager: l'aggiornamento sopra una versione precedente non fallisce più con *"file in uso"* quando BHAM è in esecuzione.
+  - Aggiunti `SetupMutex`, `MinVersion=6.3`, `AppVerName`, `UninstallDisplayIcon`, `UninstallDisplayName` e le risorse `VersionInfo*` del setup.
+- **Launcher a doppio clic Windows (`bham.bat`)**:
+  - Il file conteneva caratteri Unicode (`⚡`, `–`) resi illeggibili dalle code page legacy della console Windows (850 / 437): ora è **puro ASCII**, con `chcp 65001` per l'output del processo Python figlio. Un controllo CI impedisce la regressione.
+  - Rilevamento esteso a Python 3.13 (`py -3.13` e `%LOCALAPPDATA%\Programs\Python\Python313`), prima cercato solo per 3.12.
+- **Manifest winget (`winget/`)**:
+  - `InstallerUrl` puntava al repository errato (`BacsHelp/BHAM` invece di `Molonverona/BHAM`) e a un asset **inesistente** (`bham-windows-x64.zip` invece di `bham-windows-x64-portable.zip`): entrambe le installazioni via winget restituivano 404.
+  - Il workflow di release genera e pubblica il manifest già compilato con lo SHA256 reale dell'asset.
+- **Variabili d'ambiente con prefisso di progetto (`core/config.py`)**:
+  - `BHAM_API_TOKEN` era documentato ma **non veniva letto** (la configurazione accettava solo `API_TOKEN`). Ora `host`, `port`, `debug`, `api_token` e `lan_auth_required` accettano sia il nome semplice sia la forma `BHAM_*`, coerentemente con `BHAM_DEMO` / `BHAM_NO_BROWSER` / `BHAM_PORTABLE`.
+- **Sincronizzazione versioni (`scripts/bump_version.py`, `.github/workflows/ci.yml`)**:
+  - `bham.bat`, `scripts/bootstrap_windows.ps1` e `core/system_requirements.py` contenevano la versione in chiaro ma non erano coperti né dallo script di bump né dal controllo CI: erano rimasti indietro. Ora sono target di bump e il job statico verifica ogni file di packaging.
+
+### Test
+- Suite estesa da 90 a 128 test unitari e di integrazione, eseguiti con successo su Linux e Windows: scelta del target ASGI in modalità congelata, flag CLI, preflight e fallback di porta, rilevamento firewall Windows, alias delle variabili d'ambiente, allineamento versioni su 15 file di packaging, validità dei manifest winget e hardening dello spec PyInstaller.
+
 ## [1.1.0] – 2026-10-11
 
 ### Aggiunto
