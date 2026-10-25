@@ -41,7 +41,7 @@ Versione dedicata al **controllo generale dell'applicazione**: i rilievi dell'au
 ### Test
 - Suite estesa da 140 a 162 test, verdi su Linux e Windows. Le nuove aree coperte: contratti di risposta contro i `response_model` dichiarati, registro di mutua esclusione (conflitto, idempotenza, rilascio protetto dal proprietario), rifiuto HTTP 409 delle route di avvio senza sessioni fantasma, rilascio di risorsa e stato di abort al termine del task, tetto e ritenzione dello storico sessioni.
 
-## [1.2.0] – 2026-10-21
+## [1.2.0] – 2026-10-25
 
 ### Risolto (critico)
 - **Il binario standalone non si avviava: installazione Windows inutilizzabile (`main.py`, `bham.spec`)**:
@@ -78,12 +78,13 @@ Versione dedicata al **controllo generale dell'applicazione**: i rilievi dell'au
   - La suite gira ora anche sui rami di lavoro (`claude/**`, `feature/**`, `fix/**`) e può essere lanciata a richiesta (`workflow_dispatch`): in precedenza una feature branch non riceveva alcuna verifica fino all'apertura della pull request.
   - Arresto dell'eseguibile per albero di processi: in un bundle onefile PyInstaller il bootloader avvia l'applicazione come processo figlio, quindi su Windows `terminate()` chiudeva solo il bootloader lasciando il server orfano con la porta occupata. Lo smoke test usa ora `taskkill /T` e verifica esplicitamente il rilascio della porta.
 
-### Verificato su Windows
-- Build e avvio reale dell'eseguibile su `windows-latest`: `--version`, `--check` (tutti e 7 i motori caricati dal bundle, scapy incluso con i suoi moduli di piattaforma Windows), `/api/v1/health`, console web e diagnostica.
-- Compilazione dello script Inno Setup con ISCC 6.7.1 e produzione dell'installer firmabile da 30,1 MB, pubblicato come artefatto di CI per il collaudo manuale.
 - **Metadati di packaging nella diagnostica (`/api/v1/system/diagnostics`)**:
   - Nuovi campi `app_version`, `is_frozen`, `is_portable`, `listen_port` e `windows_firewall_rule` per il supporto di campo.
   - Il binario congelato non segnala più come "non supportata" la versione dell'interprete di sistema: il runtime è incorporato nell'eseguibile.
+
+### Verificato su Windows
+- Build e avvio reale dell'eseguibile su `windows-latest`: `--version`, `--check` (tutti e 7 i motori caricati dal bundle, scapy incluso con i suoi moduli di piattaforma Windows), `/api/v1/health`, console web e diagnostica.
+- Compilazione dello script Inno Setup con ISCC 6.7.1 e produzione dell'installer firmabile da 30,1 MB, pubblicato come artefatto di CI per il collaudo manuale.
 
 ### Modificato
 - **Hardening del packaging Windows (`bham.spec`)**:
@@ -106,7 +107,7 @@ Versione dedicata al **controllo generale dell'applicazione**: i rilievi dell'au
   - `bham.bat`, `scripts/bootstrap_windows.ps1` e `core/system_requirements.py` contenevano la versione in chiaro ma non erano coperti né dallo script di bump né dal controllo CI: erano rimasti indietro. Ora sono target di bump e il job statico verifica ogni file di packaging.
 
 ### Test
-- Suite estesa da 90 a 128 test unitari e di integrazione, eseguiti con successo su Linux e Windows: scelta del target ASGI in modalità congelata, flag CLI, preflight e fallback di porta, rilevamento firewall Windows, alias delle variabili d'ambiente, allineamento versioni su 15 file di packaging, validità dei manifest winget e hardening dello spec PyInstaller.
+- Suite estesa da 90 a 140 test unitari e di integrazione, eseguiti con successo su Linux e Windows: scelta del target ASGI in modalità congelata, flag CLI, preflight e fallback di porta, rilevamento firewall Windows, alias delle variabili d'ambiente, allineamento versioni su 15 file di packaging, validità dei manifest winget e hardening dello spec PyInstaller.
 
 ## [1.1.0] – 2026-10-11
 
