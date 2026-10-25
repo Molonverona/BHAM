@@ -2,7 +2,7 @@
 ; Builds professional Windows setup executable
 
 #define MyAppName "BHAM - BACS Help Auto Mapper"
-#define MyAppVersion "1.2.0"
+#define MyAppVersion "1.2.5"
 #define MyAppPublisher "BACS Help"
 #define MyAppURL "https://github.com/Molonverona/BHAM"
 #define MyAppExeName "bham.exe"

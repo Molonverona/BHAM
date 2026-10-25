@@ -156,7 +156,7 @@ def download_npcap(dest_dir: Optional[Path] = None, timeout_s: float = 60.0) -> 
     # Headers standard per evitare blocchi anti-scraping
     req = urllib.request.Request(
         NPCAP_DOWNLOAD_URL,
-        headers={"User-Agent": "BHAM-FieldStation/1.2.0 (Windows Installer Helper)"},
+        headers={"User-Agent": "BHAM-FieldStation/1.2.5 (Windows Installer Helper)"},
     )
 
     with urllib.request.urlopen(req, timeout=timeout_s) as response:

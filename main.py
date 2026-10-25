@@ -87,7 +87,16 @@ async def lifespan(app: FastAPI):
     logger.info("BHAM shutting down …")
     try:
         from scanners.base import abort_all
-        abort_all()
+        aborted = abort_all()
+        if aborted:
+            logger.info("Arrestate %d scansioni ancora in corso", len(aborted))
+    except Exception:
+        pass
+    try:
+        # Libera porte seriali e socket rivendicati, così un riavvio immediato
+        # non trova risorse marcate come occupate da sessioni ormai morte.
+        from core.resource_guard import reset as reset_resource_claims
+        reset_resource_claims()
     except Exception:
         pass
     try:

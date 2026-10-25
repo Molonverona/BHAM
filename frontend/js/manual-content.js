@@ -31,7 +31,8 @@ const MANUAL_DATA = {
       { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
       { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Accesso Mobile QR" },
       { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & Token LAN"},
-      { id: "install_v12", title: "24. Installazione Windows & Avvio Standalone" }
+      { id: "install_v12", title: "24. Installazione Windows & Avvio Standalone"},
+      { id: "resources_v125", title: "25. Risorse Esclusive & Controllo Generale" }
     ],
     content: {
       intro: `
@@ -568,6 +569,36 @@ const MANUAL_DATA = {
           <li><strong>Installazione via winget:</strong> il manifest puntava a un file di release inesistente e restituiva errore 404.</li>
           <li><strong>Launcher a doppio clic:</strong> i messaggi di <code>bham.bat</code> non vengono più mostrati con caratteri illeggibili, e il rilevamento include Python 3.13.</li>
         </ul>
+      `,
+      resources_v125: `
+        <h3>25. Risorse Esclusive, Mutua Esclusione &amp; Controllo Generale (v1.2.5)</h3>
+        <p>La versione 1.2.5 nasce da una revisione completa del codice: i rilievi dell'audit storico sono stati ricontrollati uno per uno (tutti confermati chiusi) e sono emersi sei difetti nuovi, qui risolti.</p>
+
+        <h4>Perché due operazioni sulla stessa risorsa sono un problema</h4>
+        <p>Una linea RS485 ammette un solo lettore. Avviando insieme una scansione Modbus RTU e uno sniffer passivo sulla <strong>stessa</strong> porta, i due consumatori si sottraggono i byte a vicenda: il risultato sono dispositivi non rilevati e una diagnosi di Bus Health falsata, presentata però come valida. Lo stesso accadeva al discovery BACnet/IP (che fa il bind della 47808) e alla coppia discovery KNXnet/IP + Group Monitor, che condividono il socket multicast 3671.</p>
+
+        <h4>Come si comporta BHAM adesso</h4>
+        <ul>
+          <li><strong>Il secondo avvio viene rifiutato</strong> con un errore <code>409</code> che dice quale operazione occupa la risorsa, da quanti secondi e come arrestarla.</li>
+          <li><strong>Nessuna sessione fantasma:</strong> il controllo avviene prima di registrare la scansione, quindi un tentativo rifiutato non sporca lo storico del collaudo.</li>
+          <li><strong>Rilascio garantito:</strong> la risorsa viene liberata quando l'operazione termina, in qualunque modo — completata, in errore o interrotta con Abort.</li>
+          <li><strong>Ispezione:</strong> l'endpoint <code>GET /api/v1/system/resources</code> elenca ciò che è occupato in quel momento.</li>
+        </ul>
+        <p>Modbus TCP e la scansione IP effettuano solo connessioni in uscita: non rivendicano nulla e restano eseguibili in parallelo.</p>
+
+        <h4>Arresto d'emergenza: difetto corretto</h4>
+        <p>L'endpoint di arresto globale di tutte le scansioni rispondeva <strong>500</strong>: dichiarava di restituire l'elenco delle sessioni fermate ma restituiva un numero, e la validazione della risposta falliva. La funzione non era quindi mai utilizzabile da remoto. Ora restituisce correttamente gli identificativi delle sessioni effettivamente arrestate.</p>
+
+        <h4>Collaudi lunghi: memoria sotto controllo</h4>
+        <ul>
+          <li>Lo storico delle scansioni non aveva limiti ed era ritrasmesso <em>per intero</em> a ogni aggiornamento di stato: in una giornata con decine di scansioni il traffico verso tablet e browser cresceva senza motivo. Ora è limitato alle 200 sessioni più recenti, scartando solo quelle già concluse.</li>
+          <li>Il registro interno degli arresti non veniva mai ripulito e cresceva per tutta la durata del processo.</li>
+          <li>La pulizia dello stato azzera ora anche lo storico concluso, mantenendo le scansioni ancora in corso.</li>
+        </ul>
+
+        <h4>Aggiornamento delle librerie: scelta prudente</h4>
+        <p>Le librerie di base (server web, validazione dati, canale WebSocket) sono state portate alle versioni correnti e verificate: suite completa, ricompilazione dell'eseguibile e prova end-to-end del canale di telemetria live.</p>
+        <p>I driver di protocollo (<em>Modbus</em>, <em>BACnet</em>, cattura di rete) e il generatore dei certificati PDF sono invece stati <strong>lasciati alle versioni collaudate</strong>: governano il comportamento sul filo e l'impaginazione dei verbali, e il simulatore non può sostituire una verifica su impianto reale. Il loro avanzamento va pianificato con strumentazione in linea.</p>
       `
     }
   },
@@ -597,7 +628,8 @@ const MANUAL_DATA = {
       { id: "rs485_benchmark", title: "21. RS485 Stress Test & Latency Benchmark" },
       { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Mobile QR LAN Access" },
       { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & LAN Token"},
-      { id: "install_v12", title: "24. Windows Installation & Standalone Startup" }
+      { id: "install_v12", title: "24. Windows Installation & Standalone Startup"},
+      { id: "resources_v125", title: "25. Exclusive Resources & General Review" }
     ],
     content: {
       intro: `
@@ -1134,6 +1166,36 @@ const MANUAL_DATA = {
           <li><strong>Installation via winget:</strong> the manifest pointed at a non-existent release asset and returned a 404 error.</li>
           <li><strong>Double-click launcher:</strong> <code>bham.bat</code> messages are no longer rendered as garbled characters, and detection now includes Python 3.13.</li>
         </ul>
+      `,
+      resources_v125: `
+        <h3>25. Exclusive Resources, Mutual Exclusion &amp; General Review (v1.2.5)</h3>
+        <p>Release 1.2.5 comes out of a full code review: every finding of the historical audit was re-checked one by one (all confirmed closed) and six new defects surfaced, fixed here.</p>
+
+        <h4>Why two operations on one resource is a problem</h4>
+        <p>An RS485 line admits a single reader. Starting a Modbus RTU scan and a passive sniffer on the <strong>same</strong> port at once makes the two consumers steal bytes from each other: the result is missed devices and a distorted Bus Health diagnosis — presented as valid. The same applied to BACnet/IP discovery (which binds 47808) and to KNXnet/IP discovery together with the Group Monitor, which share the 3671 multicast socket.</p>
+
+        <h4>How BHAM behaves now</h4>
+        <ul>
+          <li><strong>The second start is refused</strong> with a <code>409</code> error naming the operation holding the resource, how long it has held it, and how to stop it.</li>
+          <li><strong>No ghost sessions:</strong> the check happens before the scan is registered, so a refused attempt does not pollute the commissioning history.</li>
+          <li><strong>Guaranteed release:</strong> the resource is freed when the operation ends, however it ends — completed, failed or aborted.</li>
+          <li><strong>Inspection:</strong> the <code>GET /api/v1/system/resources</code> endpoint lists what is currently busy.</li>
+        </ul>
+        <p>Modbus TCP and the IP scan only make outbound connections: they claim nothing and remain runnable in parallel.</p>
+
+        <h4>Emergency stop: defect fixed</h4>
+        <p>The endpoint that aborts every running scan answered <strong>500</strong>: it declared it would return the list of stopped sessions but returned a number, so response validation failed. The function was therefore never usable remotely. It now correctly returns the identifiers of the sessions actually stopped.</p>
+
+        <h4>Long commissioning runs: memory under control</h4>
+        <ul>
+          <li>The scan history had no cap and was re-sent <em>in full</em> on every state update: over a day with dozens of scans, traffic to tablets and browsers grew for no reason. It is now limited to the 200 most recent sessions, discarding only finished ones.</li>
+          <li>The internal abort registry was never pruned and grew for the whole lifetime of the process.</li>
+          <li>Clearing the state now also clears the finished history, keeping scans still in progress.</li>
+        </ul>
+
+        <h4>Library updates: a deliberate split</h4>
+        <p>The foundation libraries (web server, data validation, WebSocket channel) were moved to current versions and verified: full suite, executable rebuilt, and an end-to-end check of the live telemetry channel.</p>
+        <p>The protocol drivers (<em>Modbus</em>, <em>BACnet</em>, packet capture) and the PDF certificate generator were instead <strong>left at their proven versions</strong>: they govern on-the-wire behaviour and report layout, and the simulator cannot replace verification on a real plant. Moving them forward needs to be planned with instrumentation in the loop.</p>
       `
     }
   },
@@ -1163,7 +1225,8 @@ const MANUAL_DATA = {
       { id: "rs485_benchmark", title: "21. Test de Estrés RS485 & Benchmark de Latencia" },
       { id: "bms_export_mobile", title: "22. Exportador BMS/SCADA & Acceso Móvil QR" },
       { id: "knx_monitor_v11", title: "23. Monitor KNX, Trend BACnet y Token LAN"},
-      { id: "install_v12", title: "24. Instalación en Windows y Arranque Standalone" }
+      { id: "install_v12", title: "24. Instalación en Windows y Arranque Standalone"},
+      { id: "resources_v125", title: "25. Recursos Exclusivos y Revisión General" }
     ],
     content: {
       intro: `
@@ -1642,6 +1705,36 @@ const MANUAL_DATA = {
           <li><strong>Instalación mediante winget:</strong> el manifiesto apuntaba a un archivo de versión inexistente y devolvía un error 404.</li>
           <li><strong>Lanzador de doble clic:</strong> los mensajes de <code>bham.bat</code> ya no se muestran con caracteres ilegibles, y la detección incluye Python 3.13.</li>
         </ul>
+      `,
+      resources_v125: `
+        <h3>25. Recursos Exclusivos, Exclusión Mutua y Revisión General (v1.2.5)</h3>
+        <p>La versión 1.2.5 surge de una revisión completa del código: cada hallazgo de la auditoría histórica se volvió a comprobar uno por uno (todos confirmados como cerrados) y aparecieron seis defectos nuevos, resueltos aquí.</p>
+
+        <h4>Por qué dos operaciones sobre el mismo recurso son un problema</h4>
+        <p>Una línea RS485 admite un solo lector. Al iniciar a la vez un barrido Modbus RTU y un sniffer pasivo en el <strong>mismo</strong> puerto, ambos consumidores se roban los bytes: el resultado son dispositivos no detectados y un diagnóstico de Bus Health falseado, presentado sin embargo como válido. Lo mismo ocurría con el discovery BACnet/IP (que hace bind del 47808) y con el discovery KNXnet/IP junto al Group Monitor, que comparten el socket multicast 3671.</p>
+
+        <h4>Cómo se comporta BHAM ahora</h4>
+        <ul>
+          <li><strong>El segundo arranque se rechaza</strong> con un error <code>409</code> que indica qué operación ocupa el recurso, desde cuántos segundos y cómo detenerla.</li>
+          <li><strong>Sin sesiones fantasma:</strong> la comprobación se realiza antes de registrar el barrido, por lo que un intento rechazado no contamina el historial de la puesta en marcha.</li>
+          <li><strong>Liberación garantizada:</strong> el recurso se libera cuando la operación termina, de cualquier modo: completada, con error o abortada.</li>
+          <li><strong>Inspección:</strong> el endpoint <code>GET /api/v1/system/resources</code> enumera lo que está ocupado en ese momento.</li>
+        </ul>
+        <p>Modbus TCP y el barrido IP solo realizan conexiones salientes: no reclaman nada y siguen siendo ejecutables en paralelo.</p>
+
+        <h4>Parada de emergencia: defecto corregido</h4>
+        <p>El endpoint que aborta todos los barridos en curso respondía <strong>500</strong>: declaraba devolver la lista de sesiones detenidas pero devolvía un número, por lo que la validación de la respuesta fallaba. La función nunca fue utilizable en remoto. Ahora devuelve correctamente los identificadores de las sesiones realmente detenidas.</p>
+
+        <h4>Puestas en marcha largas: memoria bajo control</h4>
+        <ul>
+          <li>El historial de barridos no tenía límite y se reenviaba <em>íntegro</em> en cada actualización de estado: en una jornada con decenas de barridos el tráfico hacia tablets y navegadores crecía sin motivo. Ahora se limita a las 200 sesiones más recientes, descartando solo las ya concluidas.</li>
+          <li>El registro interno de abortos nunca se purgaba y crecía durante toda la vida del proceso.</li>
+          <li>El borrado del estado vacía ahora también el historial concluido, conservando los barridos aún en curso.</li>
+        </ul>
+
+        <h4>Actualización de librerías: una decisión prudente</h4>
+        <p>Las librerías base (servidor web, validación de datos, canal WebSocket) se han llevado a las versiones actuales y verificado: suite completa, ejecutable recompilado y prueba end-to-end del canal de telemetría en vivo.</p>
+        <p>Los controladores de protocolo (<em>Modbus</em>, <em>BACnet</em>, captura de red) y el generador de certificados PDF se han <strong>mantenido en sus versiones probadas</strong>: gobiernan el comportamiento en el hilo y la maquetación de las actas, y el simulador no puede sustituir una verificación en una instalación real. Su avance debe planificarse con instrumentación en línea.</p>
       `
     }
   }

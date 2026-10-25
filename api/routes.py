@@ -16,6 +16,9 @@ from fastapi import APIRouter, Body, HTTPException, Query, Response, WebSocket, 
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
+from core import resource_guard
+from scanners.base import release_session as release_abort_state
+
 from api.schemas import (
     ARPSniffRequest,
     BACnetIPScanRequest,
@@ -63,6 +66,7 @@ from api.schemas import (
     SafeModeStatusResponse,
     ScanAbortResponse,
     ScanAbortSingleResponse,
+    ResourceClaimInfo,
     ScanActionResponse,
     SerialPortInfo,
     SerialSniffRequest,
@@ -182,6 +186,57 @@ async def get_session(session_id: str) -> dict:
     return session.model_dump(mode="json")
 
 
+# ── Avvio scansioni: guardia sulle risorse esclusive ──────────────────────────
+
+#: Il KNX Group Monitor non è una sessione di scansione ma detiene lo stesso
+#: socket multicast del discovery KNX: gli serve un proprietario stabile.
+KNX_MONITOR_SESSION = "knx-group-monitor"
+
+
+def _ensure_resource_free(resource: Optional[str], owner: Optional[str] = None) -> None:
+    """
+    Verifica che una risorsa fisica esclusiva sia disponibile, prima di creare
+    la sessione di scansione: così un conflitto non lascia dietro di sé una
+    sessione fantasma. `owner` rende l'operazione idempotente per chi la detiene
+    già.
+    """
+    if resource is None:
+        return
+    holder = resource_guard.claim_for(resource)
+    if holder is not None and holder.session_id != owner:
+        busy = resource_guard.ResourceBusyError(resource, holder)
+        logger.warning("Avvio rifiutato: %s", busy)
+        raise HTTPException(status_code=409, detail=busy.as_detail())
+
+
+def _launch_scan(
+    coro_factory: "Any",
+    *,
+    session_id: str,
+    resource: Optional[str],
+    label: str,
+) -> dict:
+    """
+    Avvia la scansione in background rivendicando la risorsa, e libera risorsa e
+    stato di abort quando il task termina (in qualunque modo).
+
+    La coroutine viene costruita solo dopo la rivendicazione: in caso di
+    conflitto non resta alcuna coroutine mai attesa.
+    """
+    if resource is not None:
+        resource_guard.acquire(resource, session_id, label)
+
+    task = asyncio.create_task(coro_factory())
+
+    def _finalize(_task: "asyncio.Task") -> None:
+        if resource is not None:
+            resource_guard.release_if_owner(resource, session_id)
+        release_abort_state(session_id)
+
+    task.add_done_callback(_finalize)
+    return {"session_id": session_id, "status": "started"}
+
+
 # ── Scan trigger endpoints ────────────────────────────────────────────────────
 
 @router.post(
@@ -193,11 +248,17 @@ async def get_session(session_id: str) -> dict:
 )
 async def start_modbus_rtu(req: ModbusRTUScanRequest) -> dict:
     from scanners.modbus import ModbusScanner
+    # La porta RS485 ammette un solo utilizzatore: una scansione attiva e uno
+    # sniffer sullo stesso device si rubano i byte a vicenda.
+    resource = resource_guard.serial_resource(req.port)
+    _ensure_resource_free(resource)
     session = state.new_session(Protocol.MODBUS_RTU, req.model_dump())
     scanner = ModbusScanner(session_id=session.id)
     scanner.reset_abort()
-    asyncio.create_task(scanner.scan_rtu(req))
-    return {"session_id": session.id, "status": "started"}
+    return _launch_scan(
+        lambda: scanner.scan_rtu(req),
+        session_id=session.id, resource=resource, label="Scansione Modbus RTU",
+    )
 
 
 @router.post(
@@ -212,11 +273,15 @@ async def start_serial_sniff(req: SerialSniffRequest) -> dict:
     proto = Protocol.MODBUS_RTU if req.protocol_filter == "modbus_rtu" else (
         Protocol.BACNET_MSTP if req.protocol_filter == "bacnet_mstp" else Protocol.UNKNOWN
     )
+    resource = resource_guard.serial_resource(req.port)
+    _ensure_resource_free(resource)
     session = state.new_session(proto, req.model_dump())
     sniffer = SerialSniffer(session_id=session.id)
     sniffer.reset_abort()
-    asyncio.create_task(sniffer.sniff(req))
-    return {"session_id": session.id, "status": "started"}
+    return _launch_scan(
+        lambda: sniffer.sniff(req),
+        session_id=session.id, resource=resource, label="Sniffer passivo RS485",
+    )
 
 
 @router.post(
@@ -231,8 +296,11 @@ async def start_modbus_tcp(req: ModbusTCPScanRequest) -> dict:
     session = state.new_session(Protocol.MODBUS_TCP, req.model_dump())
     scanner = ModbusScanner(session_id=session.id)
     scanner.reset_abort()
-    asyncio.create_task(scanner.scan_tcp(req))
-    return {"session_id": session.id, "status": "started"}
+    # Solo connessioni TCP in uscita: nessuna risorsa esclusiva da rivendicare.
+    return _launch_scan(
+        lambda: scanner.scan_tcp(req),
+        session_id=session.id, resource=None, label="Scansione Modbus TCP",
+    )
 
 
 @router.post(
@@ -244,11 +312,17 @@ async def start_modbus_tcp(req: ModbusTCPScanRequest) -> dict:
 )
 async def start_bacnet_ip(req: BACnetIPScanRequest) -> dict:
     from scanners.bacnet import BACnetScanner
+    # Il discovery effettua il bind della porta BACnet: due scansioni
+    # contemporanee collidono sul socket.
+    _ensure_resource_free(resource_guard.BACNET_IP)
     session = state.new_session(Protocol.BACNET_IP, req.model_dump())
     scanner = BACnetScanner(session_id=session.id)
     scanner.reset_abort()
-    asyncio.create_task(scanner.scan_ip(req))
-    return {"session_id": session.id, "status": "started"}
+    return _launch_scan(
+        lambda: scanner.scan_ip(req),
+        session_id=session.id, resource=resource_guard.BACNET_IP,
+        label="Discovery BACnet/IP",
+    )
 
 
 @router.post(
@@ -260,11 +334,16 @@ async def start_bacnet_ip(req: BACnetIPScanRequest) -> dict:
 )
 async def start_knx_ip(req: KNXIPScanRequest) -> dict:
     from scanners.knx import KNXScanner
+    # Discovery e Group Monitor fanno il bind dello stesso socket multicast.
+    _ensure_resource_free(resource_guard.KNX_IP)
     session = state.new_session(Protocol.KNX_IP, req.model_dump())
     scanner = KNXScanner(session_id=session.id)
     scanner.reset_abort()
-    asyncio.create_task(scanner.scan(req))
-    return {"session_id": session.id, "status": "started"}
+    return _launch_scan(
+        lambda: scanner.scan(req),
+        session_id=session.id, resource=resource_guard.KNX_IP,
+        label="Discovery KNXnet/IP",
+    )
 
 
 @router.post(
@@ -276,11 +355,16 @@ async def start_knx_ip(req: KNXIPScanRequest) -> dict:
 )
 async def start_arp_sniff(req: ARPSniffRequest) -> dict:
     from scanners.ip_sniffer import IPSniffer
+    # Due catture promiscue sulla stessa interfaccia si ostacolano a vicenda.
+    resource = resource_guard.iface_resource("arp", req.iface)
+    _ensure_resource_free(resource)
     session = state.new_session(Protocol.UNKNOWN, req.model_dump())
     sniffer = IPSniffer(session_id=session.id)
     sniffer.reset_abort()
-    asyncio.create_task(sniffer.sniff(req))
-    return {"session_id": session.id, "status": "started"}
+    return _launch_scan(
+        lambda: sniffer.sniff(req),
+        session_id=session.id, resource=resource, label="Sniffer passivo ARP",
+    )
 
 
 @router.post(
@@ -295,8 +379,11 @@ async def start_ip_scan(req: IPScanRequest) -> dict:
     session = state.new_session(Protocol.UNKNOWN, req.model_dump())
     scanner = IPScanner(session_id=session.id)
     scanner.reset_abort()
-    asyncio.create_task(scanner.scan(req))
-    return {"session_id": session.id, "status": "started"}
+    # Solo connessioni in uscita: nessuna risorsa esclusiva da rivendicare.
+    return _launch_scan(
+        lambda: scanner.scan(req),
+        session_id=session.id, resource=None, label="Scansione IP BACS",
+    )
 
 
 @router.post(
@@ -368,7 +455,17 @@ async def get_knx_devices() -> list[dict]:
 )
 async def start_knx_monitor(port: int = Query(3671, description="Porta UDP KNX (default 3671)")) -> dict:
     from scanners.knx import knx_group_monitor
-    ok = await knx_group_monitor.start(port=port)
+    # Il monitor condivide il socket multicast con il discovery KNXnet/IP:
+    # senza guardia un discovery in corso impediva silenziosamente la cattura.
+    _ensure_resource_free(resource_guard.KNX_IP, owner=KNX_MONITOR_SESSION)
+    resource_guard.acquire(resource_guard.KNX_IP, KNX_MONITOR_SESSION, "KNX Group Monitor")
+    try:
+        ok = await knx_group_monitor.start(port=port)
+    except Exception:
+        resource_guard.release_if_owner(resource_guard.KNX_IP, KNX_MONITOR_SESSION)
+        raise
+    if not ok:
+        resource_guard.release_if_owner(resource_guard.KNX_IP, KNX_MONITOR_SESSION)
     return {"running": ok, "message": "KNX Group Monitor avviato" if ok else "Impossibile avviare socket KNX"}
 
 
@@ -382,6 +479,7 @@ async def start_knx_monitor(port: int = Query(3671, description="Porta UDP KNX (
 async def stop_knx_monitor() -> dict:
     from scanners.knx import knx_group_monitor
     await knx_group_monitor.stop()
+    resource_guard.release_if_owner(resource_guard.KNX_IP, KNX_MONITOR_SESSION)
     return {"running": False, "message": "KNX Group Monitor arrestato"}
 
 
@@ -1439,6 +1537,22 @@ async def get_system_diagnostics_endpoint():
     """
     from core.system_requirements import get_system_diagnostics
     return get_system_diagnostics()
+
+
+@router.get(
+    "/system/resources",
+    tags=["system"],
+    response_model=list[ResourceClaimInfo],
+    summary="Risorse di campo esclusive attualmente occupate",
+    description=(
+        "Elenca le risorse che ammettono un solo utilizzatore e sono "
+        "attualmente rivendicate da una sessione: porte seriali RS485, socket "
+        "BACnet/IP e KNXnet/IP. Serve a capire perche' un avvio viene rifiutato "
+        "con HTTP 409 e quale operazione occupa la risorsa."
+    ),
+)
+async def get_resource_claims() -> list[dict]:
+    return [claim.as_dict() for claim in resource_guard.claims()]
 
 
 @router.post(

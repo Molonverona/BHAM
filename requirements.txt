@@ -1,14 +1,17 @@
 # ── Web Framework ─────────────────────────────────────────────────────────────
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-websockets==13.1
-python-multipart==0.0.9
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+websockets==17.3
+python-multipart==0.0.32
 
 # ── Data / Validation ──────────────────────────────────────────────────────────
-pydantic==2.9.2
-pydantic-settings==2.5.2
+pydantic==2.14.1
+pydantic-settings==2.16.1
 
 # ── Protocols ─────────────────────────────────────────────────────────────────
+# NOTA: pymodbus, bacpypes3 e scapy governano il comportamento sul filo (RS485,
+# BACnet/IP, cattura L2). Restano pinnati a versioni collaudate in campo: un
+# avanzamento va validato su hardware reale, non solo nel simulatore.
 pymodbus==3.7.2
 bacpypes3==0.0.102
 pyserial==3.5
@@ -17,10 +20,12 @@ pyserial==3.5
 scapy==2.6.0
 
 # ── Reports ───────────────────────────────────────────────────────────────────
+# reportlab 5.x e' un avanzamento major: i certificati di collaudo PDF vanno
+# verificati visivamente prima di adottarlo.
 openpyxl==3.1.5
 reportlab==4.2.5
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
-aiofiles==24.1.0
-python-dotenv==1.0.1
+aiofiles==25.1.0
+python-dotenv==1.2.4
 psutil>=5.9

@@ -271,6 +271,26 @@ esegue il controllo completo e mostra l'esito in una finestra che resta aperta, 
 aprire un prompt dei comandi. La stessa utilità (`verifica-installazione.bat`) è inclusa
 nell'archivio portable.
 
+### Avvio di una scansione rifiutato (HTTP 409)
+
+Alcune risorse di campo ammettono un solo utilizzatore: una porta RS485, il socket
+BACnet/IP (47808) e quello KNXnet/IP (3671). Avviare due operazioni sulla stessa
+risorsa produrrebbe letture corrotte presentate come valide, quindi la seconda
+viene **rifiutata** con `409` e con l'indicazione di cosa la sta occupando:
+
+```json
+{
+  "detail": "La risorsa è già in uso da «Sniffer passivo RS485», avviata 12 secondi fa.",
+  "resource": "serial:/dev/ttyUSB0",
+  "conflicting_session_id": "…",
+  "hint": "Attendi il termine dell'operazione in corso oppure arrestala con POST /api/v1/scan/abort/{session_id}."
+}
+```
+
+Per vedere cosa è occupato in un dato momento: `GET /api/v1/system/resources`.
+Modbus TCP e la scansione IP non rivendicano nulla (solo connessioni in uscita) e
+restano quindi eseguibili in parallelo.
+
 Diagnostica completa dalla UI: **Impostazioni → Diagnostica & Requisiti**, oppure
 `GET /api/v1/system/diagnostics` (riporta `is_frozen`, `is_portable`, `listen_port`,
 `has_npcap` e `windows_firewall_rule`).

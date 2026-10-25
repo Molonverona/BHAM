@@ -164,10 +164,10 @@ if ($InstallNpcap) {
         Write-Info "URL: $NPCAP_URL"
         try {
             $wc = New-Object System.Net.WebClient
-            $wc.Headers.Add("User-Agent", "BHAM-Bootstrap/1.2.0")
+            $wc.Headers.Add("User-Agent", "BHAM-Bootstrap/1.2.5")
             $wc.DownloadFile($NPCAP_URL, $NPCAP_TARGET)
         } catch {
-            Invoke-WebRequest -Uri $NPCAP_URL -OutFile $NPCAP_TARGET -UseBasicParsing -UserAgent "BHAM-Bootstrap/1.2.0"
+            Invoke-WebRequest -Uri $NPCAP_URL -OutFile $NPCAP_TARGET -UseBasicParsing -UserAgent "BHAM-Bootstrap/1.2.5"
         }
 
         if (-not (Test-Path $NPCAP_TARGET)) {

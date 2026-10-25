@@ -2,6 +2,97 @@
 
 > Analisi statica del sorgente eseguita il 2026-09-29 (riferita allo stato v0.3.0).
 > **Stato di Risoluzione (v0.8.0):** Tutti gli 11 rilievi (#1–#11) sono stati integralmente risolti nelle release v0.4.0 – v0.8.0 (thread-safe event loop dispatching, serial sniffer error propagation, CIDR expansion, background tempfile cleanup, Safe Mode, e certificazione Write-Ahead Log).
+> **Verifica indipendente (v1.2.5, 2026-10-25):** la chiusura degli 11 rilievi è stata ricontrollata sul codice attuale e **risulta confermata**; sono però emersi 6 rilievi nuovi, documentati nella sezione seguente, tutti risolti in v1.2.5.
+
+---
+
+# Controllo generale v1.2.5 (2026-10-25)
+
+Secondo giro di revisione, condotto sul codice della v1.2.0 pubblicata.
+
+## Verifica dei rilievi storici #1–#11
+
+Ogni rilievo è stato riaperto e ricontrollato nel sorgente:
+
+| # | Rilievo originale | Esito della verifica |
+| --- | --- | --- |
+| 1 | Race condition cross-thread nel broadcast WebSocket | **Confermato risolto** – `api/websockets.py` marshalla con `loop.call_soon_threadsafe` |
+| 2 | `AppState` mutato da più thread senza lock | **Confermato risolto** – `threading.Lock` reale usato in tutte le mutazioni… *con un'eccezione*, vedi N4 |
+| 3 | `_notify` inghiotte le eccezioni | **Confermato risolto** – ramo d'errore ora loggato a WARNING |
+| 4 | Marker di conflitto git nel README | **Confermato risolto** – nessun marker presente |
+| 5 | Sniffer seriale segnala COMPLETED su errore | **Confermato risolto** – `_run_capture_loop` ritorna un esito e imposta `ScanStatus.ERROR` |
+| 6 | MS-TP: frame validi ma incompleti distrutti | **Confermato risolto** – distinzione fra header CRC invalido e payload non ancora arrivato |
+| 7 | Modbus TCP senza espansione CIDR | **Confermato risolto** – espansione implementata con deduplica |
+| 8 | Nessuna autenticazione + CORS aperto | **Confermato risolto** in v1.1.0 (token LAN + CORS conforme) |
+| 9 | 10 `Application()` BACnet concorrenti sulla stessa porta | **Confermato risolto** – `Application` condivisa nell'enrichment |
+| 10 | `abort_event` globale condiviso | **Parzialmente risolto** – abort per-sessione introdotto, ma la mutua esclusione sulla risorsa seriale era rimasta aperta: vedi N2 |
+| 11 | `tempfile.mktemp` e file temporanei mai cancellati | **Confermato risolto** – `mkstemp` + `BackgroundTask` di pulizia |
+
+I minori segnalati (import di `Any`, import inutilizzati, `health()` che accedeva a `manager._active`) risultano anch'essi sistemati.
+
+---
+
+## 🔴 Critici
+
+### N1. L'arresto d'emergenza globale rispondeva HTTP 500
+`POST /api/v1/scan/abort` dichiara `ScanAbortResponse.sessions: list[str]` ("Elenco ID delle sessioni terminate"), ma l'handler restituiva l'**intero** di `abort_all()`. La validazione della risposta di FastAPI falliva, quindi l'endpoint rispondeva **500 Internal Server Error**: la funzione di arresto d'emergenza non ha mai funzionato via HTTP.
+
+Il difetto è sopravvissuto perché la suite invoca `routes.abort_all_scans()` **direttamente**, bypassando la validazione contro il `response_model`: nessun test esercitava il contratto dichiarato.
+
+**Risolto in v1.2.5:** `abort_all()` ritorna la lista degli ID effettivamente fermati (coerente con lo schema e più utile). Aggiunta una famiglia di test che valida l'uscita degli handler contro il `response_model` realmente dichiarato sulla route, più un test che impone a ogni endpoint `/scan*` di dichiararne uno.
+
+---
+
+## 🟠 Alti
+
+### N2. Nessuna mutua esclusione sulle risorse di campo esclusive
+Rimasto aperto dal rilievo #10. Una porta RS485 ammette un solo lettore, ma nulla impediva di avviare contemporaneamente una scansione Modbus RTU e uno sniffer passivo sulla **stessa** `/dev/ttyUSB0`: i due consumatori si rubano i byte a vicenda, falsando sia la mappatura sia la diagnosi di Bus Health. Lo stesso valeva per il discovery BACnet/IP (bind della 47808) e per discovery KNXnet/IP e Group Monitor, che condividono il socket multicast 3671.
+
+**Impatto:** letture corrotte presentate come valide, senza alcun avviso all'operatore.
+
+**Risolto in v1.2.5:** nuovo `core/resource_guard.py` con registro delle rivendicazioni protetto da lock. Le route di avvio rivendicano la risorsa e un conflitto viene rifiutato con **HTTP 409**, indicando quale operazione la detiene, da quanti secondi e come arrestarla. La verifica precede la creazione della sessione, così un conflitto non lascia una sessione fantasma nello storico. Nuovo endpoint `GET /api/v1/system/resources` per ispezionare le risorse occupate.
+
+---
+
+## 🟡 Medi
+
+### N3. Registro degli abort mai liberato, con conteggio fuorviante
+`scanners/base.py`: `_abort_events` accumulava una voce per ogni scansione e **non veniva mai ripulito**, crescendo per tutta la durata del processo. Inoltre `abort_all()` ritornava `len(_abort_events)`, cioè il numero di sessioni mai registrate — non le scansioni effettivamente attive.
+
+**Risolto in v1.2.5:** `release_session()` invocata quando il task di scansione termina (in qualunque modo, tramite done-callback), e `abort_all()` ritorna solo le sessioni effettivamente fermate.
+
+### N4. Lo storico sessioni cresceva senza limiti ed era inviato per intero via WebSocket
+`data/state.py`: `self.sessions` non aveva alcun tetto e veniva serializzato **integralmente** in ogni `snapshot()`, cioè a ogni connessione WebSocket e a ogni evento di stato. Durante una giornata di collaudo con decine di scansioni il payload cresceva di continuo. `clear()` inoltre non azzerava lo storico, a differenza di tutte le altre collezioni.
+
+Nello stesso punto: `sessions` era **l'unica collezione mutata fuori da `_state_lock`**, mentre `snapshot()` la itera tenendolo — residuo del rilievo #2, corretto altrove ma non qui. Gli scanner aggiornano le sessioni da thread di executor, quindi la lettura poteva risultare incoerente.
+
+**Risolto in v1.2.5:** tetto `max_sessions` (200) con scarto delle più vecchie fra quelle **concluse** (le scansioni in corso non vengono mai rimosse), mutazioni portate sotto `_state_lock`, e `clear()` che azzera lo storico concluso preservando le sessioni attive.
+
+### N5. Dipendenze ferme a circa due anni
+12 delle 14 dipendenze pinnate erano indietro di versioni (fastapi 0.115→0.162, uvicorn 0.30→0.54, pydantic 2.9→2.14, websockets 13.1→17.3, pymodbus 3.7→3.16, reportlab 4.2→5.1), senza aggiornamenti di sicurezza da due anni.
+
+**Affrontato in v1.2.5 con cautela differenziata:**
+- **Aggiornate e verificate** le dipendenze infrastrutturali (fastapi, uvicorn, websockets, pydantic, pydantic-settings, aiofiles, python-dotenv, python-multipart): suite completa verde, binario congelato ricompilato e canale WebSocket live verificato end-to-end.
+- **Deliberatamente lasciate pinnate** `pymodbus`, `bacpypes3`, `scapy` e `reportlab`: governano il comportamento sul filo (RS485, BACnet/IP, cattura L2) e l'impaginazione dei certificati PDF. Il simulatore non può sostituire una validazione su hardware reale, quindi il loro avanzamento resta un intervento da pianificare con strumentazione in linea.
+
+### N6. Lo smoke test del binario non copriva il canale WebSocket
+La telemetria live è il cuore della console di collaudo, ma `scripts/smoke_frozen.py` verificava solo le route REST: un bundle con l'implementazione WebSocket incompleta avrebbe superato il test. La lacuna era particolarmente rilevante proprio mentre si aggiornava `websockets` da 13.1 a 17.3.
+
+**Risolto in v1.2.5:** lo smoke test apre una connessione al canale live e pretende lo snapshot iniziale, verificando anche il nuovo registro risorse. La verifica si autoesclude con un avviso se la libreria `websockets` non è presente nell'ambiente che esegue il test.
+
+---
+
+## ⚪ Note ambientali (non difetti del prodotto)
+
+- La dipendenza `bacpypes3` installa un pacchetto `tests` di primo livello in `site-packages`, che oscura la directory `tests/` del repository: `python -m unittest tests.<modulo>` fallisce con un `ModuleNotFoundError: pytest` proveniente da quel pacchetto. Per questo la CI usa `unittest discover -s tests`, che risolve per percorso. Usare `discover` anche in locale.
+
+---
+
+# Audit storico v0.3.0 (2026-09-29)
+
+> Primo giro di revisione, conservato per tracciabilità. Tutti i rilievi di
+> questa sezione risultano chiusi: la verifica è nella tabella in testa al
+> documento.
 
 ## Sintesi
 
