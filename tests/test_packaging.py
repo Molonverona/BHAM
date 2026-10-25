@@ -169,6 +169,115 @@ class TestPreflight(unittest.TestCase):
             self.assertIn(key, payload)
 
 
+class TestEngineChecks(unittest.TestCase):
+    """
+    Verifica dei motori a caricamento tardivo. In un bundle PyInstaller un
+    hiddenimport dimenticato non si manifesta all'avvio: l'eseguibile parte e
+    fallisce in cantiere all'apertura della funzione. Va inoltre distinto il
+    modulo assente dal pacchetto (bundle incompleto) dal modulo presente che non
+    si inizializza su quella macchina (p.es. Npcap assente su Windows).
+    """
+
+    def test_known_good_modules_are_available(self):
+        statuses = preflight.check_engines([("Json", "json"), ("Socket", "socket")])
+        self.assertEqual(len(statuses), 2)
+        for status in statuses:
+            with self.subTest(engine=status.label):
+                self.assertTrue(status.available)
+                self.assertFalse(status.missing)
+                self.assertFalse(status.degraded)
+                self.assertEqual(status.error, "")
+
+    def test_absent_module_is_reported_as_missing(self):
+        [status] = preflight.check_engines(
+            [("Inesistente", "bham_modulo_che_non_esiste_xyz")]
+        )
+        self.assertFalse(status.available)
+        self.assertTrue(status.missing, "un modulo assente indica un bundle incompleto")
+        self.assertFalse(status.degraded)
+        self.assertIn("ModuleNotFoundError", status.error)
+
+    def test_module_failing_at_import_is_degraded_not_missing(self):
+        """Un import che esplode per ragioni d'ambiente non è un bundle incompleto."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "bham_motore_rotto.py").write_text(
+                "import socket\n"
+                "raise OSError('illegal IP address string passed to inet_pton')\n",
+                encoding="utf-8",
+            )
+            sys.path.insert(0, tmp)
+            try:
+                [status] = preflight.check_engines([("Rotto", "bham_motore_rotto")])
+            finally:
+                sys.path.remove(tmp)
+                sys.modules.pop("bham_motore_rotto", None)
+
+        self.assertFalse(status.available)
+        self.assertFalse(status.missing, "il modulo esiste: non è un pacchetto incompleto")
+        self.assertTrue(status.degraded)
+        self.assertIn("OSError", status.error)
+
+    def test_no_declared_engine_is_missing_from_the_package(self):
+        """
+        Il controllo di packaging vero e proprio: ogni motore dichiarato deve
+        essere importabile. Un fallimento qui su Windows in CI segnala un
+        hiddenimport mancante nello spec PyInstaller.
+        """
+        missing = [e.label for e in preflight.check_engines() if e.missing]
+        self.assertEqual(missing, [], f"motori assenti dal pacchetto: {missing}")
+
+    def test_engine_probe_does_not_leak_import_noise_to_stderr(self):
+        import contextlib
+        import io
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            preflight.check_engines([("Json", "json")])
+        self.assertEqual(captured.getvalue(), "")
+
+    def test_every_engine_declares_a_human_readable_label(self):
+        for label, module in preflight.ENGINE_IMPORTS:
+            with self.subTest(module=module):
+                self.assertTrue(label.strip())
+                self.assertNotEqual(label, module)
+
+
+class TestWindowsManifest(unittest.TestCase):
+    """Il manifest incorporato nell'eseguibile Windows dal file bham.spec."""
+
+    def setUp(self):
+        import xml.etree.ElementTree as ET
+        self.raw = _read("bham.exe.manifest")
+        self.tree = ET.fromstring(self.raw)
+
+    def test_manifest_is_well_formed(self):
+        self.assertIsNotNone(self.tree)
+
+    def test_does_not_request_elevation(self):
+        # BHAM deve funzionare senza privilegi di amministratore: forzare
+        # l'elevazione farebbe comparire un prompt UAC a ogni avvio.
+        self.assertIn('level="asInvoker"', self.raw)
+        self.assertNotIn("requireAdministrator", self.raw)
+
+    def test_declares_utf8_code_page_and_long_paths(self):
+        self.assertIn("activeCodePage", self.raw)
+        self.assertIn("UTF-8", self.raw)
+        self.assertIn("longPathAware", self.raw)
+
+    def test_assembly_version_matches_the_pattern_injected_by_the_spec(self):
+        # bham.spec sostituisce il primo version="X.Y.Z.W" a quattro componenti:
+        # se il formato cambia, l'iniezione della versione fallisce in silenzio.
+        match = re.search(r'<assemblyIdentity.*?version="(\d+\.\d+\.\d+\.\d+)"',
+                          self.raw, re.DOTALL)
+        self.assertIsNotNone(
+            match, "assemblyIdentity deve avere una versione a 4 componenti"
+        )
+        # La dichiarazione XML (version="1.0") non deve essere il primo match.
+        first = re.search(r'(version=")\d+\.\d+\.\d+\.\d+(")', self.raw)
+        self.assertIsNotNone(first)
+        self.assertEqual(first.group(0), f'version="{match.group(1)}"')
+
+
 class TestWindowsFirewallDetection(unittest.TestCase):
     """Rilevamento della regola firewall che abilita il pairing LAN via QR code."""
 

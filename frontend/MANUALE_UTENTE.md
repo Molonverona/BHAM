@@ -572,7 +572,7 @@ Fino alla v1.1.0 il binario accettava e ignorava qualunque argomento.
 | --- | --- |
 | `--port 9000` | Porta di ascolto alternativa |
 | `--host 127.0.0.1` | Limita l'ascolto alla sola macchina locale |
-| `--check` | Esegue solo le verifiche di preflight ed esce (codice 0 = sistema pronto) |
+| `--check` | Verifica preflight **e** caricamento dei motori di protocollo, poi esce (codice 0 = sistema pronto) |
 | `--version` | Stampa la versione e termina |
 | `--no-browser` | Non apre automaticamente il browser |
 | `--demo` | Avvia il Simulatore d'Impianto Virtuale |
@@ -585,6 +585,20 @@ Fino alla v1.1.0 il binario accettava e ignorava qualunque argomento.
 - **Directory dati scrivibile:** segnala immediatamente un'installazione in una cartella protetta (es. `Program Files` senza privilegi) invece di fallire in modo oscuro durante il collaudo.
 - **Asset della console web:** verifica che l'interfaccia sia realmente presente nel pacchetto; un bundle incompleto è la causa tipica della pagina bianca.
 - **Porta occupata & fallback automatico:** se la porta 8765 è già usata da un'altra istanza di BHAM, il demone passa automaticamente alla prima porta libera invece di terminare con un traceback, allineando log di avvio, URL LAN e QR code di pairing alla porta effettivamente in uso.
+
+### 24.3.1 Verifica dei motori di protocollo
+
+`bham.exe --check` tenta il caricamento di ogni motore (Modbus, BACnet, sniffer L2, seriale RS485, report Excel e PDF, telemetria di sistema) e distingue due esiti molto diversi:
+
+| Esito | Significato | Azione |
+| --- | --- | --- |
+| `[OK]` | Motore caricato correttamente | Nessuna |
+| `[ASSENTE]` | Il modulo non è presente nel pacchetto | Pacchetto incompleto o corrotto: **reinstallare** BHAM o riscaricare l'archivio portable |
+| `[LIMITATO]` | Il modulo c'è ma non si inizializza su questa macchina | Driver di sistema mancante (tipicamente **Npcap**): il pacchetto è integro, solo quella funzione è indisponibile |
+
+La distinzione è importante: segnalare "pacchetto incompleto" quando manca soltanto un driver porterebbe a reinstallare inutilmente il prodotto. Solo `[ASSENTE]` fa terminare `--check` con codice di errore.
+
+> In un pacchetto compilato un `hiddenimport` dimenticato non si manifesta all'avvio: l'eseguibile parte regolarmente e fallisce settimane dopo, in cantiere, all'apertura della funzione corrispondente. Per questo la verifica gira anche in CI sull'eseguibile Windows, dove scapy carica moduli di piattaforma diversi da quelli raccolti nella build Linux.
 
 ### 24.4 Accesso da tablet e smartphone: regola di Windows Firewall
 
@@ -600,6 +614,8 @@ netsh advfirewall firewall add rule name="BHAM - BACS Help Auto Mapper" dir=in a
 
 - **Aggiornamento sopra una versione precedente:** l'installer chiude l'istanza in esecuzione tramite Restart Manager invece di interrompersi con l'errore *"file in uso"*.
 - **Antivirus e SmartScreen:** l'eseguibile incorpora ora il manifest applicativo (UAC `asInvoker`, DPI awareness) e la risorsa `VERSIONINFO` con nome prodotto, versione e publisher; la compressione UPX è stata disattivata perché corrompe alcune DLL del runtime Python e innesca falsi positivi.
+- **Console e percorsi lunghi:** il manifest dichiara `activeCodePage = UTF-8` (Windows 10 1903+), così i messaggi accentati e i caratteri di cornice del banner vengono resi correttamente, e `longPathAware = true` (Windows 10 1607+), necessario per i verbali salvati sotto cartelle di commessa profondamente annidate.
+- **Verifica dell'installer in CI:** lo script Inno Setup viene ora compilato a ogni push su Windows e pubblicato come artefatto scaricabile; prima veniva compilato per la prima volta durante la release, dove un errore di sintassi blocca la pubblicazione.
 - **Installazione via winget:** il manifest puntava al repository errato e a un asset di release inesistente, restituendo errore 404. Il workflow di release pubblica ora il manifest già compilato con lo SHA256 reale.
 - **Launcher a doppio clic (`bham.bat`):** i messaggi non vengono più mostrati con caratteri illeggibili sulle code page legacy della console Windows, e il rilevamento dell'interprete include Python 3.13 oltre a 3.12.
 - **Variabile `BHAM_API_TOKEN`:** era documentata ma non veniva letta dalla configurazione; ora `host`, `port`, `debug`, `api_token` e `lan_auth_required` accettano sia il nome semplice sia la forma con prefisso `BHAM_`.

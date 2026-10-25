@@ -2,9 +2,13 @@ name: CI – Test Suite
 
 on:
   push:
-    branches: [ "main", "master" ]
+    # I rami di lavoro vengono testati come main: senza questo, una feature
+    # branch non riceve alcuna verifica fino all'apertura della pull request.
+    branches: [ "main", "master", "claude/**", "feature/**", "fix/**" ]
   pull_request:
     branches: [ "main", "master" ]
+  # Permette di lanciare la suite a richiesta su qualunque ramo.
+  workflow_dispatch:
 
 jobs:
   test:
@@ -103,6 +107,30 @@ jobs:
       # come il binario che esce subito con "Could not import module main".
       - name: Binary starts and serves the web console
         run: python scripts/smoke_frozen.py
+
+      # Il compilatore Inno Setup esiste solo su Windows. Senza questo passo lo
+      # script dell'installer verrebbe compilato per la prima volta durante la
+      # release, dove un errore di sintassi blocca la pubblicazione.
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        run: choco install innosetup --no-progress -y
+
+      - name: Windows installer compiles
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\bham.iss
+          $exe = Get-ChildItem dist-installer\*.exe -ErrorAction Stop
+          Write-Host "Installer prodotto: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
+
+      # Reso scaricabile per il collaudo manuale su una postazione Windows reale.
+      - name: Upload Windows installer artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-ci
+          path: dist-installer/*.exe
+          retention-days: 14
 
   static:
     name: Static checks (JS syntax & version sync)

@@ -291,7 +291,7 @@ def build_arg_parser() -> "argparse.ArgumentParser":
     parser.add_argument("--no-port-fallback", action="store_true",
                         help="non cercare una porta alternativa se quella richiesta è occupata")
     parser.add_argument("--check", action="store_true",
-                        help="esegue solo le verifiche di preflight ed esce (0 = OK, 1 = problemi)")
+                        help="verifica preflight e motori di protocollo, poi esce (0 = OK, 1 = problemi)")
     parser.add_argument("--version", action="version",
                         version=f"BHAM {settings.app_version}")
     return parser
@@ -325,8 +325,38 @@ def run_cli(argv: list[str] | None = None) -> int:
     _print_preflight(report)
 
     if args.check:
-        if report.is_healthy:
-            print(f"[OK] Preflight superato – porta di ascolto {report.resolved_port}.")
+        from core.preflight import check_engines
+
+        print("\nMotori di protocollo e reporting:")
+        engines = check_engines()
+        for engine in engines:
+            if engine.available:
+                print(f"  [OK]        {engine.label}")
+            elif engine.missing:
+                print(f"  [ASSENTE]   {engine.label} ({engine.module}) -> {engine.error}")
+            else:
+                print(f"  [LIMITATO]  {engine.label} -> {engine.error}")
+
+        missing = [e for e in engines if e.missing]
+        degraded = [e for e in engines if e.degraded]
+
+        if missing:
+            # Solo un modulo assente indica un bundle incompleto.
+            print(
+                f"\n[ERRORE] {len(missing)} motore/i assente/i dal pacchetto: "
+                "reinstalla BHAM o riscarica l'archivio portable."
+            )
+        if degraded:
+            # Presente ma non inizializzabile: dipende dalla macchina, non dal
+            # pacchetto (tipicamente il driver Npcap assente su Windows).
+            print(
+                f"\n[!] {len(degraded)} motore/i presente/i ma non utilizzabile/i su "
+                "questa macchina. Le altre funzioni di BHAM restano operative; "
+                "verifica i driver richiesti in Diagnostica & Requisiti."
+            )
+
+        if report.is_healthy and not missing:
+            print(f"\n[OK] Preflight superato – porta di ascolto {report.resolved_port}.")
             return 0
         return 1
 

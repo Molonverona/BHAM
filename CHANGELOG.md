@@ -24,8 +24,17 @@ Le note della sezione corrispondente alla versione vengono pubblicate automatica
 - **Rilevamento regola Windows Firewall (`core/system_requirements.py`, `installer/bham.iss`)**:
   - `check_windows_firewall_rule()` verifica via `netsh` la presenza della regola che autorizza BHAM: la sua assenza è la causa più frequente di *"il QR code non si apre dal telefono"*, con il demone raggiungibile solo da localhost.
   - L'installer crea la regola in ingresso su richiesta (porta 8765/TCP, profili `private` e `domain` — mai `public`) e la rimuove alla disinstallazione.
+- **Verifica dei motori di protocollo nel pacchetto compilato (`core/preflight.py`, `main.py --check`)**:
+  - `check_engines()` tenta il caricamento di Modbus, BACnet, sniffer L2, seriale RS485, report Excel/PDF e telemetria di sistema. In un bundle PyInstaller un `hiddenimport` dimenticato non si manifesta all'avvio: l'eseguibile parte regolarmente e fallisce settimane dopo, in cantiere, all'apertura della funzione. La verifica è particolarmente rilevante su Windows, dove scapy carica moduli di piattaforma diversi da quelli raccolti nella build Linux.
+  - Distinzione esplicita fra **`[ASSENTE]`** (modulo non presente nel pacchetto → bundle incompleto, va reinstallato) e **`[LIMITATO]`** (modulo presente ma non inizializzabile su quella macchina, tipicamente per l'assenza del driver Npcap): solo il primo caso fa fallire `--check`, evitando di suggerire una reinstallazione inutile.
+  - Gli avvisi e i traceback che scapy scrive su stderr durante l'import vengono trattenuti, mantenendo leggibile l'esito della verifica.
+- **Manifest Windows: code page UTF-8 e percorsi lunghi (`bham.exe.manifest`)**:
+  - `activeCodePage = UTF-8` (Windows 10 1903+): la console rende correttamente i messaggi accentati e i caratteri di cornice del banner di avvio, risolvendo il problema di codifica all'origine invece di aggirarlo.
+  - `longPathAware = true` (Windows 10 1607+): verbali di collaudo e snapshot di sessione salvati sotto cartelle di commessa profondamente annidate non superano più il limite di 260 caratteri.
 - **Smoke test del binario congelato (`scripts/smoke_frozen.py`, `.github/workflows/ci.yml`)**:
   - Nuovo job CI su Linux **e** Windows che compila l'eseguibile, lo avvia davvero e verifica `--version`, `--check`, `/api/v1/health`, la console web servita dal bundle e l'endpoint di diagnostica. È il controllo che intercetta le regressioni di packaging invisibili ai test unitari.
+  - Su Windows il job **compila anche l'installer Inno Setup** e lo pubblica come artefatto scaricabile per il collaudo manuale: prima lo script `bham.iss` veniva compilato per la prima volta durante la release, dove un errore di sintassi blocca la pubblicazione.
+  - La suite gira ora anche sui rami di lavoro (`claude/**`, `feature/**`, `fix/**`) e può essere lanciata a richiesta (`workflow_dispatch`): in precedenza una feature branch non riceveva alcuna verifica fino all'apertura della pull request.
 - **Metadati di packaging nella diagnostica (`/api/v1/system/diagnostics`)**:
   - Nuovi campi `app_version`, `is_frozen`, `is_portable`, `listen_port` e `windows_firewall_rule` per il supporto di campo.
   - Il binario congelato non segnala più come "non supportata" la versione dell'interprete di sistema: il runtime è incorporato nell'eseguibile.

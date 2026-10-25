@@ -535,7 +535,7 @@ const MANUAL_DATA = {
         <h4>Flag a riga di comando dell'eseguibile</h4>
         <ul>
           <li><code>--port 9000</code> / <code>--host 127.0.0.1</code>: porta e interfaccia di ascolto.</li>
-          <li><code>--check</code>: esegue solo le verifiche di preflight ed esce (codice 0 = sistema pronto). Da usare come primo test su una postazione nuova.</li>
+          <li><code>--check</code>: verifica il preflight <strong>e</strong> il caricamento di tutti i motori di protocollo, poi esce (codice 0 = sistema pronto). Da usare come primo test su una postazione nuova.</li>
           <li><code>--version</code>, <code>--no-browser</code>, <code>--demo</code>, <code>--no-port-fallback</code>.</li>
         </ul>
 
@@ -545,6 +545,14 @@ const MANUAL_DATA = {
           <li><strong>Asset della console web:</strong> verifica che l'interfaccia sia realmente presente nel pacchetto, causa tipica della pagina bianca.</li>
           <li><strong>Porta occupata:</strong> se la 8765 è già usata da un'altra istanza di BHAM, il demone passa automaticamente alla prima porta libera e allinea log, URL LAN e QR code alla porta effettiva.</li>
         </ul>
+
+        <h4>Verifica dei motori di protocollo</h4>
+        <p><code>bham.exe --check</code> tenta il caricamento di ogni motore (Modbus, BACnet, sniffer L2, seriale RS485, report Excel e PDF) e distingue due esiti molto diversi:</p>
+        <ul>
+          <li><strong><code>[ASSENTE]</code></strong> — il modulo non è presente nel pacchetto: il file scaricato è incompleto o corrotto, va reinstallato.</li>
+          <li><strong><code>[LIMITATO]</code></strong> — il modulo c'è ma non si inizializza su questa macchina, tipicamente per l'assenza del driver <em>Npcap</em>. Il pacchetto è integro: tutte le altre funzioni restano operative e solo quella specifica è indisponibile.</li>
+        </ul>
+        <p>La distinzione evita la reinstallazione inutile del prodotto quando il problema è in realtà un driver di sistema mancante.</p>
 
         <h4>Accesso da tablet e smartphone: regola firewall</h4>
         <ul>
@@ -1093,7 +1101,7 @@ const MANUAL_DATA = {
         <h4>Command-line flags of the executable</h4>
         <ul>
           <li><code>--port 9000</code> / <code>--host 127.0.0.1</code>: listening port and interface.</li>
-          <li><code>--check</code>: runs the preflight checks only and exits (exit code 0 = system ready). Use it as the first test on a new workstation.</li>
+          <li><code>--check</code>: runs the preflight checks <strong>and</strong> loads every protocol engine, then exits (exit code 0 = system ready). Use it as the first test on a new workstation.</li>
           <li><code>--version</code>, <code>--no-browser</code>, <code>--demo</code>, <code>--no-port-fallback</code>.</li>
         </ul>
 
@@ -1103,6 +1111,14 @@ const MANUAL_DATA = {
           <li><strong>Web console assets:</strong> verifies the interface is really present in the package, the usual cause of a blank page.</li>
           <li><strong>Busy port:</strong> if 8765 is already taken by another BHAM instance, the daemon switches to the first free port and aligns logs, LAN URLs and the QR code with the port actually in use.</li>
         </ul>
+
+        <h4>Protocol engine verification</h4>
+        <p><code>bham.exe --check</code> loads every engine (Modbus, BACnet, L2 sniffer, RS485 serial, Excel and PDF reporting) and distinguishes two very different outcomes:</p>
+        <ul>
+          <li><strong><code>[ASSENTE]</code></strong> — the module is not present in the package: the downloaded file is incomplete or corrupted and must be reinstalled.</li>
+          <li><strong><code>[LIMITATO]</code></strong> — the module is there but does not initialise on this machine, typically because the <em>Npcap</em> driver is missing. The package is intact: every other function keeps working and only that specific one is unavailable.</li>
+        </ul>
+        <p>The distinction avoids a pointless reinstall when the real problem is a missing system driver.</p>
 
         <h4>Tablet and smartphone access: firewall rule</h4>
         <ul>
@@ -1593,7 +1609,7 @@ const MANUAL_DATA = {
         <h4>Parámetros de línea de comandos del ejecutable</h4>
         <ul>
           <li><code>--port 9000</code> / <code>--host 127.0.0.1</code>: puerto e interfaz de escucha.</li>
-          <li><code>--check</code>: ejecuta solo las comprobaciones de preflight y termina (código 0 = sistema listo). Úselo como primera prueba en un puesto nuevo.</li>
+          <li><code>--check</code>: ejecuta las comprobaciones de preflight <strong>y</strong> carga todos los motores de protocolo, luego termina (código 0 = sistema listo). Úselo como primera prueba en un puesto nuevo.</li>
           <li><code>--version</code>, <code>--no-browser</code>, <code>--demo</code>, <code>--no-port-fallback</code>.</li>
         </ul>
 
@@ -1603,6 +1619,14 @@ const MANUAL_DATA = {
           <li><strong>Recursos de la consola web:</strong> comprueba que la interfaz esté realmente incluida en el paquete, causa habitual de la página en blanco.</li>
           <li><strong>Puerto ocupado:</strong> si el 8765 ya está en uso por otra instancia de BHAM, el demonio pasa al primer puerto libre y alinea los registros, las URL de LAN y el código QR con el puerto real.</li>
         </ul>
+
+        <h4>Verificación de los motores de protocolo</h4>
+        <p><code>bham.exe --check</code> carga todos los motores (Modbus, BACnet, sniffer L2, serie RS485, informes Excel y PDF) y distingue dos resultados muy distintos:</p>
+        <ul>
+          <li><strong><code>[ASSENTE]</code></strong> — el módulo no está presente en el paquete: el archivo descargado está incompleto o corrupto y debe reinstalarse.</li>
+          <li><strong><code>[LIMITATO]</code></strong> — el módulo existe pero no se inicializa en esta máquina, normalmente por falta del controlador <em>Npcap</em>. El paquete está íntegro: el resto de funciones sigue operativo y solo esa queda no disponible.</li>
+        </ul>
+        <p>La distinción evita reinstalar el producto sin necesidad cuando el problema real es un controlador del sistema ausente.</p>
 
         <h4>Acceso desde tablet y smartphone: regla de firewall</h4>
         <ul>

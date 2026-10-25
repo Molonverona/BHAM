@@ -15,6 +15,7 @@ può stampare o serializzare in JSON.
 
 from __future__ import annotations
 
+import importlib
 import socket
 import sys
 from dataclasses import dataclass, field
@@ -22,6 +23,76 @@ from pathlib import Path
 
 # Numero massimo di porte consecutive provate prima di arrendersi.
 PORT_FALLBACK_ATTEMPTS = 20
+
+# Motori di protocollo e di reporting caricati su richiesta (import tardivo).
+# In un bundle PyInstaller un hiddenimport dimenticato non si manifesta
+# all'avvio: l'eseguibile parte regolarmente e fallisce settimane dopo, in
+# cantiere, quando il tecnico apre la funzione corrispondente. La verifica è
+# particolarmente importante su Windows, dove scapy carica moduli di
+# piattaforma diversi da quelli raccolti nella build Linux.
+ENGINE_IMPORTS: list[tuple[str, str]] = [
+    ("Modbus RTU/TCP", "pymodbus.client"),
+    ("BACnet/IP", "bacpypes3.apdu"),
+    ("Sniffer L2 / ARP", "scapy.all"),
+    ("Seriale RS485", "serial.tools.list_ports"),
+    ("Report Excel", "openpyxl"),
+    ("Report PDF", "reportlab.pdfgen.canvas"),
+    ("Telemetria di sistema", "psutil"),
+]
+
+
+@dataclass
+class EngineStatus:
+    """Esito del caricamento di un motore opzionale."""
+
+    label: str
+    module: str
+    available: bool
+    error: str = ""
+    # True solo quando il modulo (o una sua dipendenza) non esiste nel pacchetto:
+    # è l'unico caso che indica davvero un bundle incompleto. Un import fallito
+    # per altre ragioni — tipicamente scapy che non riesce a leggere la tabella
+    # di routing, o l'assenza del driver Npcap su Windows — significa che il
+    # pacchetto è integro ma la funzione non è utilizzabile su questa macchina.
+    missing: bool = False
+
+    @property
+    def degraded(self) -> bool:
+        """Modulo presente nel pacchetto ma non inizializzabile qui."""
+        return not self.available and not self.missing
+
+
+def check_engines(engines: list[tuple[str, str]] | None = None) -> list[EngineStatus]:
+    """
+    Tenta l'import di ogni motore di protocollo/reporting e ne riporta l'esito.
+
+    Non solleva eccezioni: un motore difettoso viene segnalato, non propagato.
+    Da non invocare all'avvio normale del demone (l'import di scapy è costoso):
+    è una verifica on-demand per `--check` e per la diagnostica di campo.
+    """
+    import contextlib
+    import io
+
+    results: list[EngineStatus] = []
+    for label, module in engines if engines is not None else ENGINE_IMPORTS:
+        try:
+            # Alcuni motori (scapy in particolare) scrivono avvisi e traceback
+            # su stderr durante l'import: vanno trattenuti, altrimenti sommergono
+            # l'esito della verifica. L'eventuale eccezione viene comunque
+            # riportata nel campo `error`.
+            with contextlib.redirect_stderr(io.StringIO()):
+                importlib.import_module(module)
+        except ModuleNotFoundError as exc:
+            results.append(
+                EngineStatus(label, module, False, f"{type(exc).__name__}: {exc}", missing=True)
+            )
+        except BaseException as exc:  # noqa: BLE001 - un motore rotto non deve propagare
+            results.append(
+                EngineStatus(label, module, False, f"{type(exc).__name__}: {exc}", missing=False)
+            )
+        else:
+            results.append(EngineStatus(label, module, True))
+    return results
 
 
 @dataclass
