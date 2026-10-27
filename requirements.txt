@@ -9,23 +9,18 @@ pydantic==2.14.1
 pydantic-settings==2.16.1
 
 # ── Protocols ─────────────────────────────────────────────────────────────────
-# NOTA: pymodbus, bacpypes3 e scapy governano il comportamento sul filo (RS485,
-# BACnet/IP, cattura L2). Restano pinnati a versioni collaudate in campo: un
-# avanzamento va validato su hardware reale, non solo nel simulatore.
-pymodbus==3.7.2
-bacpypes3==0.0.102
+pymodbus==3.16.1
+bacpypes3==0.0.110
 pyserial==3.5
 
 # ── Network / Sniffing ────────────────────────────────────────────────────────
-scapy==2.6.0
+scapy==2.8.0
 
 # ── Reports ───────────────────────────────────────────────────────────────────
-# reportlab 5.x e' un avanzamento major: i certificati di collaudo PDF vanno
-# verificati visivamente prima di adottarlo.
 openpyxl==3.1.5
-reportlab==4.2.5
+reportlab==5.1.0
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 aiofiles==25.1.0
 python-dotenv==1.2.4
-psutil>=5.9
+psutil>=7.2.2

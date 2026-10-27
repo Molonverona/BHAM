@@ -287,7 +287,7 @@ class ModbusScanner(BaseScanner):
         try:
             for sid in spy_ids:
                 try:
-                    rr = client.read_holding_registers(0, 1, slave=sid)
+                    rr = client.read_holding_registers(0, count=1, device_id=sid)
                     if rr and not rr.isError():
                         return sid
                 except Exception:
@@ -365,7 +365,7 @@ class ModbusScanner(BaseScanner):
         """
         try:
             t0 = time.monotonic()
-            rr = client.read_holding_registers(0, 1, slave=slave_id)
+            rr = client.read_holding_registers(0, count=1, device_id=slave_id)
             elapsed_ms = (time.monotonic() - t0) * 1000
 
             if rr and not rr.isError():
@@ -484,7 +484,7 @@ class ModbusScanner(BaseScanner):
             for uid in unit_ids:
                 t0 = time.monotonic()
                 try:
-                    rr = client.read_holding_registers(0, 1, slave=uid)
+                    rr = client.read_holding_registers(0, count=1, device_id=uid)
                     if rr and not rr.isError():
                         elapsed_ms = (time.monotonic() - t0) * 1000
                         return ModbusDevice(
@@ -532,7 +532,7 @@ def _fc43_blocking(port: str, params: dict, slave_id: int) -> dict:
     result: dict = {"slave_id": slave_id, "supported": False}
     try:
         from pymodbus.client import ModbusSerialClient
-        from pymodbus.mei_message import ReadDeviceInformationRequest
+        from pymodbus.pdu.mei_message import ReadDeviceInformationRequest
 
         client = ModbusSerialClient(
             port=port,
@@ -545,8 +545,8 @@ def _fc43_blocking(port: str, params: dict, slave_id: int) -> dict:
             return result
         try:
             # Try Basic level first (read_code=1)
-            req = ReadDeviceInformationRequest(read_code=1, object_id=0, slave=slave_id)
-            rr = client.execute(req)
+            req = ReadDeviceInformationRequest(read_code=1, object_id=0, dev_id=slave_id)
+            rr = client.execute(False, req)
             if rr and not rr.isError():
                 result["supported"] = True
                 info = rr.information  # dict {obj_id: bytes}
@@ -655,7 +655,7 @@ def _smart_register_scan_sync(
             while curr <= end_addr:
                 count = min(block_size, end_addr - curr + 1)
                 try:
-                    rr = client.read_holding_registers(curr, count, slave=slave_id)
+                    rr = client.read_holding_registers(curr, count=count, device_id=slave_id)
                     if rr and not rr.isError() and hasattr(rr, "registers"):
                         reg_vals = rr.registers
                         for i, val in enumerate(reg_vals):
@@ -684,7 +684,7 @@ def _smart_register_scan_sync(
                         if curr < start_addr + 4:
                             for single_addr in range(curr, min(curr + 3, end_addr + 1)):
                                 try:
-                                    srr = client.read_holding_registers(single_addr, 1, slave=slave_id)
+                                    srr = client.read_holding_registers(single_addr, count=1, device_id=slave_id)
                                     if srr and not srr.isError() and hasattr(srr, "registers"):
                                         val = srr.registers[0]
                                         s16 = struct.unpack(">h", struct.pack(">H", val))[0]
@@ -705,7 +705,7 @@ def _smart_register_scan_sync(
         # 2. Input Registers (FC04) su range 0..30
         for single_addr in range(0, 20):
             try:
-                rr = client.read_input_registers(single_addr, 1, slave=slave_id)
+                rr = client.read_input_registers(single_addr, count=1, device_id=slave_id)
                 if rr and not rr.isError() and hasattr(rr, "registers"):
                     val = rr.registers[0]
                     s16 = struct.unpack(">h", struct.pack(">H", val))[0]

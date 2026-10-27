@@ -2,7 +2,73 @@
 
 > Analisi statica del sorgente eseguita il 2026-09-29 (riferita allo stato v0.3.0).
 > **Stato di Risoluzione (v0.8.0):** Tutti gli 11 rilievi (#1–#11) sono stati integralmente risolti nelle release v0.4.0 – v0.8.0 (thread-safe event loop dispatching, serial sniffer error propagation, CIDR expansion, background tempfile cleanup, Safe Mode, e certificazione Write-Ahead Log).
+> **Avanzamento driver (v1.3.0, 2026-10-27):** l'aggiornamento di pymodbus, bacpypes3, scapy e reportlab alle versioni correnti — rinviato in v1.2.5 proprio per il rischio sul comportamento sul filo — ha portato a galla **tre rotture reali invisibili alla suite**: vedi la sezione dedicata sotto.
 > **Verifica indipendente (v1.2.5, 2026-10-25):** la chiusura degli 11 rilievi è stata ricontrollata sul codice attuale e **risulta confermata**; sono però emersi 6 rilievi nuovi, documentati nella sezione seguente, tutti risolti in v1.2.5.
+
+---
+
+# Avanzamento dei driver di protocollo v1.3.0 (2026-10-27)
+
+In v1.2.5 `pymodbus`, `bacpypes3`, `scapy` e `reportlab` erano stati
+deliberatamente lasciati pinnati, con questa motivazione a verbale: *"governano
+il comportamento sul filo e l'impaginazione dei certificati; il simulatore non
+sostituisce una validazione su hardware reale"*. L'avanzamento, richiesto
+esplicitamente, ha confermato il rischio.
+
+## 🔴 D1. Tutte le operazioni Modbus reali erano rotte
+
+pymodbus 3.16 ha introdotto quattro cambi di API incompatibili:
+
+| Cambio | Effetto sul codice |
+| --- | --- |
+| `count` diventato keyword-only | `read_holding_registers(0, 1, slave=…)` → `TypeError` |
+| `slave=` rinominato `device_id=` | tutte le letture e scritture → `TypeError` |
+| `pymodbus.mei_message` spostato in `pymodbus.pdu.mei_message`, `slave=` → `dev_id=` | FC43 Device Identification → `ModuleNotFoundError` |
+| `execute(request)` → `execute(no_response_expected, request)` | la richiesta veniva passata come primo flag |
+
+**17 siti di chiamata** corretti in `scanners/modbus.py` e
+`scanners/field_tools.py`.
+
+**Perché la suite non lo vedeva:** il Simulatore d'Impianto Virtuale intercetta
+le operazioni Modbus prima che raggiungano pymodbus. I 162 test continuavano a
+passare, mentre in campo la prima lettura avrebbe sollevato `TypeError`.
+
+## 🔴 D2. Letture di registri silenziosamente vuote
+
+`scanners/field_tools.py` sceglieva il tipo di dato annusando gli attributi
+della risposta:
+
+```python
+raw_vals = rr.bits[:count] if hasattr(rr, "bits") else rr.registers
+```
+
+Da pymodbus 3.16 **ogni** PDU di risposta espone `bits` — vuoto nelle risposte a
+registri. Il ramo `hasattr` vinceva sempre, quindi ogni lettura di holding e
+input register restituiva `[]` **dichiarando `success: true`**.
+
+È un difetto peggiore di un errore: l'operatore vede l'esito positivo e nessun
+valore, e non ha modo di capire che la lettura non è avvenuta. Il tipo si deduce
+ora dal function code, che è noto ed esplicito.
+
+## 🟠 D3. Il simulatore rendeva i driver non verificabili
+
+Entrambi i difetti sopra condividono la stessa causa radice: **nessun test
+parlava con le librerie di protocollo reali**. Il simulatore, prezioso per
+provare la logica applicativa senza impianto, mascherava completamente lo strato
+dei driver.
+
+**Risolto in v1.3.0** con `tests/test_protocol_drivers.py`: un server Modbus TCP
+di pymodbus viene avviato su loopback con un datastore noto e le funzioni di
+BHAM ci parlano sopra a simulatore spento (letture esatte, offset e `count`,
+round-trip di scrittura, scansione TCP, Smart Register Scan, interlock Safe Mode
+su bus reale). I report sono verificati sull'artefatto prodotto, e le firme delle
+librerie hanno un presidio dedicato.
+
+### Limite dichiarato della copertura
+I test parlano con un server **TCP**. Non coprono la temporizzazione del bus
+**RS485** fisico (auto-baud, inter-frame gap, terminazioni 120Ω), la FC43 su
+seriale, il discovery BACnet/IP su rete di impianto né la cattura L2 con Npcap:
+restano verifiche da fare con strumentazione in linea.
 
 ---
 

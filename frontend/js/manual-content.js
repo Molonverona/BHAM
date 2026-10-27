@@ -32,7 +32,8 @@ const MANUAL_DATA = {
       { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Accesso Mobile QR" },
       { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & Token LAN"},
       { id: "install_v12", title: "24. Installazione Windows & Avvio Standalone"},
-      { id: "resources_v125", title: "25. Risorse Esclusive & Controllo Generale" }
+      { id: "resources_v125", title: "25. Risorse Esclusive & Controllo Generale"},
+      { id: "drivers_v130", title: "26. Driver di Protocollo & Verifica su Librerie Reali" }
     ],
     content: {
       intro: `
@@ -599,6 +600,33 @@ const MANUAL_DATA = {
         <h4>Aggiornamento delle librerie: scelta prudente</h4>
         <p>Le librerie di base (server web, validazione dati, canale WebSocket) sono state portate alle versioni correnti e verificate: suite completa, ricompilazione dell'eseguibile e prova end-to-end del canale di telemetria live.</p>
         <p>I driver di protocollo (<em>Modbus</em>, <em>BACnet</em>, cattura di rete) e il generatore dei certificati PDF sono invece stati <strong>lasciati alle versioni collaudate</strong>: governano il comportamento sul filo e l'impaginazione dei verbali, e il simulatore non può sostituire una verifica su impianto reale. Il loro avanzamento va pianificato con strumentazione in linea.</p>
+      `,
+      drivers_v130: `
+        <h3>26. Driver di Protocollo, Aggiornamento Librerie &amp; Verifica su Librerie Reali (v1.3.0)</h3>
+        <p>La versione 1.3.0 porta <strong>tutte</strong> le librerie alle versioni correnti, inclusi i driver di protocollo che la 1.2.5 aveva deliberatamente lasciati fermi. L'operazione ha confermato il rischio che era stato messo a verbale: sono emerse tre rotture reali, invisibili ai test.</p>
+
+        <h4>Perché i driver erano stati lasciati indietro</h4>
+        <p>Modbus, BACnet e la cattura di rete governano il comportamento <em>sul filo</em>: un cambio di API a monte non si manifesta come errore di compilazione, ma come lettura che non avviene mentre l'impianto è in marcia. Il Simulatore d'Impianto Virtuale, prezioso per provare la logica senza impianto, intercetta le operazioni Modbus <strong>prima</strong> che raggiungano la libreria: nessun test, quindi, parlava con il driver vero.</p>
+
+        <h4>Cosa si era rotto</h4>
+        <ul>
+          <li><strong>Tutte le letture e scritture Modbus reali:</strong> la nuova libreria ha cambiato il modo di indicare lo slave e di passare il numero di registri. Ogni operazione su un dispositivo fisico avrebbe prodotto un errore immediato. I 162 test preesistenti passavano comunque, perché si fermavano al simulatore.</li>
+          <li><strong>Letture silenziosamente vuote:</strong> difetto più insidioso. Il codice deduceva il tipo di dato dalla forma della risposta; con la nuova libreria quella deduzione sbagliava sempre, restituendo <em>nessun valore</em> ma dichiarando l'operazione <strong>riuscita</strong>. In cantiere si sarebbe visto un esito positivo senza dati, senza alcun indizio di cosa fosse andato storto.</li>
+          <li><strong>Identificazione dispositivo (FC43):</strong> il modulo della libreria è stato spostato, quindi l'interrogazione del costruttore non era più caricabile.</li>
+        </ul>
+
+        <h4>Come si verifica adesso</h4>
+        <p>BHAM include ora una batteria di test che <strong>parla con le librerie vere</strong>, non con il simulatore:</p>
+        <ul>
+          <li><strong>Server Modbus reale:</strong> viene avviato un vero server Modbus TCP in locale con valori noti, e le funzioni di BHAM ci dialogano a simulatore spento. Sono verificati i valori esatti letti, il rispetto di indirizzo e quantità, il round-trip di scrittura singola e multipla, la scansione che censisce il dispositivo e lo Smart Register Scan.</li>
+          <li><strong>Interlock di sicurezza su bus reale:</strong> si verifica che il Safe Mode blocchi davvero la forzatura su un bus vero e che, una volta sbloccato con operatore e commessa, la scrittura vada a buon fine.</li>
+          <li><strong>Verbali:</strong> il PDF e l'Excel vengono controllati <em>sul file prodotto</em> — intestazione, terminazione, riapertura dei fogli. Con un aggiornamento importante del generatore PDF, "non ha dato errore" non è una verifica.</li>
+          <li><strong>Presidio sulle firme:</strong> se una libreria rinomina un parametro, la cosa viene intercettata dalla verifica automatica invece che in cantiere.</li>
+        </ul>
+
+        <h4>Cosa resta da validare su impianto</h4>
+        <p>I test dialogano con un server Modbus <strong>TCP</strong>: coprono la forma delle chiamate, la decodifica e il ciclo di scrittura, ma <strong>non</strong> la temporizzazione del bus <strong>RS485</strong> fisico (riconoscimento automatico del baudrate, pause fra frame, terminazioni di linea), l'identificazione dispositivo su seriale, il discovery BACnet/IP su rete di impianto e la cattura di pacchetti con Npcap.</p>
+        <p>Queste restano verifiche da fare <strong>con strumentazione in linea</strong>, su un impianto o un banco di prova: nessuna automazione può sostituirle.</p>
       `
     }
   },
@@ -629,7 +657,8 @@ const MANUAL_DATA = {
       { id: "bms_export_mobile", title: "22. BMS Tag Exporter & Mobile QR LAN Access" },
       { id: "knx_monitor_v11", title: "23. KNX Monitor, BACnet Trend & LAN Token"},
       { id: "install_v12", title: "24. Windows Installation & Standalone Startup"},
-      { id: "resources_v125", title: "25. Exclusive Resources & General Review" }
+      { id: "resources_v125", title: "25. Exclusive Resources & General Review"},
+      { id: "drivers_v130", title: "26. Protocol Drivers & Real-Library Verification" }
     ],
     content: {
       intro: `
@@ -1196,6 +1225,33 @@ const MANUAL_DATA = {
         <h4>Library updates: a deliberate split</h4>
         <p>The foundation libraries (web server, data validation, WebSocket channel) were moved to current versions and verified: full suite, executable rebuilt, and an end-to-end check of the live telemetry channel.</p>
         <p>The protocol drivers (<em>Modbus</em>, <em>BACnet</em>, packet capture) and the PDF certificate generator were instead <strong>left at their proven versions</strong>: they govern on-the-wire behaviour and report layout, and the simulator cannot replace verification on a real plant. Moving them forward needs to be planned with instrumentation in the loop.</p>
+      `,
+      drivers_v130: `
+        <h3>26. Protocol Drivers, Library Updates &amp; Real-Library Verification (v1.3.0)</h3>
+        <p>Release 1.3.0 moves <strong>every</strong> library to its current version, including the protocol drivers that 1.2.5 deliberately held back. Doing so confirmed the risk that had been put on record: three real breakages surfaced, invisible to the tests.</p>
+
+        <h4>Why the drivers were held back</h4>
+        <p>Modbus, BACnet and packet capture govern behaviour <em>on the wire</em>: an upstream API change does not show up as a build error, but as a read that never happens while the plant is running. The Virtual Plant Simulator — invaluable for exercising the logic without a plant — intercepts Modbus operations <strong>before</strong> they reach the library, so no test ever spoke to the real driver.</p>
+
+        <h4>What was broken</h4>
+        <ul>
+          <li><strong>Every real Modbus read and write:</strong> the new library changed how the slave is addressed and how the register count is passed. Any operation against physical hardware would have failed immediately. The 162 existing tests passed regardless, because they stopped at the simulator.</li>
+          <li><strong>Silently empty reads:</strong> the subtler defect. The code inferred the data type from the shape of the reply; with the new library that inference always chose wrong, returning <em>no values</em> while reporting the operation <strong>successful</strong>. On site you would see a green result with no data and no clue what went wrong.</li>
+          <li><strong>Device identification (FC43):</strong> the library module moved, so querying the manufacturer could no longer be loaded.</li>
+        </ul>
+
+        <h4>How it is verified now</h4>
+        <p>BHAM now ships a set of tests that <strong>talk to the real libraries</strong>, not the simulator:</p>
+        <ul>
+          <li><strong>Real Modbus server:</strong> an actual Modbus TCP server is started locally with known values, and BHAM's functions talk to it with the simulator off. Verified: the exact values read, that address and count are honoured, single and multiple write round-trips, the scan discovering the device, and the Smart Register Scan.</li>
+          <li><strong>Safety interlock on a real bus:</strong> Safe Mode is confirmed to actually block forcing on a real bus, and to allow the write once unlocked with operator and job order.</li>
+          <li><strong>Reports:</strong> the PDF and Excel are checked <em>on the produced file</em> — header, terminator, sheets reopening. With a major update to the PDF generator, "it did not raise" is not a verification.</li>
+          <li><strong>Signature guard:</strong> if a library renames a parameter, the automated check catches it instead of the field engineer.</li>
+        </ul>
+
+        <h4>What still needs plant validation</h4>
+        <p>The tests talk to a Modbus <strong>TCP</strong> server: they cover call shape, decoding and the write cycle, but <strong>not</strong> physical <strong>RS485</strong> bus timing (auto-baud detection, inter-frame gaps, line termination), device identification over serial, BACnet/IP discovery on a plant network, or packet capture with Npcap.</p>
+        <p>Those remain checks to run <strong>with instrumentation in the loop</strong>, on a plant or a test bench: no automation can replace them.</p>
       `
     }
   },
@@ -1226,7 +1282,8 @@ const MANUAL_DATA = {
       { id: "bms_export_mobile", title: "22. Exportador BMS/SCADA & Acceso Móvil QR" },
       { id: "knx_monitor_v11", title: "23. Monitor KNX, Trend BACnet y Token LAN"},
       { id: "install_v12", title: "24. Instalación en Windows y Arranque Standalone"},
-      { id: "resources_v125", title: "25. Recursos Exclusivos y Revisión General" }
+      { id: "resources_v125", title: "25. Recursos Exclusivos y Revisión General"},
+      { id: "drivers_v130", title: "26. Controladores de Protocolo y Verificación Real" }
     ],
     content: {
       intro: `
@@ -1735,6 +1792,33 @@ const MANUAL_DATA = {
         <h4>Actualización de librerías: una decisión prudente</h4>
         <p>Las librerías base (servidor web, validación de datos, canal WebSocket) se han llevado a las versiones actuales y verificado: suite completa, ejecutable recompilado y prueba end-to-end del canal de telemetría en vivo.</p>
         <p>Los controladores de protocolo (<em>Modbus</em>, <em>BACnet</em>, captura de red) y el generador de certificados PDF se han <strong>mantenido en sus versiones probadas</strong>: gobiernan el comportamiento en el hilo y la maquetación de las actas, y el simulador no puede sustituir una verificación en una instalación real. Su avance debe planificarse con instrumentación en línea.</p>
+      `,
+      drivers_v130: `
+        <h3>26. Controladores de Protocolo, Actualización de Librerías y Verificación Real (v1.3.0)</h3>
+        <p>La versión 1.3.0 lleva <strong>todas</strong> las librerías a sus versiones actuales, incluidos los controladores de protocolo que la 1.2.5 había mantenido deliberadamente congelados. La operación confirmó el riesgo que se había dejado por escrito: aparecieron tres fallos reales, invisibles para las pruebas.</p>
+
+        <h4>Por qué se habían mantenido congelados</h4>
+        <p>Modbus, BACnet y la captura de red gobiernan el comportamiento <em>en el hilo</em>: un cambio de API aguas arriba no se manifiesta como error de compilación, sino como una lectura que no ocurre mientras la instalación está en marcha. El Simulador de Instalación Virtual —valiosísimo para probar la lógica sin instalación— intercepta las operaciones Modbus <strong>antes</strong> de que lleguen a la librería, por lo que ninguna prueba hablaba con el controlador real.</p>
+
+        <h4>Qué estaba roto</h4>
+        <ul>
+          <li><strong>Todas las lecturas y escrituras Modbus reales:</strong> la nueva librería cambió la forma de indicar el esclavo y de pasar la cantidad de registros. Cualquier operación contra hardware físico habría fallado de inmediato. Las 162 pruebas existentes pasaban igualmente, porque se detenían en el simulador.</li>
+          <li><strong>Lecturas silenciosamente vacías:</strong> el defecto más insidioso. El código deducía el tipo de dato de la forma de la respuesta; con la nueva librería esa deducción siempre erraba, devolviendo <em>ningún valor</em> pero declarando la operación <strong>exitosa</strong>. En obra se vería un resultado positivo sin datos y sin ninguna pista de lo ocurrido.</li>
+          <li><strong>Identificación de dispositivo (FC43):</strong> el módulo de la librería se movió, por lo que la consulta al fabricante ya no podía cargarse.</li>
+        </ul>
+
+        <h4>Cómo se verifica ahora</h4>
+        <p>BHAM incluye ahora una batería de pruebas que <strong>habla con las librerías reales</strong>, no con el simulador:</p>
+        <ul>
+          <li><strong>Servidor Modbus real:</strong> se arranca un servidor Modbus TCP auténtico en local con valores conocidos, y las funciones de BHAM dialogan con él con el simulador apagado. Se verifican los valores exactos leídos, el respeto de dirección y cantidad, el ciclo de escritura simple y múltiple, el barrido que detecta el dispositivo y el Smart Register Scan.</li>
+          <li><strong>Enclavamiento de seguridad en bus real:</strong> se comprueba que el Safe Mode bloquee realmente el forzado en un bus auténtico y que, una vez desbloqueado con operador y orden de trabajo, la escritura se complete.</li>
+          <li><strong>Actas:</strong> el PDF y el Excel se comprueban <em>sobre el archivo producido</em> — encabezado, terminación, reapertura de hojas. Con una actualización mayor del generador de PDF, "no dio error" no es una verificación.</li>
+          <li><strong>Vigilancia de firmas:</strong> si una librería renombra un parámetro, lo detecta la comprobación automática en lugar del técnico en obra.</li>
+        </ul>
+
+        <h4>Qué queda por validar en instalación</h4>
+        <p>Las pruebas dialogan con un servidor Modbus <strong>TCP</strong>: cubren la forma de las llamadas, la decodificación y el ciclo de escritura, pero <strong>no</strong> la temporización del bus <strong>RS485</strong> físico (detección automática de baudios, pausas entre tramas, terminaciones de línea), la identificación de dispositivo por serie, el discovery BACnet/IP en red de instalación ni la captura de paquetes con Npcap.</p>
+        <p>Esas siguen siendo comprobaciones a realizar <strong>con instrumentación en línea</strong>, sobre una instalación o un banco de pruebas: ninguna automatización puede sustituirlas.</p>
       `
     }
   }

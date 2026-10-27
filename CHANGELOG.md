@@ -3,6 +3,40 @@
 Formato basato su [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versioni [SemVer](https://semver.org/lang/it/).
 Le note della sezione corrispondente alla versione vengono pubblicate automaticamente nella GitHub Release.
 
+## [1.3.0] – 2026-10-27
+
+Avanzamento di **tutte** le dipendenze alle versioni correnti, driver di protocollo compresi. In v1.2.5 erano stati lasciati pinnati proprio perché governano il comportamento sul filo: l'avanzamento ha confermato il rischio, portando a galla **tre rotture reali** che la suite di test non poteva vedere. Tutte risolte, e ora coperte da test che parlano con le librerie vere.
+
+### Risolto (critico)
+- **Ogni lettura e scrittura Modbus reale era rotta da pymodbus 3.16 (`scanners/modbus.py`, `scanners/field_tools.py`)**:
+  - `count` è diventato **keyword-only**: `read_holding_registers(0, 1, slave=…)` solleva `TypeError`.
+  - `slave=` è stato rinominato **`device_id=`** su tutte le letture e scritture.
+  - `pymodbus.mei_message` è stato spostato in **`pymodbus.pdu.mei_message`**, e nella richiesta FC43 `slave=` è diventato **`dev_id=`**.
+  - `client.execute()` ha ora due argomenti posizionali: **`execute(no_response_expected, request)`**.
+  - Corretti tutti i 17 siti di chiamata. Il Simulatore d'Impianto Virtuale intercetta le operazioni Modbus prima che raggiungano pymodbus, quindi **i 162 test preesistenti passavano comunque**: in campo ogni lettura reale sarebbe fallita.
+- **Letture di registri silenziosamente vuote (`scanners/field_tools.py`)**:
+  - Il tipo di dato veniva scelto annusando gli attributi della risposta (`rr.bits[:count] if hasattr(rr, "bits") else rr.registers`). Da pymodbus 3.16 **ogni** PDU di risposta espone `bits` (vuoto per le risposte a registri), quindi tutte le letture di holding e input register restituivano una lista vuota **dichiarando `success: true`**: l'operatore avrebbe visto l'esito positivo senza alcun valore, difetto peggiore di un errore esplicito.
+  - Il tipo si deduce ora dal function code, che è noto ed esplicito.
+
+### Aggiunto
+- **Test dei driver contro le librerie reali (`tests/test_protocol_drivers.py`)**:
+  - Viene avviato un **server Modbus TCP di pymodbus su loopback** con un datastore noto, e le funzioni di BHAM ci parlano sopra **con il simulatore disattivato**: letture holding/input con valori esatti, offset e `count` rispettati, round-trip di scrittura singola e multipla, scansione Modbus TCP che censisce il server, Smart Register Scan sul percorso reale, e blocco del Safe Mode Interlock verificato su un bus vero.
+  - I generatori di report sono verificati **sull'artefatto prodotto**: il PDF deve avere intestazione `%PDF-`, terminatore `%%EOF` e dimensione plausibile; l'Excel deve riaprirsi con i suoi fogli. Con un avanzamento major di reportlab, "non ha sollevato eccezioni" non è una verifica.
+  - Presidio sulle firme delle librerie (`device_id`, `count` keyword-only, `dev_id`, ordine degli argomenti di `execute`, punti d'ingresso di bacpypes3 e scapy): un rename a monte viene ora intercettato in CI invece che in cantiere.
+
+### Modificato
+- **Dipendenze: tutte alle versioni correnti**:
+  - Driver di protocollo e report: pymodbus `3.7.2→3.16.1`, bacpypes3 `0.0.102→0.0.110`, scapy `2.6.0→2.8.0`, reportlab `4.2.5→5.1.0`, psutil `→7.2.2`.
+  - Infrastruttura già allineata in v1.2.5 e riconfermata: fastapi `0.162.0`, uvicorn `0.54.0`, websockets `17.3`, pydantic `2.14.1`, pydantic-settings `2.16.1`, aiofiles `25.1.0`, python-dotenv `1.2.4`, python-multipart `0.0.32`.
+  - Minimi allineati anche in `pyproject.toml`: con le API cambiate, una versione precedente non è più supportabile.
+- **`bham.spec`**: dichiarati `pymodbus.pdu` e `pymodbus.pdu.mei_message`, che per l'import tardivo della FC43 devono finire nel bundle. Verificata la presenza effettiva nel PYZ dell'eseguibile compilato (45 moduli pymodbus, 194 scapy).
+
+### Test
+- Suite estesa da 162 a **179 test**, verdi su Linux e Windows.
+
+### Resta da validare su impianto
+I test parlano con un server Modbus **TCP** reale: coprono la forma delle chiamate, la decodifica e il round-trip, ma non la temporizzazione del bus **RS485** fisico (auto-baud, inter-frame gap, terminazioni), la FC43 su seriale, il discovery BACnet/IP su rete di impianto né la cattura L2 con Npcap. Queste restano verifiche da fare con strumentazione in linea.
+
 ## [1.2.5] – 2026-10-25
 
 Versione dedicata al **controllo generale dell'applicazione**: i rilievi dell'audit storico sono stati ricontrollati uno per uno sul codice attuale (tutti confermati chiusi) e sono emersi 6 difetti nuovi, qui risolti. Il dettaglio completo, con la tabella di verifica, è in `AUDIT.md`.

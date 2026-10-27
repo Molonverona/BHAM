@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────────────────
     app_name: str = "BHAM – BACS Help Auto Mapper"
-    app_version: str = "1.2.5"
+    app_version: str = "1.3.0"
     debug: bool = Field(default=False, validation_alias=_env("debug"))
 
     # ── Server ───────────────────────────────────────────────────────────────

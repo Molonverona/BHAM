@@ -15,7 +15,7 @@ title BHAM - BACS Help Auto Mapper
 rem Code page UTF-8: rende leggibile l'output del processo Python figlio.
 chcp 65001 >nul 2>&1
 
-set "BHAM_VERSION=1.2.5"
+set "BHAM_VERSION=1.3.0"
 
 echo ======================================================================
 echo   BHAM - BACS Help Auto Mapper (Field Engineering Station)
