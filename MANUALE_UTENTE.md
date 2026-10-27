@@ -1,5 +1,5 @@
 # BHAM – BACS Help Auto Mapper
-## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.2.5)
+## Manuale Tecnico di Collaudo & Guida Operativa di Campo (v1.3.0)
 
 ---
 
@@ -681,3 +681,57 @@ Dodici delle quattordici dipendenze erano ferme da circa due anni. L'aggiornamen
 | Certificati PDF (`reportlab`) | **Lasciata pinnata** | Avanzamento major: l'impaginazione dei verbali va verificata visivamente |
 
 > L'avanzamento dei driver di protocollo resta un intervento da pianificare **con strumentazione in linea**, non da fare a scatola chiusa.
+
+---
+
+## 26. Driver di Protocollo, Aggiornamento Librerie & Verifica su Librerie Reali (v1.3.0)
+
+La versione 1.3.0 porta **tutte** le librerie alle versioni correnti, inclusi i driver di protocollo che la 1.2.5 aveva deliberatamente lasciati fermi (vedi § 25.5). L'operazione ha confermato il rischio che era stato messo a verbale: sono emerse tre rotture reali, invisibili ai test.
+
+### 26.1 Perché i driver erano stati lasciati indietro
+
+Modbus, BACnet e la cattura di rete governano il comportamento **sul filo**: un cambio di API a monte non si manifesta come errore di compilazione, ma come lettura che non avviene mentre l'impianto è in marcia.
+
+Il Simulatore d'Impianto Virtuale, prezioso per provare la logica senza impianto, intercetta le operazioni Modbus **prima** che raggiungano la libreria: nessun test, quindi, parlava con il driver vero. I 162 test della 1.2.5 passavano tutti anche con i driver completamente rotti.
+
+### 26.2 Cosa si era rotto
+
+| Difetto | Effetto in cantiere |
+| --- | --- |
+| Cambio di API per l'indicazione dello slave e per il numero di registri | **Tutte** le letture e scritture Modbus reali fallivano all'istante (17 punti di chiamata corretti) |
+| Tipo di dato dedotto dalla forma della risposta | Letture di registri **vuote ma dichiarate riuscite**: esito verde, nessun dato, nessun indizio |
+| Modulo dell'identificazione dispositivo (FC43) spostato | Interrogazione del costruttore non più caricabile |
+
+Il secondo è il più insidioso. Il codice deduceva il tipo di dato annusando gli attributi della risposta; con la nuova libreria *ogni* risposta espone il campo dei bit — vuoto per le letture di registri — quindi la deduzione sbagliava sempre e restituiva una lista vuota **dichiarando l'operazione riuscita**. In cantiere si sarebbe visto un collaudo positivo senza valori.
+
+La correzione sceglie il tipo di dato dal **function code** richiesto, che è l'unica fonte autorevole.
+
+### 26.3 Come si verifica adesso
+
+`tests/test_protocol_drivers.py` (17 test) **parla con le librerie vere**, non con il simulatore:
+
+- **Server Modbus reale:** viene avviato un vero server Modbus TCP in locale con valori noti, e le funzioni di BHAM ci dialogano a simulatore spento. Sono verificati i valori esatti letti, il rispetto di indirizzo e quantità, il round-trip di scrittura singola e multipla, la scansione che censisce il dispositivo e lo Smart Register Scan.
+- **Interlock di sicurezza su bus reale:** si verifica che il Safe Mode blocchi davvero la forzatura su un bus vero e che, una volta sbloccato con operatore e commessa, la scrittura vada a buon fine.
+- **Verbali:** il PDF e l'Excel vengono controllati *sul file prodotto* — intestazione, terminazione, riapertura dei fogli. Con un aggiornamento importante del generatore PDF, «non ha dato errore» non è una verifica.
+- **Presidio sulle firme:** se una libreria rinomina un parametro, la cosa viene intercettata dalla verifica automatica invece che in cantiere.
+
+```bash
+# Suite completa (179 test)
+.venv/bin/python -m unittest discover -s tests -v
+
+# Solo i driver su librerie reali
+.venv/bin/python -m unittest discover -s tests -p test_protocol_drivers.py -v
+```
+
+> **Nota d'ambiente:** usare `unittest discover`, non `python -m unittest tests.<modulo>`: `bacpypes3` installa un pacchetto `tests` di primo livello che oscura quello del repo.
+
+### 26.4 Cosa resta da validare su impianto
+
+I test dialogano con un server Modbus **TCP**: coprono la forma delle chiamate, la decodifica e il ciclo di scrittura, ma **non**:
+
+- la temporizzazione del bus **RS485** fisico (riconoscimento automatico del baudrate, pause fra frame, terminazioni di linea);
+- l'identificazione dispositivo su seriale;
+- il discovery BACnet/IP su rete di impianto;
+- la cattura di pacchetti con Npcap.
+
+Queste restano verifiche da fare **con strumentazione in linea**, su un impianto o un banco di prova: nessuna automazione può sostituirle. Il dettaglio dei rilievi è in `AUDIT.md`.

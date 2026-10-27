@@ -260,13 +260,13 @@ async def modbus_quick_read(
 
         rr = None
         if function_code == 1:
-            rr = client.read_coils(address=address, count=count, slave=slave_id)
+            rr = client.read_coils(address=address, count=count, device_id=slave_id)
         elif function_code == 2:
-            rr = client.read_discrete_inputs(address=address, count=count, slave=slave_id)
+            rr = client.read_discrete_inputs(address=address, count=count, device_id=slave_id)
         elif function_code == 3:
-            rr = client.read_holding_registers(address=address, count=count, slave=slave_id)
+            rr = client.read_holding_registers(address=address, count=count, device_id=slave_id)
         elif function_code == 4:
-            rr = client.read_input_registers(address=address, count=count, slave=slave_id)
+            rr = client.read_input_registers(address=address, count=count, device_id=slave_id)
         else:
             return {
                 "success": False,
@@ -283,7 +283,15 @@ async def modbus_quick_read(
                 "elapsed_ms": round((time.monotonic() - t0) * 1000, 1),
             }
 
-        raw_vals = rr.bits[:count] if hasattr(rr, "bits") else rr.registers
+        # Il tipo di dato va scelto dal function code, non annusando gli
+        # attributi della risposta: da pymodbus 3.16 ogni PDU di risposta
+        # espone `bits` (vuoto per le risposte a registri), quindi il vecchio
+        # `hasattr(rr, "bits")` restituiva silenziosamente una lista vuota per
+        # tutte le letture di registri, dichiarando però l'operazione riuscita.
+        if function_code in (1, 2):
+            raw_vals = list(rr.bits)[:count]
+        else:
+            raw_vals = list(rr.registers)
         decoding = decode_modbus_value(raw_vals) if function_code in (3, 4) else {}
         regs = raw_vals if function_code in (3, 4) else []
         coils = raw_vals if function_code in (1, 2) else []
@@ -509,15 +517,15 @@ async def modbus_quick_write(
 
         wr = None
         if function_code == 5:
-            wr = client.write_coil(address=address, value=bool(values[0]), slave=slave_id)
+            wr = client.write_coil(address=address, value=bool(values[0]), device_id=slave_id)
         elif function_code == 6:
-            wr = client.write_register(address=address, value=int(values[0]) & 0xFFFF, slave=slave_id)
+            wr = client.write_register(address=address, value=int(values[0]) & 0xFFFF, device_id=slave_id)
         elif function_code == 15:
             coil_bools = [bool(v) for v in values]
-            wr = client.write_coils(address=address, values=coil_bools, slave=slave_id)
+            wr = client.write_coils(address=address, values=coil_bools, device_id=slave_id)
         elif function_code == 16:
             reg_ints = [int(v) & 0xFFFF for v in values]
-            wr = client.write_registers(address=address, values=reg_ints, slave=slave_id)
+            wr = client.write_registers(address=address, values=reg_ints, device_id=slave_id)
         else:
             err_msg = f"Function code Modbus non supportato per scrittura: FC{function_code}."
             audit_journal.record_result(

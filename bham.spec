@@ -130,6 +130,10 @@ hiddenimports = [
     'bacpypes3.apdu',
     'pymodbus',
     'pymodbus.client',
+    # Da pymodbus 3.16 la richiesta FC43 vive sotto pymodbus.pdu: l'import è
+    # tardivo, quindi va dichiarato perché finisca nel bundle.
+    'pymodbus.pdu',
+    'pymodbus.pdu.mei_message',
     'reportlab',
     'reportlab.platypus',
     'reportlab.pdfgen.canvas',

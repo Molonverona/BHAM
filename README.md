@@ -124,7 +124,7 @@ BHAM è un'applicazione stand-alone per tecnici di collaudo, system integrator e
 
 ---
 
-## 🚀 Installazione & Avvio (Windows e Linux) – v1.2.0
+## 🚀 Installazione & Avvio (Windows e Linux) – v1.3.0
 
 Un solo comando, identico su entrambi i sistemi. Il launcher `bham.py` legge `requirements.txt`,
 mostra l'elenco dei pacchetti mancanti, chiede conferma, crea il `.venv` isolato, installa tutto,
@@ -294,6 +294,46 @@ restano quindi eseguibili in parallelo.
 Diagnostica completa dalla UI: **Impostazioni → Diagnostica & Requisiti**, oppure
 `GET /api/v1/system/diagnostics` (riporta `is_frozen`, `is_portable`, `listen_port`,
 `has_npcap` e `windows_firewall_rule`).
+
+---
+
+## 🔌 Driver di Protocollo & Verifica su Librerie Reali
+
+Dalla v1.3.0 **tutte** le dipendenze sono allineate alle versioni correnti, driver
+di protocollo compresi (`pymodbus`, `bacpypes3`, `scapy`, `reportlab`). I minimi
+dichiarati in `pyproject.toml` seguono i pin di `requirements.txt`.
+
+L'avanzamento ha fatto emergere tre rotture che la suite preesistente non poteva
+vedere, perché i test Modbus passavano dal **Simulatore d'Impianto Virtuale**, che
+intercetta le operazioni *prima* della libreria:
+
+| Difetto | Effetto in cantiere |
+| --- | --- |
+| Cambio di API su slave e numero di registri | Ogni lettura/scrittura Modbus reale falliva all'istante (17 punti di chiamata corretti) |
+| Tipo di dato dedotto dalla forma della risposta | Letture di registri **vuote ma dichiarate riuscite** — esito verde senza dati |
+| Modulo FC43 spostato | Identificazione costruttore non più caricabile |
+
+Per impedire che si ripeta, `tests/test_protocol_drivers.py` avvia un **vero server
+Modbus TCP** in locale con valori noti e interroga le funzioni di BHAM a simulatore
+spento: valori esatti, rispetto di indirizzo e quantità, round-trip di scrittura
+singola e multipla, scansione, Smart Register Scan, interlock Safe Mode, validità
+del PDF e riapertura dell'Excel prodotti, più un presidio sulle firme delle librerie.
+
+```bash
+# Suite completa (179 test)
+.venv/bin/python -m unittest discover -s tests -v
+
+# Solo i driver su librerie reali
+.venv/bin/python -m unittest discover -s tests -p test_protocol_drivers.py -v
+```
+
+> **Nota d'ambiente:** usare `unittest discover`, non `python -m unittest tests.<modulo>`:
+> `bacpypes3` installa un pacchetto `tests` di primo livello che oscura quello del repo.
+
+**Resta da validare su impianto** (nessuna automazione può sostituirlo): temporizzazione
+del bus RS485 fisico (auto-baud, pause fra frame, terminazioni), identificazione
+dispositivo su seriale, discovery BACnet/IP su rete di impianto, cattura pacchetti con
+Npcap. Dettaglio dei rilievi in [AUDIT.md](AUDIT.md).
 
 ---
 
